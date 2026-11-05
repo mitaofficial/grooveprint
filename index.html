@@ -1021,6 +1021,7 @@ document.addEventListener('input',e=>{const t=e.target;
 });
 // Refresh counters without rebuilding controls or triggering external requests.
 setInterval(()=>{if(lab.view==='mix')updateCounters();},200);
+Object.assign(window,{gpBpmOnlineMatches,gpBpmProviderPanel,gpBpmCheckProvider,searchOnlineBpm,chooseOnlineBpm,analyzeReleaseTrackBpm,confirmReleaseBpm,batchLookupBpm});
 window.GrooveprintLabTest={recommend,estimateTempo,lab};
 })();
 
