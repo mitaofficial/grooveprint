@@ -4,7 +4,7 @@ ENV NODE_ENV=production
 COPY package.json ./
 COPY index.html ./
 COPY server ./server
-RUN mkdir -p /data && chown -R node:node /data /app
-USER node
+RUN mkdir -p /data && chown -R node:node /app
 EXPOSE 4173
-CMD ["node", "server/app.mjs"]
+# Railway mounts /data after image build; fix its ownership at runtime, then drop root privileges.
+CMD ["sh", "-c", "chown node:node /data && exec su -s /bin/sh node -c 'node server/app.mjs'"]
