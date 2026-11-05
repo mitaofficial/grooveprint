@@ -1,0 +1,6 @@
+.git
+.env
+.private
+tests
+*.db
+node_modules
