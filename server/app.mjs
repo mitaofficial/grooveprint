@@ -6,6 +6,7 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {oauthAuthorization,parseTokenBody} from './oauth.mjs';
 import {SessionStore} from './store.mjs';
 import {resolveEvidence} from './bpm-match.mjs';
+import {validRecordingMbid,lookupAcousticBrainz} from './bpm-open.mjs';
 
 const folder=dirname(fileURLToPath(import.meta.url));
 const origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:4173';
@@ -90,6 +91,11 @@ function sanitRelease(data){
 const server=http.createServer(async(req,res)=>{res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Permissions-Policy','camera=(),microphone=(),geolocation=()');try{const path=new URL(req.url||'/',publicOrigin).pathname;
 if(req.method==='GET'&&(path==='/'||path==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.discogs.com https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'"});res.end(await readFile(join(folder,'../index.html')));return;}
 if(req.method==='GET'&&path==='/credits'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'});res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="index,follow"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GROOVEPRINT — Credits</title><style>body{background:#111;color:#eee;font:16px/1.6 system-ui,sans-serif;max-width:700px;margin:50px auto;padding:0 24px}a{color:#c5d36a}</style></head><body><h1>GROOVEPRINT — Credits</h1><p>GROOVEPRINT is an independent record collection and printable label app.</p><p>For BPM catalog lookups (when configured), we credit and link to <a href="https://getsongbpm.com/">GetSongBPM.com</a>.</p><p>Record catalog information is provided by <a href="https://www.discogs.com/">Discogs</a> and is subject to their API terms. GROOVEPRINT is not affiliated with either service.</p><p><a href="/">Back to GROOVEPRINT</a></p></body></html>');return;}
+if(req.method==='GET'&&(path==='/assets/bpm-tempo.mjs'||path==='/assets/bpm-library.js')){
+ const target=path.endsWith('.mjs')?'bpm-tempo.mjs':'bpm-library.js';
+ res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+ res.end(await readFile(join(folder,'../src',target)));return;
+}
 if(req.method==='GET'&&path==='/assets/auto-bpm.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(await readFile(join(folder,'../src/auto-bpm.js')));return;}
 if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'2.0.0-alpha.1'});
 if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')){res.writeHead(404);res.end('Not Found');return;}
@@ -99,8 +105,32 @@ let sess=store.get(cookies(req.headers.cookie).gp_session);if(!sess){const newSe
 const csrf=()=>{if(!same(req.headers['x-grooveprint-csrf'],sess.csrf))throw httpError(403,'Invalid CSRF token');};
 const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not connected to Discogs');};
 if(path==='/api/discogs/status'&&req.method==='GET')return send(res,200,{configured,connected:!!sess.credentials,username:sess.username||null,csrf:sess.csrf,policy:sitePolicy,bpmProviderConfigured:Boolean(getSongKey)});
-if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{configured:Boolean(getSongKey),provider:'GetSongBPM',source:'https://getsongbpm.com/'});
+if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{
+ configured:Boolean(getSongKey),provider:'GetSongBPM',source:'https://getsongbpm.com/',
+ providers:{getsongbpm:{configured:Boolean(getSongKey),requiresKey:true},
+ acousticbrainz:{configured:true,requiresKey:false,requiresRecordingMbid:true,coverage:'archived-2015-2022',liveAvailability:'not-guaranteed'}},
+ musicbrainz:{configured:false,reason:'commercial-api-permission-not-configured'}
+});
 if(path==='/api/bpm/lookup'&&req.method==='GET'){auth();throttle('bpm:'+sess.dbid);const query=new URL(req.url,publicOrigin).searchParams;const artist=String(query.get('artist')||'').trim(),title=String(query.get('title')||'').trim();if(!artist||!title||artist.length>160||title.length>160)throw httpError(400,'Artist and title are required, max 160 chars each');return send(res,200,await getSongBpmLookup(artist,title));}
+if(path==='/api/bpm/open/batch'&&req.method==='POST'){
+ csrf();throttle('bpm-open-session:'+sess.dbid);throttle('bpm-open-global');
+ const request=await body(req);
+ if(!Array.isArray(request.tracks)||request.tracks.length<1||request.tracks.length>8)
+  throw httpError(400,'Provide 1 to 8 tracks');
+ const tracks=request.tracks.map((v,i)=>{
+  if(!v||typeof v!=='object')throw httpError(400,'Track object required');
+  const id=String(v.id??i).slice(0,64),mbid=validRecordingMbid(v.recordingMbid);
+  return {id,mbid};
+ });
+ const cache=new Map(),results=[];
+ for(const item of tracks){
+  if(!item.mbid){results.push({id:item.id,status:'unavailable',bpm:null,reason:'recording-mbid-required',source:'AcousticBrainz'});continue}
+  if(!cache.has(item.mbid))cache.set(item.mbid,await lookupAcousticBrainz(item.mbid));
+  results.push({id:item.id,...cache.get(item.mbid)});
+ }
+ return send(res,200,{provider:'AcousticBrainz',sourceLicense:'CC0',results,
+ note:'Archive lookup requires an exact MusicBrainz recording MBID; no title search or fabricated IDs'});
+}
 if(path==='/api/bpm/batch'&&req.method==='POST'){
  csrf();auth();throttle('bpm-batch:'+sess.dbid);
  const payload=await body(req);
