@@ -143,6 +143,9 @@ try{
   t.bpm=145;t.bpmStatus='manual';t.source='manual';
   gpPersistUserEvidence();
   r.discogsFetchedAt=new Date(Date.now()-16*60*1000).toISOString();
+  // This is a second 15-minute expiry, not another expiry 1 second later.
+  // Advance the revalidation throttle's test clock rather than weaken production limits.
+  gpSourceRefreshLastAttempt=Date.now()-61_000;
   renderApp();
  });
  try{await page.waitForFunction(()=>{
