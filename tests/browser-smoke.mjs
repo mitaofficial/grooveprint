@@ -145,11 +145,20 @@ try{
   r.discogsFetchedAt=new Date(Date.now()-16*60*1000).toISOString();
   renderApp();
  });
- await page.waitForFunction(()=>{
+ try{await page.waitForFunction(()=>{
   const r=state.releases.find(x=>x.releaseId==='123456');
   return gpExpiredCount>=2&&r?.tracks[0]?.bpm===145&&r?.tracks[0]?.bpmStatus==='manual'&&
    !discogsConnect.running&&!discogsSync.running&&!window.GrooveprintAutoBPM.job.running;
- },{timeout:45000});
+ },null,{timeout:11000})}catch(error){
+  console.log('EVIDENCE DEBUG',JSON.stringify(await page.evaluate(()=>{
+    const r=state.releases.find(x=>x.releaseId==='123456');
+    return {gpExpiredCount,collection:state.releases.length,release:r&&{
+      id:r.id,releaseId:r.releaseId,artist:r.artist,sourceAt:r.discogsFetchedAt,
+      tracks:r.tracks.map(t=>({title:t.title,artist:t.artist,bpm:t.bpm,status:t.bpmStatus,source:t.source,mbid:t.recordingMbid}))
+    },evidence:Array.from(gpEvidenceStore().entries()).slice(-4),sync:{running:discogsConnect.running,trackRunning:discogsSync.running},
+    auto:window.GrooveprintAutoBPM.job.phase,refreshNeeded:gpSourceRevalidationNeeded};
+  })));throw error;
+ }
  assert.equal(discogsCalls,3,'expired collection membership must refresh');
  assert.equal(tracklistCalls,3,'tracklist must be fetched after expiration');
  assert.equal(acousticCalls,1,'manual correction wins over CC0 archive');
