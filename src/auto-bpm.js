@@ -7,6 +7,7 @@
 const job={running:false,stopRequested:false,restartRequested:false,phase:'idle',
   done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'',controller:null};
 const limit=4;
+const lookupCache=new Map(); // In-memory only during this tab, never persistent provider-data storage
 function missing(t){return t.bpm===null||t.bpm===undefined||t.bpm===''||!Number.isFinite(Number(t.bpm))||Number(t.bpm)<=0;}
 function collect(releases){
  const out=[];
@@ -37,11 +38,20 @@ function panel(){
  '<p class="footnote">'+esc(job.message||'Dopo l’importazione, le tracklist vengono recuperate e i BPM cercati automaticamente dove possibile. Non serve caricare MP3 per ogni traccia.')+'</p>'+
  '<p class="footnote"><a href="https://getsongbpm.com/" target="_blank" rel="noopener noreferrer">GetSongBPM</a> · nessuna estrazione audio da YouTube · il processo richiede la scheda aperta.</p></section>';
 }
+let queuedRefresh=false;
+function refresh(){
+ const el=document.activeElement;
+ const inside=el && /^(INPUT|TEXTAREA|SELECT)$/.test(String(el.tagName||'')) && document.querySelector?.('#app')?.contains?.(el);
+ if(inside){queuedRefresh=true;return;}
+ queuedRefresh=false;renderApp();
+}
+document.addEventListener('focusout',()=>{if(queuedRefresh)setTimeout(refresh,0)});
+
 function stop(){job.stopRequested=true;job.controller?.abort();job.message='Interruzione richiesta; i BPM già trovati rimangono.';renderApp()}
 async function run({fetchTracklists=true}={}){
  if(job.running){job.restartRequested=true;return;}
- Object.assign(job,{running:true,stopRequested:false,phase:'tracklists',done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'Sincronizzo le tracklist…'});
- renderApp();
+ lookupCache.clear();Object.assign(job,{running:true,stopRequested:false,phase:'tracklists',done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'Sincronizzo le tracklist…'});
+ refresh();
  try{
   if(fetchTracklists&&!discogsSync.running&&state.releases.some(r=>!r.tracks?.length&&/^[1-9]\d*$/.test(String(r.releaseId||'')))){
    await syncDiscogsTracklists(false);
@@ -56,16 +66,20 @@ async function run({fetchTracklists=true}={}){
   }
   if(!enabled){job.phase='disabled';job.message='Tracklist disponibili. BPM online non disponibili: la chiave GetSongBPM non è configurata. I dati esistenti non vengono alterati.';return;}
   if(!discogsConnect.connected){job.phase='disabled';job.message='Per la ricerca BPM tramite backend, collega prima Discogs. CSV, editor e stampa rimangono disponibili.';return;}
-  job.phase='catalog';job.message='Ricerca automatica di BPM per ogni traccia…';renderApp();
+  job.phase='catalog';job.message='Ricerca automatica di BPM per ogni traccia…';refresh();
   for(let at=0;at<tasks.length;at+=limit){
    if(job.stopRequested){job.phase='interrupted';break;}
    const batch=tasks.slice(at,at+limit);
    const controller=new AbortController();job.controller=controller;
    try{
-    const payload={tracks:batch.map(t=>({id:t.id,title:t.title,artist:t.artist}))};
-    const data=await gpRequest('/api/bpm/batch',{method:'POST',body:JSON.stringify(payload),signal:controller.signal});
+    const fetched=new Set(),unique=[];
+    const keyOf=t=>t.artist.toLowerCase().trim()+'|'+t.title.toLowerCase().trim();
+    for(const item of batch){const key=keyOf(item);if(!lookupCache.has(key)&&!fetched.has(key)){unique.push(item);fetched.add(key)}}
+    const data=unique.length?await gpRequest('/api/bpm/batch',{method:'POST',body:JSON.stringify({tracks:unique.map(t=>({id:t.id,title:t.title,artist:t.artist}))}),signal:controller.signal}):{configured:true,results:[]};
     if(!data.configured){gpBpmProviderReady=false;job.phase='disabled';job.message='Provider BPM non configurato, ricerca sospesa.';break;}
-    const results=new Map((data.results||[]).map(x=>[String(x.id),x]));
+    const remote=new Map((data.results||[]).map(x=>[String(x.id),x]));
+    for(const item of unique){if(remote.has(item.id))lookupCache.set(keyOf(item),remote.get(item.id))}
+    const results=new Map(batch.map(x=>[x.id,lookupCache.get(keyOf(x))]));
     for(const task of batch){
      const response=results.get(task.id);
      if(!response){job.errors++;continue;}
@@ -87,7 +101,7 @@ async function run({fetchTracklists=true}={}){
       if(response.status==='rate-limited'){job.phase='error';job.message='Rate limit GetSongBPM raggiunto. Nessun valore dubbio è stato inserito.';job.stopRequested=true;}
      }
     }
-    job.done+=batch.length;storeLater();renderApp();
+    job.done+=batch.length;storeLater();refresh();
    }catch(error){
     if(job.stopRequested){job.phase='interrupted';break;}
     job.errors+=batch.length;job.phase='error';job.message='La ricerca BPM è stata sospesa: '+String(error.message||error);break;
@@ -99,7 +113,7 @@ async function run({fetchTracklists=true}={}){
    job.catalog+' BPM catalografici, '+job.review+' ambigui, '+job.unavailable+' senza risultati, '+job.errors+' errori. Mai sostituite le correzioni manuali.';
  }catch(error){job.phase='error';job.message='Arricchimento interrotto: '+String(error.message||error)}
  finally{
-  job.running=false;job.controller=null;storeLater();renderApp();
+  job.running=false;job.controller=null;storeLater();refresh();
   if(job.restartRequested){job.restartRequested=false;setTimeout(()=>{void run({fetchTracklists:false})},0)}
  }
 }
@@ -107,5 +121,5 @@ document.addEventListener('click',event=>{
  if(event.target.closest('[data-gp-auto-stop]')){stop()}
 });
 window.GrooveprintAutoBPM={run,stop,panel,stats,collect,job};
-if(typeof renderApp==='function')renderApp();
+if(typeof renderApp==='function')refresh();
 })();
