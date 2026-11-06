@@ -30,3 +30,14 @@ jobs:
       - run: npm install --no-save playwright@1.57.0
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser-smoke.mjs
+
+  provider_probe:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/acoustic-live-probe.mjs
