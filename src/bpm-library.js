@@ -75,7 +75,7 @@ async function analyzeFiles(files){
       match.track.bpmCandidates=result.bpmCandidates;
       match.track.bpmCheckedAt=new Date().toISOString();
       match.track.bpmReason=String(result.reason||'local-estimate');
-      if(result.requiresReview){match.track.bpm=null;match.track.bpmStatus='review';job.review++}
+      if(result.requiresReview){match.track.bpm=null;match.track.bpmStatus='review';match.track.source='local-dsp';job.review++}
       else{match.track.bpm=result.bpm;match.track.bpmStatus='estimated';match.track.source='local-dsp';job.estimated++}
      }else{
       match.track.bpmStatus='unavailable';match.track.bpmReason=String(result.reason||'no-beat-detected');
