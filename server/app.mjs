@@ -5,6 +5,7 @@ import {fileURLToPath} from 'node:url';
 import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {oauthAuthorization,parseTokenBody} from './oauth.mjs';
 import {SessionStore} from './store.mjs';
+import {resolveEvidence} from './bpm-match.mjs';
 
 const folder=dirname(fileURLToPath(import.meta.url));
 const origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:4173';
@@ -61,7 +62,7 @@ async function getSongBpmLookup(artist,title){
    const exactTitle=strictSongMatch(title,titleReturned);
    const exactArtist=artists.some(a=>strictSongMatch(artist,providerArtist(a)));
    const match=exactArtist&&exactTitle?'exact':exactTitle?'title-only':'unverified';
-   return {title:titleReturned,artist:artistReturned,bpm:Number.isFinite(bpm)&&bpm>=40&&bpm<=300?bpm:null,match,url:validUrl};
+   return {title:titleReturned,artist:artistReturned,artists:artists.map(providerArtist).filter(Boolean),bpm:Number.isFinite(bpm)&&bpm>=40&&bpm<=300?bpm:null,match,url:validUrl};
  }).filter(x=>x.bpm!==null);
  candidates.sort((a,b)=>({exact:0,'title-only':1,unverified:2}[a.match]-{exact:0,'title-only':1,unverified:2}[b.match]));
  return {provider:'GetSongBPM',source:'https://getsongbpm.com/',candidates,exactMatches:candidates.filter(x=>x.match==='exact').length};
@@ -83,6 +84,36 @@ const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not co
 if(path==='/api/discogs/status'&&req.method==='GET')return send(res,200,{configured,connected:!!sess.credentials,username:sess.username||null,csrf:sess.csrf,policy:sitePolicy,bpmProviderConfigured:Boolean(getSongKey)});
 if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{configured:Boolean(getSongKey),provider:'GetSongBPM',source:'https://getsongbpm.com/'});
 if(path==='/api/bpm/lookup'&&req.method==='GET'){auth();throttle('bpm:'+sess.dbid);const query=new URL(req.url,publicOrigin).searchParams;const artist=String(query.get('artist')||'').trim(),title=String(query.get('title')||'').trim();if(!artist||!title||artist.length>160||title.length>160)throw httpError(400,'Artist and title are required, max 160 chars each');return send(res,200,await getSongBpmLookup(artist,title));}
+if(path==='/api/bpm/batch'&&req.method==='POST'){
+ csrf();auth();throttle('bpm-batch:'+sess.dbid);
+ const payload=await body(req);
+ if(!Array.isArray(payload.tracks)||payload.tracks.length<1||payload.tracks.length>12)throw httpError(400,'Pass between 1 and 12 tracks');
+ const entries=payload.tracks.map((item,i)=>{
+  if(!item||typeof item!=='object')throw httpError(400,'Track object required');
+  const artist=String(item.artist||'').trim(),title=String(item.title||'').trim(),id=String(item.id??i).slice(0,96);
+  if(!title||title.length>160||artist.length>160)throw httpError(400,'Invalid track identity');
+  return {artist,title,id};
+ });
+ if(!getSongKey)return send(res,200,{configured:false,provider:'GetSongBPM',results:entries.map(x=>({id:x.id,status:'provider-unavailable',bpm:null,reason:'provider-not-configured'}))});
+ const results=[];
+ for(const x of entries){
+  try{
+   if(!x.artist||/^(?:various(?: artists)?|v\.?\s*a\.?|unknown)$/i.test(x.artist)) {
+    results.push({id:x.id,status:'review',bpm:null,reason:'missing-track-artist'});continue;
+   }
+   throttle('bpm-provider:'+sess.dbid);
+   const evidence=await getSongBpmLookup(x.artist,x.title);
+   const resolved=resolveEvidence(x,evidence);
+   results.push({id:x.id,...resolved});
+  }catch(error){
+   const status=error.status||502;
+   results.push({id:x.id,status:status===429?'rate-limited':'error',bpm:null,reason:status===429?'provider-rate-limit':'provider-error'});
+   if(status===429)break;
+  }
+ }
+ return send(res,200,{configured:true,provider:'GetSongBPM',results});
+}
+
 if(!configured)throw httpError(503,'Discogs credentials not configured');
 if(path==='/api/discogs/connect'&&req.method==='POST'){csrf();throttle(sess.dbid);const token=parseTokenBody(await discogs('/oauth/request_token',{method:'POST',callback:publicOrigin+'/api/discogs/callback'}));store.pendingSet(sess,token.token,token.secret);return send(res,200,{authorizeUrl:'https://www.discogs.com/oauth/authorize?oauth_token='+encodeURIComponent(token.token)});}
 if(path==='/api/discogs/callback'&&req.method==='GET'){const q=new URL(req.url,publicOrigin).searchParams;const tok=q.get('oauth_token'),ver=q.get('oauth_verifier'),pending=tok&&ver?store.pendingTake(sess,tok):null;if(!pending){res.writeHead(302,{Location:'/?discogs=authorization_failed'});res.end();return;}const grant=parseTokenBody(await discogs('/oauth/access_token',{method:'POST',pair:{token:pending.token,secret:pending.secret},verifier:ver}));const id=await discogs('/oauth/identity',{pair:grant});if(!id.username)throw httpError(502,'No username returned');store.authorize(sess,String(id.username),grant);res.writeHead(302,{Location:'/?discogs=connected','Cache-Control':'no-store'});res.end();return;}
