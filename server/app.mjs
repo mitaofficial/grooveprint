@@ -29,6 +29,11 @@ function cookies(raw=''){const o={};for(const p of raw.split(';')){const at=p.in
 function same(a,b){const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&timingSafeEqual(x,y);}
 function throttle(id){let now=Date.now(),prior=(counters.get(id)||[]).filter(t=>now-t<60000);if(prior.length>=45)throw httpError(429,'Too many requests');prior.push(now);counters.set(id,prior);if(counters.size>500)for(const [k,v] of counters)if(v[v.length-1]<now-60000)counters.delete(k);}
 async function body(req){let data='',n=0;for await(const b of req){n+=b.length;if(n>8192)throw httpError(413,'Request too large');data+=b.toString();}try{return JSON.parse(data||'{}')}catch{throw httpError(400,'Invalid JSON')}}
+let acousticSequence=Promise.resolve();
+async function limitedArchiveLookup(mbid){
+ const task=async()=>{await new Promise(resolve=>setTimeout(resolve,1100));return lookupAcousticBrainz(mbid,{timeoutMs:7000})};
+ const next=acousticSequence.then(task,task);acousticSequence=next.catch(()=>{});return next;
+}
 let sequence=Promise.resolve(),pauseUntil=0,lastRequest=0;
 async function gatedFetch(url,options){const run=async()=>{const wait=Math.max(0,pauseUntil-Date.now(),lastRequest+350-Date.now());if(wait)await new Promise(r=>setTimeout(r,wait));lastRequest=Date.now();const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{...options,signal:ctrl.signal});if(r.status===429){const secs=Number(r.headers.get('retry-after'));pauseUntil=Date.now()+(Number.isFinite(secs)&&secs>0?Math.min(secs*1000,60000):6000);}return r;}finally{clearTimeout(timer);}};const p=sequence.then(run,run);sequence=p.catch(()=>{});return p;}
 async function discogs(path,{method='GET',pair,callback,verifier}={}){const url='https://api.discogs.com'+path;const token=pair?.token,tokenSecret=pair?.secret||'';let last;for(let attempt=0;attempt<3;attempt++){let response;try{response=await gatedFetch(url,{method,headers:{Authorization:oauthAuthorization({method,url,consumerKey,consumerSecret,token,tokenSecret,callback,verifier}),Accept:'application/vnd.discogs.v2.discogs+json','User-Agent':ua}});}catch(e){last=e;if(attempt===2)throw httpError(502,'Discogs network error');await new Promise(r=>setTimeout(r,(attempt+1)*700));continue;}
@@ -125,7 +130,7 @@ if(path==='/api/bpm/open/batch'&&req.method==='POST'){
  const cache=new Map(),results=[];
  for(const item of tracks){
   if(!item.mbid){results.push({id:item.id,status:'unavailable',bpm:null,reason:'recording-mbid-required',source:'AcousticBrainz'});continue}
-  if(!cache.has(item.mbid))cache.set(item.mbid,await lookupAcousticBrainz(item.mbid));
+  if(!cache.has(item.mbid))cache.set(item.mbid,await limitedArchiveLookup(item.mbid));
   results.push({id:item.id,...cache.get(item.mbid)});
  }
  return send(res,200,{provider:'AcousticBrainz',sourceLicense:'CC0',results,
