@@ -82,7 +82,38 @@ try{
  assert.equal(final.trackCount,1);
  assert.equal(final.refreshNeeded,false);
  assert.match(final.liveNotice,/1 tracce disponibili/);
- console.log('BROWSER PASS: Discogs import → tracklist → BPM and 15-minute expiry → automatic re-sync → 1 track recovered');
+ assert.ok(await page.locator('[data-gp-library-pick]').count()>0,'Bulk audio folder control should appear');
+ // Test real Chromium Web Audio decoding from a synthetic 138 BPM WAV.
+ // This waveform is generated within the test and is not third-party audio.
+ const localResult=await page.evaluate(async()=>{
+  const sampleRate=12000,seconds=22,frames=sampleRate*seconds,tempo=138;
+  const bytes=new ArrayBuffer(44+frames*2),view=new DataView(bytes);
+  const put=(at,str)=>{for(let n=0;n<str.length;n++)view.setUint8(at+n,str.charCodeAt(n))};
+  put(0,'RIFF');view.setUint32(4,bytes.byteLength-8,true);put(8,'WAVE');put(12,'fmt ');
+  view.setUint32(16,16,true);view.setUint16(20,1,true);view.setUint16(22,1,true);
+  view.setUint32(24,sampleRate,true);view.setUint32(28,sampleRate*2,true);
+  view.setUint16(32,2,true);view.setUint16(34,16,true);put(36,'data');
+  view.setUint32(40,frames*2,true);
+  const period=sampleRate*60/tempo;
+  for(let i=0;i<frames;i++){
+   const near=Math.abs(i-Math.round(i/period)*period);
+   const v=Math.max(-1,Math.min(1,Math.exp(-near/(sampleRate*0.003))*0.9));
+   view.setInt16(44+i*2,Math.round(v*32767),true);
+  }
+  const record=state.releases.find(r=>r.releaseId==='123456'),track=record.tracks[0];
+  track.bpm=null;track.bpmStatus='';
+  const file=new File([bytes],'The Advent - Original Groove (Original Mix).wav',{type:'audio/wav'});
+  await window.GrooveprintAudioLibrary.analyzeFiles([file]);
+  return {job:{...window.GrooveprintAudioLibrary.job},bpm:track.bpm,status:track.bpmStatus,
+    candidates:track.bpmCandidates||[]};
+ });
+ assert.equal(localResult.job.matched,1,'Audio should match the exact Discogs track');
+ assert.equal(localResult.job.errors,0,'Browser should decode and analyze the local WAV');
+ assert.ok(['estimated','review'].includes(localResult.status),JSON.stringify(localResult));
+ assert.ok(localResult.candidates.some(x=>Math.abs(x.bpm-138)<=3),JSON.stringify(localResult));
+ assert.equal(bpmCalls,2,'Local audio analysis must not call the remote BPM provider');
+ console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
+
 }finally{
  if(browser)await browser.close();
  server.kill('SIGTERM');await delay(140);await rm(temp,{recursive:true,force:true});
