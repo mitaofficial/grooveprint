@@ -357,7 +357,7 @@ async function syncDiscogsTracklists(onlyActive=false){
   try{
    const result=cache.has(releaseId)?cache.get(releaseId):await requestDiscogsTracks(releaseId,discogsSync.controller.signal);
    cache.set(releaseId,result);const tracks=result.tracks;
-   if(!state.releases.includes(r)||discogsSync.cancelled){discogsSync.skipped++;continue}
+   if(!state.releases.includes(r)||discogsSync.cancelled){discogsSync.skipped++;if(!discogsSync.cancelled)discogsSync.completed++;continue}
    if(!r.videos?.length&&result.videos.length){r.videos=result.videos;r.videosFetchedAt=new Date().toISOString()};
    // Never overwrite manual or previously imported tracks.
    if(!r.tracks.length&&tracks.length){r.tracks=clone(tracks);r.tracklistFetchedAt=new Date().toISOString();r.tracklistError='';discogsSync.success++;storeLater()}
