@@ -4,6 +4,7 @@ ENV NODE_ENV=production
 COPY package.json ./
 COPY index.html ./
 COPY server ./server
+COPY src ./src
 RUN mkdir -p /data && chown -R node:node /app
 EXPOSE 4173
 # Railway mounts /data after image build; fix its ownership at runtime, then drop root privileges.
