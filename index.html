@@ -117,18 +117,56 @@ function gpRetainLocalOnly(obj){
  return cleaned;
 }
 let gpExpiredCount=0,gpLegacyDropped=0;
+let gpSourceRevalidationNeeded=false,gpSourceRefreshScheduled=false,gpSourceRefreshLastAttempt=0;
+// Preserve Discogs freshness requirements, but never silently claim that
+// expired or detached releases still have imported tracklists.
 function gpExpireSources(now=Date.now()){
  const before=state.releases.length;
  state.releases=state.releases.filter(r=>!(r.discogsInstanceId&&!gpIsFresh(r.discogsFetchedAt,now)));
+ let expiredTracklists=0;
  for(const r of state.releases){
   if(r.tracklistFetchedAt&&!gpIsFresh(r.tracklistFetchedAt,now)){
-   r.tracks=r.tracks.filter(t=>t.source!=='discogs');r.tracklistFetchedAt='';r.tracklistError='Dati Discogs scaduti: recupera nuovamente la tracklist';
+   const count=r.tracks.length;
+   r.tracks=r.tracks.filter(t=>t.source!=='discogs');
+   expiredTracklists+=count-r.tracks.length;
+   r.tracklistFetchedAt='';r.tracklistError='Dati Discogs scaduti: recupera nuovamente la tracklist';
   }
   if(r.videosFetchedAt&&!gpIsFresh(r.videosFetchedAt,now)){r.videos=[];r.videosFetchedAt=''}
  }
  const removed=before-state.releases.length;
- if(removed){gpExpiredCount+=removed;state.selected=state.selected.filter(k=>state.releases.some(r=>r.id===k));if(!state.releases.some(r=>r.id===state.active))state.active=state.releases[0]?.id||null;}
+ if(removed){
+  gpExpiredCount+=removed;
+  gpSourceRevalidationNeeded=true;
+  state.selected=state.selected.filter(k=>state.releases.some(r=>r.id===k));
+  if(!state.releases.some(r=>r.id===state.active))state.active=state.releases[0]?.id||null;
+ }
+ if((removed||expiredTracklists)&&discogsSync.running){
+  // Existing async requests may hold references to releases removed above.
+  discogsSync.cancelled=true;
+  discogsSync.controller?.abort();
+  discogsSync.notice='Sorgenti Discogs scadute: interrompo il recupero e aggiorno la collezione.';
+ }
+ if(removed||expiredTracklists){
+  // A prior successful counter is not evidence of currently available tracks.
+  if(!discogsSync.running){
+   discogsSync.notice='I dati Discogs sono scaduti. La collezione deve essere risincronizzata.';
+  }
+ }
  return removed;
+}
+function gpScheduleSourceRevalidation(){
+ if(!gpSourceRevalidationNeeded||gpSourceRefreshScheduled||!discogsConnect.connected||
+    discogsConnect.running||discogsSync.running||window.GrooveprintAutoBPM?.job.running||
+    Date.now()-gpSourceRefreshLastAttempt<60_000)return;
+ gpSourceRefreshScheduled=true;
+ setTimeout(async()=>{
+  gpSourceRefreshScheduled=false;
+  if(!gpSourceRevalidationNeeded||!discogsConnect.connected||discogsConnect.running||
+     discogsSync.running||window.GrooveprintAutoBPM?.job.running)return;
+  gpSourceRefreshLastAttempt=Date.now();
+  try{await synchronizeDiscogs({autoEnrich:true})}
+  catch(e){discogsConnect.error='Aggiornamento Discogs non riuscito: '+String(e.message||e);renderApp()}
+ },0);
 }
 function gpDetachLocalRelease(){
  const r=rel();if(!r?.discogsInstanceId)return;
@@ -293,6 +331,12 @@ async function requestDiscogsTracks(releaseId,signal){
 }
 async function syncDiscogsTracklists(onlyActive=false){
  if(discogsSync.running){toast('Recupero tracklist già in corso',true);return}
+ // Membership could have expired since the previous render. Revalidate first:
+ // otherwise an async fetch writes into detached objects and reports false success.
+ gpExpireSources();
+ if(gpSourceRevalidationNeeded&&discogsConnect.connected&&!discogsConnect.running){
+  await synchronizeDiscogs({autoEnrich:false});
+ }
  const targets=(onlyActive?(rel()?[rel()]:[]):state.releases).filter(r=>r.tracks.length===0);
  if(!targets.length){toast('Nessuna tracklist mancante da recuperare');return}
  const eligible=targets.filter(r=>/^\d+$/.test(String(r.releaseId).trim())&&Number(r.releaseId)>0);
@@ -303,13 +347,18 @@ async function syncDiscogsTracklists(onlyActive=false){
  for(let i=0;i<eligible.length;i++){
   if(discogsSync.cancelled)break;
   const r=eligible[i];
+  if(!state.releases.includes(r)||r.discogsInstanceId&&!gpIsFresh(r.discogsFetchedAt)){
+   discogsSync.skipped++;discogsSync.completed++;renderApp();continue;
+  }
   const releaseId=String(r.releaseId).trim();
   discogsSync.notice=`${i+1}/${eligible.length} · ${displayArtist(r.artist)} — ${r.title}`;
   discogsSync.controller=new AbortController();
   const timer=setTimeout(()=>discogsSync.controller?.abort(),95000);
   try{
    const result=cache.has(releaseId)?cache.get(releaseId):await requestDiscogsTracks(releaseId,discogsSync.controller.signal);
-   cache.set(releaseId,result);const tracks=result.tracks; if(!r.videos?.length&&result.videos.length){r.videos=result.videos;r.videosFetchedAt=new Date().toISOString()};
+   cache.set(releaseId,result);const tracks=result.tracks;
+   if(!state.releases.includes(r)||discogsSync.cancelled){discogsSync.skipped++;continue}
+   if(!r.videos?.length&&result.videos.length){r.videos=result.videos;r.videosFetchedAt=new Date().toISOString()};
    // Never overwrite manual or previously imported tracks.
    if(!r.tracks.length&&tracks.length){r.tracks=clone(tracks);r.tracklistFetchedAt=new Date().toISOString();r.tracklistError='';discogsSync.success++;storeLater()}
    else if(!tracks.length){r.tracklistError='Nessuna tracklist presente nella risposta Discogs';discogsSync.failed++}
@@ -329,10 +378,20 @@ async function syncDiscogsTracklists(onlyActive=false){
  discogsSync.controller=null;
  storeLater();renderApp();
  toast(discogsSync.notice,discogsSync.failed>0&&discogsSync.success===0);
+ gpScheduleSourceRevalidation();
  if(!window.GrooveprintAutoBPM?.job.running&&!discogsSync.cancelled)setTimeout(()=>void window.GrooveprintAutoBPM?.run({fetchTracklists:false}),0);
 }
 function stopDiscogsSync(){discogsSync.cancelled=true;discogsSync.controller?.abort();discogsSync.notice='Interruzione richiesta…';renderApp()}
-function syncNotice(){if(!discogsSync.running&&!discogsSync.total)return'';const s=discogsSync,pct=Math.round(s.completed/Math.max(1,s.total)*100);return `<div class="syncbar" role="status"><div class="flex between"><b>DISCOGS TRACKLIST · ${s.running?`RECUPERO ${s.completed}/${s.total}`:'RISULTATO'}</b>${s.running?btn('FERMA','stop-sync','small quiet'):''}</div><p>${esc(s.notice)}</p><div class="syncprogress"><span style="width:${pct}%"></span></div><div class="tiny muted">${s.success} recuperate · ${s.failed} non disponibili · ${s.skipped} saltate</div></div>`}
+function syncNotice(){
+ const s=discogsSync;
+ if(!s.running&&!s.total&&!gpSourceRevalidationNeeded)return'';
+ const live=state.releases.filter(r=>r.tracks.length>0).length;
+ const liveTracks=state.releases.reduce((count,r)=>count+r.tracks.length,0);
+ const stale=!s.running&&s.success>0&&live===0;
+ const label=s.running?'RECUPERO '+s.completed+'/'+s.total:stale?'DATI DA RICARICARE':'RISULTATO';
+ const message=stale?'Le '+s.success+' tracklist recuperate in precedenza non sono più presenti nella collezione attiva. '+(discogsConnect.connected?'Aggiornamento Discogs disponibile.':'Ricollega Discogs o importa una collezione.'):(s.notice||'Sorgenti Discogs da aggiornare.');
+ const pct=s.total?Math.round(s.completed/Math.max(1,s.total)*100):0;
+ return `<div class="syncbar" role="status"><div class="flex between"><b>DISCOGS TRACKLIST · ${esc(label)}</b>${s.running?btn('FERMA','stop-sync','small quiet'):''}</div><p>${esc(message)}</p>${s.running?'<div class="syncprogress"><span style="width:'+pct+'%"></span></div>':''}<div class="tiny muted">${live} tracklist presenti · ${liveTracks} tracce disponibili · ${s.success} recuperi nella sessione</div>${gpSourceRevalidationNeeded&&discogsConnect.connected?'<div style="margin-top:10px">'+btn('↻ RISINCRONIZZA DISCOGS','gp-sync','small primary',discogsConnect.running?'disabled':'')+'</div>':''}</div>`}
 function addManual(){const r=normalizeRelease({artist:'',title:'',format:'Vinyl'});commit(()=>{state.releases.unshift(r);state.active=r.id;state.selected.push(r.id);state.step=1});toast('Nuova release aggiunta: completa i campi')}
 function loadDemo(){const sample=[{artist:'Kinetic Circuit',title:'Pressure Tools',label:'Fictional Records',catalog:'DEMO-001',year:'2001',format:'Vinyl',tracks:[{position:'A1',title:'Pulse Transmission',bpm:138,source:'demo'},{position:'A2',title:'Arc Sequence',bpm:140,source:'demo'},{position:'B1',title:'Night Shift',bpm:136,source:'demo'}]},{artist:'Analog District',title:'Floor Studies EP',label:'Fictional Records',catalog:'DEMO-002',year:'1999',format:'Vinyl',tracks:[{position:'A1',title:'Signal Dub',bpm:137,source:'demo'},{position:'B1',title:'Rhythm Engine',bpm:139,source:'demo'}]},{artist:'Drift Mechanics',title:'The Archive Series',label:'Fictional Records',catalog:'DEMO-003',year:'2003',format:'Vinyl',tracks:[]}].map(normalizeRelease);commit(()=>{state.releases=sample;state.selected=sample.map(r=>r.id);state.active=sample[0].id;state.projectName='DEMO — fictional data';state.importedFrom='Demo dataset (fictional)';state.step=1;state.printPage=0});toast('Demo caricata: tutti i titoli e i BPM sono inventati a scopo di test')}
 function deleteActive(){const r=rel();if(!r||!confirm(`Eliminare "${r.title||'Untitled'}" dal progetto?`))return;commit(()=>{state.releases=state.releases.filter(x=>x.id!==r.id);state.selected=state.selected.filter(x=>x!==r.id);state.active=state.releases[0]?.id||null});toast('Release eliminata dal progetto')}
@@ -686,7 +745,7 @@ function mergeDiscogsPage(rows){
   }
   return {added,updated,conflicts};
 }
-async function synchronizeDiscogs(){
+async function synchronizeDiscogs({autoEnrich=true}={}){
   if(!discogsConnect.connected||discogsConnect.running)return;
   const folderIds=[...discogsConnect.chosen];if(!folderIds.length){toast('Seleziona almeno una cartella.',true);return}
   discogsConnect.running=true;discogsConnect.controller=new AbortController();discogsConnect.error='';discogsConnect.progress={pages:0,items:0,total:0,added:0,updated:0,conflicts:0};renderApp();
@@ -703,7 +762,8 @@ async function synchronizeDiscogs(){
         storeLater();renderApp();
       }while(page<=pages&&!discogsConnect.controller.signal.aborted)
     }
-    state.step=1;storeLater();renderApp();if(discogsConnect.progress.items===0){discogsConnect.error='La cartella selezionata non ha restituito release. Controlla la selezione e riprova.';toast(discogsConnect.error,true)}else{toast(`Discogs: ${discogsConnect.progress.items} record letti, ${discogsConnect.progress.added} nuovi, ${discogsConnect.progress.updated} aggiornati; correzioni manuali protette`);setTimeout(()=>void window.GrooveprintAutoBPM?.run({fetchTracklists:true}),0)}
+    if(discogsConnect.progress.items>0)gpSourceRevalidationNeeded=false;
+    state.step=1;storeLater();renderApp();if(discogsConnect.progress.items===0){discogsConnect.error='La cartella selezionata non ha restituito release. Controlla la selezione e riprova.';toast(discogsConnect.error,true)}else{toast(`Discogs: ${discogsConnect.progress.items} record letti, ${discogsConnect.progress.added} nuovi, ${discogsConnect.progress.updated} aggiornati; correzioni manuali protette`);if(autoEnrich)setTimeout(()=>void window.GrooveprintAutoBPM?.run({fetchTracklists:true}),0)}
   }catch(e){discogsConnect.error=e.name==='AbortError'?'Importazione interrotta: le pagine già ricevute sono salvate.':e.message;renderApp();toast(discogsConnect.error,true)}
   finally{discogsConnect.running=false;discogsConnect.controller=null;storeLater();renderApp()}
 }
@@ -727,7 +787,7 @@ function faqMain(){return`<div class="eyebrow">GROOVEPRINT / USER GUIDE</div><h2
 function tapBPM(){const now=performance.now();if(tapTimes.length&&now-tapTimes[tapTimes.length-1]>2400)tapTimes=[];tapTimes.push(now);tapTimes=tapTimes.slice(-16);if(tapTimes.length<3)return null;const intervals=[];for(let i=1;i<tapTimes.length;i++)intervals.push(tapTimes[i]-tapTimes[i-1]);const ordered=[...intervals].sort((a,b)=>a-b),median=ordered[Math.floor(ordered.length/2)],good=intervals.filter(ms=>Math.abs(ms-median)/median<.25);if(!good.length)return null;const avg=good.reduce((a,b)=>a+b,0)/good.length;return clamp(60000/avg,20,300)}
 let tapValue=null,tapIndex=0;
 function tapWidget(){const r=rel();return`<div class="side-head">FREE BPM UTILITY</div><div class="utility-tap"><button class="tap-area" data-act="tap-bpm" type="button" style="display:grid;place-items:center"><strong>${tapValue===null?'TAP':fmtN(tapValue,1)}</strong><span>CLICK AT THE BEAT</span></button><div class="stack" style="align-content:center"><div class="tiny muted mono">Tap at least 3 beats. Obvious outliers are ignored.</div><div class="flex">${btn('RESET','reset-tap','small quiet')}${btn('SAVE BPM','save-tap','small primary',!r?.tracks.length||tapValue===null?'disabled':'')}</div></div></div>${r?.tracks.length?`<label class="field" style="margin-top:8px"><span>Save tempo to track</span><select id="tapTrackSelect">${r.tracks.map((t,i)=>`<option value="${i}" ${tapIndex===i?'selected':''}>${esc(t.position+' '+t.title)}</option>`).join('')}</select></label>`:`<p class="footnote">Add a track to the release first.</p>`}<label class="field" style="margin-top:9px"><span>Manual correction / BPM</span><input id="manualTapValue" type="number" min="20" max="300" step=".1" value="${tapValue===null?'':fmtN(tapValue,1)}" placeholder="Example: 138"/></label>`}
-function renderApp(){if(!restoreReady)return;const keepAudio=document.getElementById('grooveAudioDock');if(keepAudio&&keepAudio.parentElement!==document.body)document.body.appendChild(keepAudio);gpExpireSources();const count=state.releases.length,sel=state.selected.length;const step=state.step;const showIntro=step===0&&!count;const rail=`<div><div class="rail-title">WORKFLOW / 01–04</div>${pNames.map((name,i)=>`<button class="step ${step===i?'active':''}" data-act="step-${i}"><span class="num">0${i+1}</span><span>${name}<small>${['ADD DATA','EDIT TRACKS','DESIGN LABELS','EXPORT PDF'][i]}</small></span></button>`).join('')}</div><div class="rail-bottom"><div class="rail-title">ACTIVE PROJECT</div><div class="footnote" style="margin:5px 0 13px;font-size:10px"><a href="https://getsongbpm.com/" target="_blank" rel="noopener noreferrer">BPM database: GetSongBPM</a> · CC BY 4.0</div><div class="mini-stat"><span>RELEASES</span><strong>${count}</strong></div><div class="mini-stat"><span>SELECTED</span><strong>${sel}</strong></div><div class="mini-stat"><span>SHEET</span><strong>${state.sheet.cols} × ${state.sheet.rows}</strong></div><p class="footnote" style="margin:14px 2px">${storageWarned?'USE JSON BACKUPS':'SAVED LOCALLY'}<br/>PRIVATE BY DEFAULT</p></div>`;
+function renderApp(){if(!restoreReady)return;const keepAudio=document.getElementById('grooveAudioDock');if(keepAudio&&keepAudio.parentElement!==document.body)document.body.appendChild(keepAudio);gpExpireSources();gpScheduleSourceRevalidation();const count=state.releases.length,sel=state.selected.length;const step=state.step;const showIntro=step===0&&!count;const rail=`<div><div class="rail-title">WORKFLOW / 01–04</div>${pNames.map((name,i)=>`<button class="step ${step===i?'active':''}" data-act="step-${i}"><span class="num">0${i+1}</span><span>${name}<small>${['ADD DATA','EDIT TRACKS','DESIGN LABELS','EXPORT PDF'][i]}</small></span></button>`).join('')}</div><div class="rail-bottom"><div class="rail-title">ACTIVE PROJECT</div><div class="footnote" style="margin:5px 0 13px;font-size:10px"><a href="https://getsongbpm.com/" target="_blank" rel="noopener noreferrer">BPM database: GetSongBPM</a> · CC BY 4.0</div><div class="mini-stat"><span>RELEASES</span><strong>${count}</strong></div><div class="mini-stat"><span>SELECTED</span><strong>${sel}</strong></div><div class="mini-stat"><span>SHEET</span><strong>${state.sheet.cols} × ${state.sheet.rows}</strong></div><p class="footnote" style="margin:14px 2px">${storageWarned?'USE JSON BACKUPS':'SAVED LOCALLY'}<br/>PRIVATE BY DEFAULT</p></div>`;
 let center=step===0?importMain():step===1?reviewMain():step===2?designMain():printMain();let side=step===0?`<div class="eyebrow">THE WORKFLOW</div><h3 style="margin-top:9px">Your records, perfectly labeled.</h3><p class="subtle">I tuoi dati rimangono sul dispositivo. Importa i record e gestisci la tracklist prima di creare le etichette.</p><div class="divider"></div><div class="stack"><div class="tag good">CSV PARSER · LOCAL</div><div class="tag">FREE PROJECT STORAGE</div><div class="tag">VECTOR PDF EXPORT</div><div class="tag">FREE / PRO READY</div></div><div class="divider"></div><div class="alert info">Free: QR + watermark obbligatori. Pro: export pulito senza marchio.</div><div class="divider"></div>${btn('LOAD FICTIONAL DEMO','demo','primary')}`:step===1?reviewSide()+`<div class="divider"></div>${state.showTap?tapWidget():btn('OPEN TAP BPM TOOL','goto-tap','quiet')}`:step===2?designSide():printSide();
 $('app').innerHTML=`<header class="topbar"><div class="logo"><div class="mark" aria-hidden="true"></div><div><div class="logo-name">GROOVEPRINT</div><div class="logo-sub">VINYL LABEL STUDIO / V2.0 ALPHA</div></div></div><nav class="topnav"><button data-act="go-review" class="${count?'active':''}">WORKSPACE</button><button data-act="help">GUIDE / FAQ</button><button data-act="json">SAVE PROJECT</button></nav><div class="status"><span class="dot"></span>${storageWarned?'BACKUP REQUIRED':'LOCAL WORKSPACE'} <span style="color:#666">/</span> ${state.plan==='pro'?'PRO DESIGN PREVIEW':'FREE MODE'} <span style="color:#666">/</span> ${discogsConnect.connected?"DISCOGS CONNECTED":"NO CLOUD SYNC"}</div></header>${showIntro?`<section class="hero"><div class="hero-inner"><div class="eyebrow">THE VINYL ARCHIVIST'S WORKSTATION</div><h1 class="h1">YOUR RECORDS.<br/><span class="accent">PERFECTLY LABELED.</span></h1><p>Turn your vinyl collection into sharp, customizable, print-ready labels. Import your collection, choose your sticker sheets, and print with millimeter precision.</p><div class="hero-actions">${btn('START CREATING →','choose-file','primary')}${btn('TRY WITH DEMO DATA','demo','quiet')}</div><div class="hero-foot"><span>✳ CSV IMPORT</span><span>✳ PRECISION LABELS</span><span>✳ VECTOR PDF OUTPUT</span><span>✳ FREE + PRO MODEL</span></div></div></section>`:''}<main class="workspace"><aside class="rail">${rail}</aside><section class="center" id="mainCenter">${center}</section><aside class="side" id="rightSide">${side}</aside></main><input id="fileChooser" type="file" accept=".csv,.tsv,.txt,.json" aria-label="Import collection CSV or GROOVEPRINT project" class="hidden"/><input id="previewAudioFile" type="file" accept="audio/*,.mp3,.wav,.ogg,.flac,.m4a" class="hidden"/>${state.showHelp?`<div role="dialog" aria-modal="true" style="position:fixed;inset:0;background:#000c;display:grid;place-items:center;z-index:9;padding:18px"><div class="card" style="width:min(660px,95vw);max-height:85vh;overflow:auto"><div class="flex between"><b>GROOVEPRINT / GUIDE</b>${btn('CLOSE ✕','help','quiet small')}</div>${faqMain()}</div></div>`:''}`;
 if(state.step===1){const mount=document.getElementById('gpPreviewMount');if(mount&&keepAudio)mount.appendChild(keepAudio)}else if(keepAudio&&keepAudio.classList.contains('on'))stopPreview();
