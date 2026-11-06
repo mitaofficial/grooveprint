@@ -138,16 +138,27 @@ try{
  assert.equal(bpmCalls,2,'Local audio analysis must not call the remote BPM provider');
  // Local user-created correction must survive expiry without storing private
  // Discogs collection data or silently replacing it with provider BPM.
- await page.evaluate(()=>{
+ // Force a short busy window at the instant of the second expiry; the old
+ // scheduler discarded revalidation here and left the collection empty.
+ await page.waitForFunction(()=>!window.GrooveprintAutoBPM.job.running&&!discogsSync.running&&!discogsConnect.running,null,{timeout:12000});
+ const secondExpiry=await page.evaluate(()=>{
   const r=state.releases.find(x=>x.releaseId==='123456'),t=r.tracks[0];
   t.bpm=145;t.bpmStatus='manual';t.source='manual';
   gpPersistUserEvidence();
   r.discogsFetchedAt=new Date(Date.now()-16*60*1000).toISOString();
   // This is a second 15-minute expiry, not another expiry 1 second later.
-  // Advance the revalidation throttle's test clock rather than weaken production limits.
+  // Advance the throttle's test clock rather than weakening production limits.
   gpSourceRefreshLastAttempt=Date.now()-61_000;
-  renderApp();
+  discogsConnect.running=true; // simulate another operation occupying the connection
+  try{
+   renderApp();
+   return {removed:state.releases.length===0,needed:gpSourceRevalidationNeeded,
+    deferred:gpSourceRefreshTimer!==null};
+  }finally{discogsConnect.running=false}
  });
+ assert.deepEqual(secondExpiry,{removed:true,needed:true,deferred:true},
+  'Expiry during a busy task must queue revalidation instead of dropping it');
+ assert.equal(discogsCalls,2,'deferred sync must not start while connector is busy');
  try{await page.waitForFunction(()=>{
   const r=state.releases.find(x=>x.releaseId==='123456');
   return gpExpiredCount>=2&&r?.tracks[0]?.bpm===145&&r?.tracks[0]?.bpmStatus==='manual'&&
@@ -159,13 +170,45 @@ try{
       id:r.id,releaseId:r.releaseId,artist:r.artist,sourceAt:r.discogsFetchedAt,
       tracks:r.tracks.map(t=>({title:t.title,artist:t.artist,bpm:t.bpm,status:t.bpmStatus,source:t.source,mbid:t.recordingMbid}))
     },evidence:Array.from(gpEvidenceStore().entries()).slice(-4),sync:{running:discogsConnect.running,trackRunning:discogsSync.running},
-    auto:window.GrooveprintAutoBPM.job.phase,refreshNeeded:gpSourceRevalidationNeeded};
+    auto:window.GrooveprintAutoBPM.job.phase,refreshNeeded:gpSourceRevalidationNeeded,
+     retryTimer:gpSourceRefreshTimer!==null,retryFailures:gpSourceRefreshFailures};
   })));throw error;
  }
  assert.equal(discogsCalls,3,'expired collection membership must refresh');
  assert.equal(tracklistCalls,3,'tracklist must be fetched after expiration');
  assert.equal(acousticCalls,1,'manual correction wins over CC0 archive');
  assert.equal(bpmCalls,2,'manual correction wins over GetSongBPM');
+ // Evidence is keyed by exact track identity: the correction must not leak
+ // into another edit/version of the same release.
+ const evidenceGuard=await page.evaluate(()=>{
+  const r=state.releases.find(x=>x.releaseId==='123456');
+  const alt={...r,tracks:[{...r.tracks[0],title:'Another Edit',bpm:null,bpmStatus:'',source:'discogs'}]};
+  gpRestoreUserEvidence(alt);
+  return {alternativeBpm:alt.tracks[0].bpm,originalBpm:r.tracks[0].bpm};
+ });
+ assert.deepEqual(evidenceGuard,{alternativeBpm:null,originalBpm:145});
+ // A pending 60-second cooldown must be queued exactly once, and cancelled
+ // promptly on successful validation/disconnect rather than leaking timers.
+ const timerGuard=await page.evaluate(()=>{
+  gpSourceRevalidationNeeded=true;
+  gpSourceRefreshLastAttempt=Date.now();
+  gpScheduleSourceRevalidation();
+  const timer=gpSourceRefreshTimer;
+  gpScheduleSourceRevalidation();
+  const singleTimer=timer!==null&&timer===gpSourceRefreshTimer;
+  gpSourceRevalidationNeeded=false;
+  gpScheduleSourceRevalidation();
+  const cancelled=gpSourceRefreshTimer===null;
+  gpSourceRevalidationNeeded=true;
+  gpSourceRefreshFailures=GP_SOURCE_REFRESH_MAX_FAILURES;
+  gpScheduleSourceRevalidation();
+  const stoppedAfterLimit=gpSourceRefreshTimer===null;
+  gpSourceRevalidationNeeded=false;
+  gpSourceRefreshFailures=0;
+  return {singleTimer,cancelled,stoppedAfterLimit};
+ });
+ assert.deepEqual(timerGuard,{singleTimer:true,cancelled:true,stoppedAfterLimit:true});
+ assert.equal(discogsCalls,3,'cooldown and retry guard must not issue extra requests');
 
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
