@@ -4,7 +4,8 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 
 const script=readFileSync(new URL('../src/auto-bpm.js',import.meta.url),'utf8');
-function setup(releases,config={provider:true,connected:true,onRequest:null}){
+function setup(releases,config={}){
+ config={provider:true,connected:true,onRequest:null,...config};
  const calls=[],context={
   window:{},document:{addEventListener(){}},state:{releases},
   discogsConnect:{connected:config.connected},discogsSync:{running:false},
