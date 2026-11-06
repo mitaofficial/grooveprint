@@ -136,6 +136,25 @@ try{
  assert.ok(['estimated','review'].includes(localResult.status),JSON.stringify(localResult));
  assert.ok(localResult.candidates.some(x=>Math.abs(x.bpm-138)<=3),JSON.stringify(localResult));
  assert.equal(bpmCalls,2,'Local audio analysis must not call the remote BPM provider');
+ // Local user-created correction must survive expiry without storing private
+ // Discogs collection data or silently replacing it with provider BPM.
+ await page.evaluate(()=>{
+  const r=state.releases.find(x=>x.releaseId==='123456'),t=r.tracks[0];
+  t.bpm=145;t.bpmStatus='manual';t.source='manual';
+  gpPersistUserEvidence();
+  r.discogsFetchedAt=new Date(Date.now()-16*60*1000).toISOString();
+  renderApp();
+ });
+ await page.waitForFunction(()=>{
+  const r=state.releases.find(x=>x.releaseId==='123456');
+  return gpExpiredCount>=2&&r?.tracks[0]?.bpm===145&&r?.tracks[0]?.bpmStatus==='manual'&&
+   !discogsConnect.running&&!discogsSync.running&&!window.GrooveprintAutoBPM.job.running;
+ },{timeout:45000});
+ assert.equal(discogsCalls,3,'expired collection membership must refresh');
+ assert.equal(tracklistCalls,3,'tracklist must be fetched after expiration');
+ assert.equal(acousticCalls,1,'manual correction wins over CC0 archive');
+ assert.equal(bpmCalls,2,'manual correction wins over GetSongBPM');
+
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
 }finally{
