@@ -8,3 +8,13 @@ Discogs OAuth callback: `https://grooveprint-web-production.up.railway.app/api/d
 Health: `/health`. Discogs API status: `/api/discogs/status`.
 
 This is alpha software. Test a single collection folder before broader use. API use and commercialization are subject to Discogs terms.
+
+## BPM Intelligence 3.0 alpha / source revalidation
+
+This is a work-in-progress feature on PR #3, not a production-approved BPM accuracy claim. `npm test` runs Node unit tests; `npm run test:syntax` checks syntax; `node tests/browser-smoke.mjs` exercises the full Chromium flow after installing Playwright and Chromium (the CI workflow does this automatically).
+
+OAuth-backed Discogs collection membership and Discogs-sourced tracklists are **temporary**. They expire after 15 minutes, are removed from the active view, and are not saved to a persistent project snapshot. Revalidation is attempted only while connected, with at most one pending timer, no concurrent Discogs/auto-BPM job, an initial minimum 60-second request interval, exponential backoff for failures (60/120/240 seconds) and at most three automatic failed attempts per expiry. After repeated errors, use **RISINCRONIZZA DISCOGS** manually. Authentication errors and HTTP 429 stop automatic retries; check the session or rate limit first.
+
+User-entered/confirmed BPMs are stored separately in browser-local evidence keyed by Discogs release ID, position, artist, and track title. They can be restored when the *same* track is fetched again, without persisting the private Discogs collection. A different track/version must not inherit a prior manual value. Local evidence may be lost if the user clears browser storage; export user-owned projects separately as appropriate.
+
+The AcousticBrainz open-data adapter needs an exact recording MBID and covers only archived recordings. The optional on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. Do not describe a successful provider probe as proof that a usable BPM was obtained. No audio data is sent to GROOVEPRINT by the local analyzer.
