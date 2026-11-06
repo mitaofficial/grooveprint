@@ -70,7 +70,23 @@ async function getSongBpmLookup(artist,title){
 
 function normal(item,folderId){const i=item.basic_information||{},labels=i.labels||[];return{discogsInstanceId:String(item.instance_id||''),discogsFolderId:Number(item.folder_id??folderId),releaseId:String(i.id||item.id||''),artist:(i.artists||[]).map(x=>x.name).join(', '),title:String(i.title||''),label:labels.map(x=>x.name).filter(Boolean).join(', '),catalog:labels.map(x=>x.catno).filter(Boolean).join(' / '),year:i.year?String(i.year):'',format:(i.formats||[]).map(x=>x.name).join(' / ')||'Vinyl',added:String(item.date_added||''),sourceUrl:i.id?'https://www.discogs.com/release/'+encodeURIComponent(i.id):''};}
 function validVideos(v){return Array.isArray(v)?v.filter(x=>{try{const u=new URL(x.uri);return u.protocol==='https:'&&['youtube.com','www.youtube.com','youtu.be'].includes(u.hostname);}catch{return false}}).slice(0,60).map(x=>({uri:x.uri,title:String(x.title||'').slice(0,200),embed:x.embed===true})):[];}
-function sanitRelease(data){return{releaseId:String(data.id||''),sourceUrl:'https://www.discogs.com/release/'+encodeURIComponent(data.id),tracklist:(data.tracklist||[]).slice(0,300).map(t=>({position:String(t.position||'').slice(0,30),title:String(t.title||'').slice(0,500),type_:String(t.type_||'track'),duration:String(t.duration||''),sub_tracks:Array.isArray(t.sub_tracks)?t.sub_tracks.slice(0,100).map(s=>({position:String(s.position||''),title:String(s.title||''),duration:String(s.duration||''),type_:String(s.type_||'track')})):undefined})),videos:validVideos(data.videos),fetchedAt:new Date().toISOString(),category:'CC0_CATALOG'};}
+function sanitRelease(data){
+ const mapTrack=t=>({
+  position:String(t.position||'').slice(0,30),
+  title:String(t.title||'').slice(0,500),
+  type_:String(t.type_||'track'),
+  duration:String(t.duration||''),
+  artists:Array.isArray(t.artists)?t.artists.slice(0,8).map(a=>({name:String(a.name||'').slice(0,160),id:Number(a.id)||0})):[],
+  sub_tracks:Array.isArray(t.sub_tracks)?t.sub_tracks.slice(0,100).map(s=>({
+   position:String(s.position||'').slice(0,30),title:String(s.title||'').slice(0,500),
+   duration:String(s.duration||''),type_:String(s.type_||'track'),
+   artists:Array.isArray(s.artists)?s.artists.slice(0,8).map(a=>({name:String(a.name||'').slice(0,160),id:Number(a.id)||0})):[]
+  })):undefined
+ });
+ return {releaseId:String(data.id||''),sourceUrl:'https://www.discogs.com/release/'+encodeURIComponent(data.id),
+ tracklist:(data.tracklist||[]).slice(0,300).map(mapTrack),videos:validVideos(data.videos),
+ fetchedAt:new Date().toISOString(),category:'CC0_CATALOG'};
+}
 const server=http.createServer(async(req,res)=>{res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Permissions-Policy','camera=(),microphone=(),geolocation=()');try{const path=new URL(req.url||'/',publicOrigin).pathname;
 if(req.method==='GET'&&(path==='/'||path==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.discogs.com https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'"});res.end(await readFile(join(folder,'../index.html')));return;}
 if(req.method==='GET'&&path==='/credits'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'});res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="index,follow"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GROOVEPRINT — Credits</title><style>body{background:#111;color:#eee;font:16px/1.6 system-ui,sans-serif;max-width:700px;margin:50px auto;padding:0 24px}a{color:#c5d36a}</style></head><body><h1>GROOVEPRINT — Credits</h1><p>GROOVEPRINT is an independent record collection and printable label app.</p><p>For BPM catalog lookups (when configured), we credit and link to <a href="https://getsongbpm.com/">GetSongBPM.com</a>.</p><p>Record catalog information is provided by <a href="https://www.discogs.com/">Discogs</a> and is subject to their API terms. GROOVEPRINT is not affiliated with either service.</p><p><a href="/">Back to GROOVEPRINT</a></p></body></html>');return;}
