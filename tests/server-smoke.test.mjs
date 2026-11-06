@@ -39,6 +39,22 @@ test('real Node server health, static BPM worker and no-key API safety',async()=
   assert.equal((await status.json()).configured,false);
   const denied=await fetch(url+'/api/bpm/batch',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracks:[{id:'1',artist:'A',title:'B'}]})});
   assert.notEqual(denied.status,200,'unauthenticated batch lookup must never call provider');
+  const session=await fetch(url+'/api/discogs/status');
+  const token=(await session.json()).csrf;
+  const cookie=session.headers.get('set-cookie')?.split(';')[0]||'';
+  assert.ok(token&&cookie,'session and CSRF should be provided');
+  const open=await fetch(url+'/api/bpm/open/batch',{
+   method:'POST',headers:{'Content-Type':'application/json','X-GROOVEPRINT-CSRF':token,Cookie:cookie},
+   body:JSON.stringify({tracks:[{id:'A1',recordingMbid:'invalid-id'}]})
+  });
+  assert.equal(open.status,200,'CC0 adapter must not require Discogs OAuth or GetSongBPM key');
+  const result=(await open.json()).results[0];
+  assert.equal(result.id,'A1');assert.equal(result.bpm,null);
+  assert.equal(result.reason,'recording-mbid-required');
+  const tempoScript=await fetch(url+'/assets/bpm-tempo.mjs');
+  assert.equal(tempoScript.status,200);assert.match(await tempoScript.text(),/estimateLocalTempo/);
+  const folderScript=await fetch(url+'/assets/bpm-library.js');
+  assert.equal(folderScript.status,200);assert.match(await folderScript.text(),/CONNECT AUDIO LIBRARY/);
   const credits=await fetch(url+'/credits');assert.equal(credits.status,200);
   assert.match(await credits.text(),/getsongbpm\.com/i);
  }finally{
