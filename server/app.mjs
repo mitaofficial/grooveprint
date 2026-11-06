@@ -14,7 +14,7 @@ const publicOrigin=new URL(origin).origin;
 const configured=Boolean(process.env.DISCOGS_CONSUMER_KEY && process.env.DISCOGS_CONSUMER_SECRET);
 const consumerKey=process.env.DISCOGS_CONSUMER_KEY || '';
 const consumerSecret=process.env.DISCOGS_CONSUMER_SECRET || '';
-const ua=process.env.DISCOGS_USER_AGENT || 'GROOVEPRINT/2.0-alpha';
+const ua=process.env.DISCOGS_USER_AGENT || 'GROOVEPRINT/3.0-alpha';
 const getSongKey=process.env.GETSONGBPM_API_KEY||'';
 const keyHex=process.env.SESSION_ENCRYPTION_KEY || '';
 if(process.env.NODE_ENV==='production' && !origin.startsWith('https://'))throw Error('PUBLIC_ORIGIN must be HTTPS in production');
@@ -97,7 +97,7 @@ if(req.method==='GET'&&(path==='/assets/bpm-tempo.mjs'||path==='/assets/bpm-libr
  res.end(await readFile(join(folder,'../src',target)));return;
 }
 if(req.method==='GET'&&path==='/assets/auto-bpm.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(await readFile(join(folder,'../src/auto-bpm.js')));return;}
-if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'2.0.0-alpha.1'});
+if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1'});
 if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')){res.writeHead(404);res.end('Not Found');return;}
 if(!['GET','POST'].includes(req.method))return send(res,405,{error:'Method not allowed'});
 if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wrong origin');
