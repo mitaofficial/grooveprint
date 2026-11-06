@@ -82,6 +82,30 @@ try{
  assert.equal(final.trackCount,1);
  assert.equal(final.refreshNeeded,false);
  assert.match(final.liveNotice,/1 tracce disponibili/);
+ // A catalog-first, no-key path: user-provided exact recording MBID
+ // should find a CC0 BPM even when GetSongBPM is unavailable.
+ let acousticCalls=0;
+ await page.route('**/api/bpm/open/batch',route=>{
+  acousticCalls++;
+  const data=route.request().postDataJSON();
+  assert.equal(data.tracks[0].recordingMbid,'6df2d3b5-25e1-4d4c-a196-0404990a93ec');
+  return route.fulfill(json({provider:'AcousticBrainz',sourceLicense:'CC0',results:[{
+   id:data.tracks[0].id,status:'catalog',bpm:117.29,source:'AcousticBrainz',
+   referenceUrl:'https://acousticbrainz.org/api/v1/6df2d3b5-25e1-4d4c-a196-0404990a93ec/low-level'
+  }]}));
+ });
+ await page.evaluate(()=>{
+  const t=state.releases.find(r=>r.releaseId==='123456').tracks[0];
+  t.bpm=null;t.bpmStatus='';t.recordingMbid='6df2d3b5-25e1-4d4c-a196-0404990a93ec';
+  void window.GrooveprintAutoBPM.run({fetchTracklists:false});
+ });
+ await page.waitForFunction(()=>{
+  const t=state.releases.find(r=>r.releaseId==='123456')?.tracks[0];
+  return t?.bpm===117.29&&t.bpmStatus==='catalog'&&t.source==='AcousticBrainz';
+ },{timeout:25000});
+ assert.equal(acousticCalls,1);
+ assert.equal(bpmCalls,2,'AcousticBrainz result should avoid unnecessary GetSongBPM requests');
+
  assert.ok(await page.locator('[data-gp-library-pick]').count()>0,'Bulk audio folder control should appear');
  // Test real Chromium Web Audio decoding from a synthetic 138 BPM WAV.
  // This waveform is generated within the test and is not third-party audio.
