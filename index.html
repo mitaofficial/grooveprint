@@ -202,7 +202,62 @@ function doUndo(){if(!undoStack.length)return;redoStack.push(snapshot({transient
 function doRedo(){if(!redoStack.length)return;undoStack.push(snapshot({transient:true}));Object.assign(state,redoStack.pop());storeLater();renderApp();toast('Modifica ripristinata')}
 function db(){if(dbReady)return dbReady;dbReady=new Promise((resolve,reject)=>{if(!window.indexedDB){resolve(null);return}const q=indexedDB.open('grooveprint-db',1);q.onupgradeneeded=()=>q.result.createObjectStore('data');q.onsuccess=()=>resolve(q.result);q.onerror=()=>resolve(null)});return dbReady}
 async function saveLocal(){const clean=snapshot();try{const d=await db();if(d){await new Promise((resolve,reject)=>{const tx=d.transaction('data','readwrite');tx.objectStore('data').put(clean,'project');tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});return}}catch(e){console.warn('IndexedDB backup failed:',e)}try{localStorage.setItem('grooveprint-project',JSON.stringify(clean));return}catch(e){if(!storageWarned){storageWarned=true;toast('Questo browser limita il salvataggio: usa il backup JSON',true)}}}
-function storeLater(){clearTimeout(persistTimer);persistTimer=setTimeout(saveLocal,330)}
+
+// User-created evidence only. Store no Discogs folder/member, artist/title text,
+// remote provider results, videos, or restricted Discogs source snapshots.
+let gpUserEvidenceCache=null;
+function gpEvidenceStore(){
+ if(gpUserEvidenceCache)return gpUserEvidenceCache;
+ try{
+  const parsed=JSON.parse(localStorage.getItem('grooveprint-user-tempos-v1')||'{}');
+  gpUserEvidenceCache=new Map(Object.entries(parsed).slice(-10000));
+ }catch{gpUserEvidenceCache=new Map()}
+ return gpUserEvidenceCache;
+}
+function gpUserEvidenceKey(record,track){
+ const releaseId=String(record?.releaseId||'');
+ if(!/^[1-9]\d{0,11}$/.test(releaseId))return null;
+ const clean=v=>String(v||'').normalize('NFKD').replace(/[\u0300-\u036f]/g,'')
+  .replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'')
+  .replace(/[^a-z0-9]+/gi,' ').toLowerCase().trim();
+ const identity=clean(track.artist||record.artist)+'|'+clean(track.title);
+ let hash=2166136261;for(let i=0;i<identity.length;i++){hash^=identity.charCodeAt(i);hash=Math.imul(hash,16777619)}
+ return releaseId+'|'+String(track.position||'').slice(0,30)+'|'+(hash>>>0).toString(16).padStart(8,'0');
+}
+function gpPersistUserEvidence(){
+ try{
+  const map=gpEvidenceStore();
+  for(const r of state.releases)for(const t of r.tracks||[]){
+   const key=gpUserEvidenceKey(r,t);if(!key)continue;
+   const mbid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.recordingMbid||'')?t.recordingMbid:'';
+   const userTempo=Number.isFinite(Number(t.bpm))&&Number(t.bpm)>=40&&Number(t.bpm)<=300&&
+    (['manual','verified'].includes(t.bpmStatus)||(t.bpmStatus==='estimated'&&t.source==='local-dsp'));
+   if(userTempo||mbid){
+    const previous=map.get(key)||{};
+    map.set(key,{...previous,
+      ...(userTempo?{bpm:Number(t.bpm),status:String(t.bpmStatus),source:t.source==='local-dsp'?'local-dsp':'user'}:{}),
+      ...(mbid?{recordingMbid:mbid}:{}),savedAt:Date.now()});
+   }
+  }
+  if(map.size>10000){const keys=[...map.keys()].slice(0,map.size-10000);for(const k of keys)map.delete(k)}
+  localStorage.setItem('grooveprint-user-tempos-v1',JSON.stringify(Object.fromEntries(map)));
+ }catch(error){console.warn('User tempo evidence local save unavailable',String(error?.message||error))}
+}
+function gpRestoreUserEvidence(record){
+ const map=gpEvidenceStore();
+ for(const t of record.tracks||[]){
+  const key=gpUserEvidenceKey(record,t),item=key?map.get(key):null;
+  if(!item)continue;
+  if(item.recordingMbid&&!t.recordingMbid)t.recordingMbid=item.recordingMbid;
+  if(t.bpm!==null&&t.bpm!==undefined&&t.bpm!=='')continue;
+  if(Number.isFinite(item.bpm)&&item.bpm>=40&&item.bpm<=300){
+   t.bpm=item.bpm;t.bpmStatus=item.status;t.source=item.source==='local-dsp'?'local-dsp':'manual';
+   t.bpmReason='Restored local user evidence';
+  }
+ }
+}
+
+function storeLater(){clearTimeout(persistTimer);persistTimer=setTimeout(()=>{gpPersistUserEvidence();void saveLocal()},330)}
 function scheduleRender(){clearTimeout(delayedRender);delayedRender=setTimeout(renderApp,120)}
 async function loadLocal(){try{const d=await db();let value;if(d)value=await new Promise(resolve=>{const q=d.transaction('data','readonly').objectStore('data').get('project');q.onsuccess=()=>resolve(q.result);q.onerror=()=>resolve(null)});if(!value){try{value=JSON.parse(localStorage.getItem('grooveprint-project')||'null')}catch(e){value=null}}if(value && Array.isArray(value.releases)){Object.assign(state,value);state.releases=state.releases.map(normalizeRelease);gpLegacyDropped=state.releases.filter(r=>r.discogsInstanceId).length;state.releases=state.releases.filter(r=>!r.discogsInstanceId).map(r=>{const oldTracks=r.tracks.length;r.tracks=r.tracks.filter(t=>t.source!=='discogs');gpLegacyDropped+=oldTracks-r.tracks.length;r.tracklistFetchedAt='';r.videos=[];r.videosFetchedAt='';return r});state.folderFilter=value.folderFilter||'All';state.selected=(state.selected||[]).filter(x=>state.releases.some(r=>r.id===x));if(!state.active||!state.releases.some(r=>r.id===state.active))state.active=state.releases[0]?.id||null;state.sheet={...defaultTemplate(),...value.sheet};state.design={...defaultDesign(),...value.design};state.calibration={x:0,y:0,printer:'My printer',...value.calibration};state.editor={mode:'label',zoom:100,snap:true,selected:'artist',...value.editor};state.plan=value.plan||'free';state.printGuides=Boolean(value.printGuides);state.savedTemplates=Array.isArray(value.savedTemplates)?value.savedTemplates:[];state.step=state.releases.length?1:0}}catch(e){console.warn(e)}restoreReady=true;renderApp()}
 function parseDelimited(text,delimiter){let rows=[],row=[],field='',quoted=false,issues=[],at=0;for(let i=0;i<text.length;i++){const c=text[i];if(c==='"'){if(quoted&&text[i+1]==='"'){field+='"';i++}else if(quoted){quoted=false}else if(field===''){quoted=true}else field+=c}else if(c===delimiter&&!quoted){row.push(field);field=''}else if((c==='\n'||c==='\r')&&!quoted){if(c==='\r'&&text[i+1]==='\n')i++;row.push(field);if(row.some(x=>x.trim()!==''))rows.push(row);row=[];field='';at=i}else{field+=c}}if(quoted)issues.push('Unclosed quoted field');row.push(field);if(row.some(x=>x.trim()!==''))rows.push(row);return{rows,issues}}
@@ -360,7 +415,7 @@ async function syncDiscogsTracklists(onlyActive=false){
    if(!state.releases.includes(r)||discogsSync.cancelled){discogsSync.skipped++;if(!discogsSync.cancelled)discogsSync.completed++;continue}
    if(!r.videos?.length&&result.videos.length){r.videos=result.videos;r.videosFetchedAt=new Date().toISOString()};
    // Never overwrite manual or previously imported tracks.
-   if(!r.tracks.length&&tracks.length){r.tracks=clone(tracks);r.tracklistFetchedAt=new Date().toISOString();r.tracklistError='';discogsSync.success++;storeLater()}
+   if(!r.tracks.length&&tracks.length){r.tracks=clone(tracks);gpRestoreUserEvidence(r);r.tracklistFetchedAt=new Date().toISOString();r.tracklistError='';discogsSync.success++;storeLater()}
    else if(!tracks.length){r.tracklistError='Nessuna tracklist presente nella risposta Discogs';discogsSync.failed++}
    else{discogsSync.skipped++}
   }catch(error){
