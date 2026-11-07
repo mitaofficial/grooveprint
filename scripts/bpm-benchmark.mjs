@@ -171,7 +171,7 @@ function analyze(id,category,groundTruthBpm,groundTruthStatus,buffer,detector,en
  const candidates=Array.isArray(output.bpmCandidates)?output.bpmCandidates.map(c=>Number(c.bpm)).filter(Number.isFinite):[];
  return {id,category,groundTruthBpm,groundTruthStatus,engine,status:output.status||'unavailable',
   bpm:Number.isFinite(output.bpm)?output.bpm:null,requiresReview:output.requiresReview===true,
-  reason:String(output.reason||''),candidateBpm:candidates,processingMs:Number(elapsed.toFixed(3))};
+  reason:String(output.reason||''),candidateBpm:candidates,candidateScores:Array.isArray(output.bpmCandidates)?output.bpmCandidates.slice(0,8).map(x=>Number(x.relative)||0):[],processingMs:Number(elapsed.toFixed(3))};
 }
 let inputs=[],realAvailability='NOT TESTED';
 if(mode==='synthetic'){
@@ -248,6 +248,6 @@ if(mode==='synthetic'&&challenger){
  const failures=results.filter(r=>r.engine==='challenger'&&r.groundTruthStatus==='verified'&&
    Number.isFinite(r.bpm)&&Math.abs(r.bpm-r.groundTruthBpm)>2)
   .map(r=>({id:r.id,expected:r.groundTruthBpm,bpm:r.bpm,requiresReview:r.requiresReview,
-    reason:r.reason,candidates:r.candidateBpm.slice(0,5)}));
+    reason:r.reason,candidates:r.candidateBpm.slice(0,5),relativeScores:r.candidateScores?.slice(0,5)}));
  console.log(JSON.stringify({diagnostic:'challenger-synthetic-misses',count:failures.length,cases:failures}));
 }
