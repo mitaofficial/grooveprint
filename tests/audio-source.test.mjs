@@ -50,3 +50,20 @@ test('a compilation uses the actual track artist and keeps remix distinctions',a
  const t={releaseId:'77',artist:'Track Artist',albumArtist:'Various',album:'Sampler',position:'A1',title:'Tool (Dub)',duration:'4:37'};
  assert.equal((await f.resolve(t)).status,'matched');assert.ok(!query.includes('creator:'));assert.equal((await f.resolve({...t,title:'Tool (Remix)'})).status,'unavailable');
 });
+
+test('a guest track artist cannot override the release artist used for album discovery',async()=>{
+ const d=item();d.metadata.creator='Album Artist';d.metadata.title='Guest Remixes';
+ d.files[0]={...d.files[0],artist:'Guest Producer',album:'Guest Remixes',title:'Original (Guest Mix)'};
+ let query='',searches=0;
+ const f=createAudioSource({fetchImpl:async url=>{
+  if(url.includes('advancedsearch')){searches++;query=new URL(url).searchParams.get('q');return Response.json({response:{numFound:1,docs:[{identifier:'guest-remixes-fma'}]}})}
+  return Response.json(d);
+ }});
+ const t={releaseId:'88',artist:'Guest Producer',albumArtist:'Album Artist',album:'Guest Remixes',position:'B1',title:'Original (Guest Mix)',duration:'4:37'};
+ assert.equal((await f.resolve(t)).status,'matched');
+ assert.ok(query.includes('creator:"Album Artist"'),'album lookup must use the release-level credit');
+ assert.ok(!query.includes('creator:"Guest Producer"'),'track credit is not the album credit');
+ assert.equal((await f.resolve({...t,artist:'Different Guest'})).status,'unavailable','wrong track artist must never be matched');
+ assert.equal(searches,1,'same release should reuse bounded album lookup despite track credits differing');
+ assert.equal((await f.resolve({...t,albumArtist:'Wrong Album Artist'})).status,'unavailable','wrong release artist must fail metadata identity');
+});
