@@ -57,3 +57,18 @@ test('local Chromium benchmark exposes help without Playwright or user music fil
  assert.equal(cmd.status,0,cmd.stderr);
  assert.match(cmd.stdout,/No files\/audio are uploaded/);
 });
+
+test('experimental detector abstains rather than inferring BPM from steady, nonrhythmic audio',async()=>{
+ const tmp=await mkdtemp(join(tmpdir(),'grooveprint-ambient-'));
+ try{
+  const cmd=spawnSync(process.execPath,[resolve('scripts/bpm-benchmark.mjs'),'--synthetic','--quick',
+    '--compare','src/bpm-tempo-experiment.mjs','--out',tmp],{encoding:'utf8',timeout:120000});
+  assert.equal(cmd.status,0,cmd.stderr);
+  const lines=(await readFile(join(tmp,'results.csv'),'utf8')).trim().split('\n');
+  const target=lines.find(line=>line.includes('"synth_no_beat"')&&line.includes('"challenger"'));
+  assert.ok(target,'nonrhythmic control must be included');
+  const cells=target.split(',').map(cell=>cell.replaceAll('"',''));
+  const headers=lines[0].split(',');
+  assert.equal(cells[headers.indexOf('status')],'unavailable','steady nonrhythmic waveform is not music BPM evidence');
+ }finally{await rm(tmp,{recursive:true,force:true})}
+});
