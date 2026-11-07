@@ -14,7 +14,8 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  if(N<1200)return {status:'unavailable',bpm:null,reason:'too-few-analysis-frames'};
  const low=new Float32Array(N),full=new Float32Array(N);
  const lp=new Float64Array(channels),alpha=1-Math.exp(-2*Math.PI*160/sr);
- let prevLow=0,prevFull=0;
+ let prevLow=0,prevFull=0,smoothedLow=0,smoothedFull=0;
+ const smoothFactor=1-Math.exp(-frame/(sr*.022)); // reduce carrier-frequency envelope ripple
  for(let k=0;k<N;k++){
   let lowEnergy=0,wideEnergy=0;
   for(let j=k*frame;j<(k+1)*frame;j+=2){
@@ -27,9 +28,11 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
    wideEnergy+=we/channels;
   }
   const n=Math.ceil(frame/2),l=Math.sqrt(lowEnergy/n),f=Math.sqrt(wideEnergy/n);
-  low[k]=Math.max(0,l-prevLow)+Math.max(0,l-prevLow*.94)*.13;
-  full[k]=Math.max(0,f-prevFull)+Math.max(0,f-prevFull*.94)*.13;
-  prevLow=l;prevFull=f;
+  smoothedLow+=smoothFactor*(l-smoothedLow);
+  smoothedFull+=smoothFactor*(f-smoothedFull);
+  low[k]=Math.max(0,smoothedLow-prevLow);
+  full[k]=Math.max(0,smoothedFull-prevFull);
+  prevLow=smoothedLow;prevFull=smoothedFull;
  }
  function whiten(x){
   let mean=0,ss=0;
