@@ -5,8 +5,8 @@ import vm from 'node:vm';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve}};
 async function until(check){for(let i=0;i<2000&&!check();i++)await new Promise(r=>setTimeout(r,2));assert.ok(check(),'condition timed out')}
 const track=(title='Tool')=>({position:'1',title,duration:'0:22',bpm:null,source:'discogs',trackSource:'discogs'});
-function setup({resolve,decode,tracks=[track()],copies=1,preference='on'}={}){
- const state={releases:Array.from({length:copies},(_,i)=>({id:'r'+i,releaseId:'3759149',artist:'DJ',title:'Album',tracklistFetchedAt:new Date().toISOString(),tracks:structuredClone(tracks)}))};
+function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on'}={}){
+ const state={releases:Array.from({length:copies},(_,i)=>({id:'r'+i,releaseId:'3759149',artist:'DJ',title:'Album',tracklistFetchedAt:new Date().toISOString(),tracks:structuredClone(tracksByCopy?.[i]??tracks)}))};
  const preferences=new Map([['grooveprint-auto-bpm-enabled',preference]]);
  const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0},events={};
  class Context{constructor(){resources.contexts++;resources.maxContexts=Math.max(resources.contexts,resources.maxContexts)}async decodeAudioData(){resources.decodes++;if(decode)await decode();return {sampleRate:12000,length:264000,numberOfChannels:1,getChannelData:()=>new Float32Array(264000)}}async close(){resources.contexts--}}
@@ -63,4 +63,17 @@ test('the user opt-out persists across initialization and one explicit setting e
  const f=setup({preference:'off'});await new Promise(r=>setTimeout(r,10));f.api.schedule();assert.equal(f.resources.sourceCalls,0);assert.equal(f.api.job.total,0);
  for(const handler of f.events.change)handler({target:{checked:true,matches:s=>s==='[data-gp-auto-enable]'}});
  await until(()=>f.api.job.done===1&&!f.api.job.running);assert.equal(f.preferences.get('grooveprint-auto-bpm-enabled'),'on');assert.equal(f.resources.decodes,1);
+});
+
+test('review navigation prefers an actual BPM candidate over a preceding unavailable source and reveals filtered results',async()=>{
+ const matched={status:'matched',asset:{name:'test.mp3',size:3,url:'https://archive.org/download/Crawford_Street-17897/test.mp3'},evidence:{provider:'Test fixture',recordingId:'fixture',requiresReview:true}};
+ const f=setup({copies:2,tracksByCopy:[[track('Unavailable')],[track('Candidate')]],resolve:async x=>x.title==='Unavailable'?{status:'unavailable',reason:'no-open-license-source'}:matched});
+ await until(()=>f.api.job.done===2&&!f.api.job.running);
+ assert.equal(f.state.releases[0].tracks[0].bpmStatus,undefined);
+ assert.equal(f.state.releases[1].tracks[0].bpmStatus,'review');
+ f.state.active='r0';f.state.search='unrelated';f.state.statusFilter='Ready';f.state.formatFilter='CD';f.state.folderFilter='other';
+ for(const handler of f.events.click||[])handler({target:{closest:selector=>selector==='[data-gp-auto-review]'?{}:null}});
+ assert.equal(f.state.active,'r1','first actionable BPM candidate should be selected');
+ assert.equal(f.state.step,1);assert.equal(f.state.search,'');assert.equal(f.state.statusFilter,'All');
+ assert.equal(f.state.formatFilter,'All');assert.equal(f.state.folderFilter,'All');
 });
