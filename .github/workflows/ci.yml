@@ -17,6 +17,7 @@ jobs:
       - run: npm test
       - run: npm run test:syntax
       - run: node --check src/auto-bpm.js
+      - run: npm run benchmark:synthetic
 
   browser:
     needs: test
