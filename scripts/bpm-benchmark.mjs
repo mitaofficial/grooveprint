@@ -244,3 +244,10 @@ const worst=results.filter(r=>r.engine==='baseline'&&r.groundTruthStatus==='veri
 for(const r of worst)markdown.push('- '+r.id+': expected '+r.groundTruthBpm+', got '+r.bpm+', absolute error '+r.error.toFixed(2)+', review='+r.requiresReview);
 await writeFile(resolve(out,'report.md'),markdown.join('\n')+'\n');
 console.log(JSON.stringify({mode,realAudioValidation:realAvailability,reportDir:relative(root,out),summary:grouped.baseline.overall,comparison:challenger?grouped.challenger.overall:null}));
+if(mode==='synthetic'&&challenger){
+ const failures=results.filter(r=>r.engine==='challenger'&&r.groundTruthStatus==='verified'&&
+   Number.isFinite(r.bpm)&&Math.abs(r.bpm-r.groundTruthBpm)>2)
+  .map(r=>({id:r.id,expected:r.groundTruthBpm,bpm:r.bpm,requiresReview:r.requiresReview,
+    reason:r.reason,candidates:r.candidateBpm.slice(0,5)}));
+ console.log(JSON.stringify({diagnostic:'challenger-synthetic-misses',count:failures.length,cases:failures}));
+}
