@@ -30,3 +30,9 @@ See [DSP audit and musical validation protocol](docs/bpm-musical-validation.md) 
 - `npm test`: regression tests including a short tempo benchmark.
 
 **Synthetic performance is not a claim about real music.** Do not merge or deploy the experimental detector until sufficient independently verified real recordings meet the agreed evaluation criteria.
+
+### First licensed techno audio pilot
+
+The independent CI job `licensed_audio_pilot` evaluates 12 WaivOps / Patchbanks EDM-TECH CC BY 4.0 examples. The clips are four-bar producer-labeled samples repeated to satisfy the detector's minimum duration. These are **source-label agreement checks**, not independent full-song tempo verification. The audio is never committed or uploaded as an artifact.
+
+See [licensed dataset, results and licensing assessment](docs/bpm-open-audio-rights-audit-2026-11-07.md). Run locally with `npm run benchmark:licensed-techno` (Node 22, FFmpeg, internet). The experimental DSP is not enabled in GROOVEPRINT production.
