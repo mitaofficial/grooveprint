@@ -25,3 +25,17 @@ test('a missing tracklist is not reported as physical layout overflow',()=>{
  let result=ctx.gpPrintPreflight();assert.equal(result.stats.missingTracks,1);assert.equal(result.stats.overflow,0);
  warnings.push('Elemento fuori area: artist');result=ctx.gpPrintPreflight();assert.equal(result.stats.overflow,1);
 });
+
+test('print preflight distinguishes missing BPM from available but unverified estimates',()=>{
+ const r={artist:'Synthetic DJ',title:'EP',tracks:[{title:'A1',bpm:140,bpmStatus:'estimated'},{title:'B1',bpm:145,bpmStatus:'verified'}]};
+ const ctx={printable:()=>[r],state:{design:{}},composeLabel:()=>({warnings:[]}),displayArtist:x=>x};
+ vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function gpPrintPreflight(){'),html.indexOf('function gpPreflightPanel(){')),ctx);
+ let result=ctx.gpPrintPreflight();
+ assert.equal(result.stats.missingBpm,0);
+ assert.equal(result.stats.unverifiedBpm,1);
+ assert.match(result.issues[0].flags.join(' '),/not confirmed/);
+ r.tracks[0].bpmStatus='verified';result=ctx.gpPrintPreflight();
+ assert.equal(result.stats.unverifiedBpm,0);
+ r.tracks[1].bpm=null;result=ctx.gpPrintPreflight();
+ assert.equal(result.stats.missingBpm,1);
+});
