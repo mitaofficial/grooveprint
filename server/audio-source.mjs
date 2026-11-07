@@ -60,7 +60,7 @@ export function createAudioSource({fetchImpl=fetch,lookupImpl,timeoutMs=25000,no
  function queued(url,options){const task=()=>request(url,options),p=sequence.then(task,task);sequence=p.catch(()=>{});return p}
  async function json(url,signal){return JSON.parse(new TextDecoder().decode(await queued(url,{signal})))}
  function license(value){
-  const x=String(value||'');if(/^https?:\/\/creativecommons\.org\/licenses\/by\/(?:3\.0|4\.0)\/$/.test(x)||/^https?:\/\/creativecommons\.org\/publicdomain\/zero\/1\.0\/$/.test(x))return x.replace(/^http:/,'https:');return null;
+  const x=String(value||'').trim();if(/^https?:\/\/creativecommons\.org\/(?:licenses\/by\/(?:3\.0|4\.0)|publicdomain\/zero\/1\.0)\/?$/.test(x))return x.replace(/^http:/,'https:').replace(/\/?$/,'/');return null;
  }
  const quoted=value=>'"'+String(value).replace(/[\\"]/g,'\\$&')+'"';
  const safeItem=id=>/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,160}$/.test(String(id))&&!String(id).includes('..');
