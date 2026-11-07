@@ -62,3 +62,26 @@ CI run: https://github.com/mitaofficial/grooveprint/actions/runs/42360895838
 ## Attribution
 
 WaivOps / Patchbanks. *WaivOps EDM-TECH: Open Audio Resources for Machine Learning in Music* (2025). DOI https://doi.org/10.5281/zenodo.17584890, licensed CC BY 4.0 https://creativecommons.org/licenses/by/4.0/ . The pilot locally decodes and repeats published MP3 examples for tempo testing; this modification is disclosed. No dataset audio is redistributed with GROOVEPRINT.
+
+## Expanded publisher-label evaluation: all 31 examples
+
+GitHub Actions: https://github.com/mitaofficial/grooveprint/actions/runs/42361407681
+
+The selected initial 12 examples have now been supplemented by the complete set of **31 public MP3 example files** in WaivOps EDM-TECH at the pinned GitHub commit. This is an *expanded developer evaluation*, and does not supersede the distinction between a publisher-labelled loop and an independently verified full song.
+
+| Publisher-label diagnostic | V1 | V2 |
+|---|---:|---:|
+| Decoded / attempted | 31 / 31 | 31 / 31 |
+| Primary tempo within ±1 BPM of publisher label | 61.29% | 74.19% |
+| Publisher BPM present among candidates ±1 | 61.29% | 96.77% |
+| Half/double tempo errors | 38.71% | 25.81% |
+| Unflagged half/double errors | 6 | 0 |
+| Auto-accepted count | 6 | 0 |
+| Automatically accepted coverage | 19.35% | 0% |
+| Reported independent accuracy | **NOT TESTED** | **NOT TESTED** |
+
+V2's eight primary mismatches all concern the half-tempo alternative. Source labels affected: 135 BPM (two cases), 137 BPM (four cases) and 142 BPM (two cases). In all eight, the system marked the result for human review. The alternative list contains publisher-tempo candidates for most errors, but the V2 overall top-six candidate match is not perfect (96.77%).
+
+**Important product conclusion:** V2 is currently better at finding plausible tempo evidence and flagging risk, but its existing review rules accept 0/31 of these producer-labelled rhythmic examples automatically. Therefore, V2 is **not deployable as a hands-free BPM Pro engine**. Do not fix this by blindly lowering the thresholds on these exact 31 examples; use independent full-length development and held-out datasets to calibrate an actual precision–coverage operating point.
+
+The latest full CI (unit tests, browser, provider and publisher-labelled audio pilot) was successful. This verifies the infrastructure and labeled-loop evaluation, not professional BPM accuracy.
