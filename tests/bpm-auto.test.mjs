@@ -77,3 +77,20 @@ test('review navigation prefers an actual BPM candidate over a preceding unavail
  assert.equal(f.state.step,1);assert.equal(f.state.search,'');assert.equal(f.state.statusFilter,'All');
  assert.equal(f.state.formatFilter,'All');assert.equal(f.state.folderFilter,'All');
 });
+
+test('album title, audio duration and metadata-source changes reject stale automatic BPM writes',async()=>{
+ for(const change of ['album title','duration','track source']){
+  const gate=deferred(),f=setup({resolve:()=>gate.promise});
+  await until(()=>f.resources.sourceCalls===1);
+  const record=f.state.releases[0],t=record.tracks[0];
+  if(change==='album title')record.title='New Album';
+  else if(change==='duration')t.duration='0:42';
+  else t.trackSource='locally-corrected';
+  gate.resolve(f.result);
+  await until(()=>!f.api.job.running);
+  assert.equal(f.resources.decodes,0,change+' changed while source was resolving');
+  assert.equal(t.bpm,null);
+  assert.equal(t.bpmStatus,undefined);
+  assert.equal(f.api.job.stale,1,change+' must be counted stale');
+ }
+});
