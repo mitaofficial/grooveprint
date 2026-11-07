@@ -6,3 +6,6 @@ node_modules/
 *.db
 *.db-shm
 *.db-wal
+local-audio/
+benchmark-audio/
+benchmark-reports/

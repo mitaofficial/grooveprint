@@ -4,6 +4,11 @@ on:
     branches: [ main, feature/zero-click-bpm-mvp ]
   pull_request:
     branches: [ main ]
+# Cancel obsolete PR runs, but do not cancel validations on the protected main branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+
 permissions:
   contents: read
 jobs:
@@ -14,9 +19,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npm test
-      - run: npm run test:syntax
-      - run: node --check src/auto-bpm.js
+      - run: npm run validate
+      - run: npm run benchmark:compare
 
   browser:
     needs: test
@@ -30,3 +34,35 @@ jobs:
       - run: npm install --no-save playwright@1.57.0
       - run: npx playwright install --with-deps chromium
       - run: node tests/browser-smoke.mjs
+
+  provider_probe:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/acoustic-live-probe.mjs
+
+  licensed_audio_pilot:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check FFmpeg availability
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+          ffmpeg -version | head -n 1
+      - name: Compare V1 and experimental V2 using CC BY 4.0 real techno loops
+        run: npm run benchmark:licensed-techno
+      - name: Explain benchmark scope
+        run: echo 'WaivOps EDM-TECH publisher BPM labels only. Not independently verified; repeated four-bar loops, not full tracks. Audio is not published as an artifact.'

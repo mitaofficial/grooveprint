@@ -1,7 +1,7 @@
 {
   "name": "grooveprint",
   "private": true,
-  "version": "2.0.0-alpha.1",
+  "version": "3.0.0-alpha.1",
   "type": "module",
   "engines": {
     "node": ">=22.13"
@@ -9,6 +9,16 @@
   "scripts": {
     "start": "node server/app.mjs",
     "test": "node --test tests/*.test.mjs",
-    "test:syntax": "node --check server/app.mjs && node --check server/bpm-match.mjs"
+    "test:syntax": "node --check server/app.mjs && node --check server/bpm-match.mjs && node --check server/bpm-open.mjs && node --check src/bpm-tempo.mjs && node --check src/bpm-library.js && node --check src/auto-bpm.js && node --check scripts/bpm-benchmark.mjs && node --check src/bpm-tempo-experiment.mjs && node --check scripts/bpm-browser-benchmark.mjs && node --check scripts/waivops-pilot.mjs && node --check scripts/tempo-manifest-init.mjs",
+    "benchmark:quick": "node scripts/bpm-benchmark.mjs --synthetic --quick",
+    "benchmark:synthetic": "node scripts/bpm-benchmark.mjs --synthetic",
+    "benchmark:real": "node scripts/bpm-benchmark.mjs --real --manifest .private/tempo-dataset/manifest.json --decoder ffmpeg",
+    "benchmark:compare": "node scripts/bpm-benchmark.mjs --synthetic --compare src/bpm-tempo-experiment.mjs --out .private/benchmarks/compare",
+    "benchmark:browser": "node scripts/bpm-browser-benchmark.mjs --manifest .private/tempo-dataset/manifest.json",
+    "benchmark:licensed-techno": "node scripts/waivops-pilot.mjs --limit 31",
+    "benchmark:licensed-techno:dry": "node scripts/waivops-pilot.mjs --dry-run --limit 12",
+    "benchmark:init-local": "node scripts/tempo-manifest-init.mjs",
+    "test:guard": "node scripts/repository-guard.mjs",
+    "validate": "npm run test:guard && npm test && npm run test:syntax && npm run benchmark:quick"
   }
 }

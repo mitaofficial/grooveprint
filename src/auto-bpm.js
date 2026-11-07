@@ -4,7 +4,7 @@
  */
 (function(){
 'use strict';
-const job={running:false,stopRequested:false,restartRequested:false,phase:'idle',
+const job={running:false,stopRequested:false,restartRequested:false,phase:'idle',openFound:0,
   done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'',controller:null};
 const limit=4;
 const lookupCache=new Map(); // In-memory only during this tab, never persistent provider-data storage
@@ -15,7 +15,7 @@ function collect(releases){
   for(let index=0;index<(record.tracks||[]).length;index++){
    const track=record.tracks[index];if(!missing(track)||!String(track.title||'').trim())continue;
    const artist=String(track.artist||record.artist||'').replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'').trim();
-   out.push({id:String(out.length),artist,title:String(track.title||'').trim(),record,index,track});
+   out.push({id:String(out.length),artist,title:String(track.title||'').trim(),recordingMbid:String(track.recordingMbid||''),record,index,track});
   }
  }
  return out;
@@ -36,7 +36,7 @@ function panel(){
  '<div class="gp-auto-stats"><span>'+st.tracks+' TRACCE</span><span>'+st.catalog+' CATALOG BPM</span><span>'+st.review+' DA VERIFICARE</span><span>'+st.missing+' SENZA BPM</span></div>'+
  (job.running?'<div class="syncprogress"><span style="width:'+pct+'%"></span></div><p class="footnote">'+job.done+' / '+job.total+' brani</p><button class="small quiet" data-gp-auto-stop="1">INTERROMPI</button>':'')+
  '<p class="footnote">'+esc(job.message||'Dopo l’importazione, le tracklist vengono recuperate e i BPM cercati automaticamente dove possibile. Non serve caricare MP3 per ogni traccia.')+'</p>'+
- '<p class="footnote"><a href="https://getsongbpm.com/" target="_blank" rel="noopener noreferrer">GetSongBPM</a> · nessuna estrazione audio da YouTube · il processo richiede la scheda aperta.</p></section>';
+ '<p class="footnote"><a href="https://acousticbrainz.org/" target="_blank" rel="noopener noreferrer">AcousticBrainz (CC0)</a> per recording MBID verificato · <a href="https://getsongbpm.com/" target="_blank" rel="noopener noreferrer">GetSongBPM</a> opzionale · nessuna estrazione YouTube.</p></section>';
 }
 let queuedRefresh=false;
 function refresh(){
@@ -50,7 +50,7 @@ document.addEventListener('focusout',()=>{if(queuedRefresh)setTimeout(refresh,0)
 function stop(){job.stopRequested=true;job.controller?.abort();job.message='Interruzione richiesta; i BPM già trovati rimangono.';renderApp()}
 async function run({fetchTracklists=true}={}){
  if(job.running){job.restartRequested=true;return;}
- lookupCache.clear();Object.assign(job,{running:true,stopRequested:false,phase:'tracklists',done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'Sincronizzo le tracklist…'});
+ lookupCache.clear();Object.assign(job,{running:true,stopRequested:false,phase:'tracklists',openFound:0,done:0,total:0,catalog:0,review:0,unavailable:0,errors:0,message:'Sincronizzo le tracklist…'});
  refresh();
  try{
   if(fetchTracklists&&!discogsSync.running&&state.releases.some(r=>!r.tracks?.length&&/^[1-9]\d*$/.test(String(r.releaseId||'')))){
@@ -59,17 +59,45 @@ async function run({fetchTracklists=true}={}){
   if(job.stopRequested){job.phase='interrupted';return;}
   const tasks=collect(state.releases);job.total=tasks.length;
   if(!tasks.length){job.phase='complete';job.message='Nessun BPM mancante nelle tracklist disponibili.';return;}
+  // Source A: CC0 AcousticBrainz, only when we have an exact recording MBID.
+  // MusicBrainz public API title-search is deliberately not invoked; its free tier
+  // has separate non-commercial restrictions and cannot be assumed SaaS-ready.
+  const archived=tasks.filter(t=>/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(t.recordingMbid));
+  if(archived.length){
+   job.phase='open-data';job.message='AcousticBrainz: recupero BPM CC0 con recording MBID…';refresh();
+   for(let at=0;at<archived.length;at+=6){
+    if(job.stopRequested){job.phase='interrupted';break}
+    const items=archived.slice(at,at+6);
+    try{
+     const data=await gpRequest('/api/bpm/open/batch',{method:'POST',body:JSON.stringify({tracks:items.map(x=>({id:x.id,recordingMbid:x.recordingMbid}))})});
+     const lookup=new Map((data.results||[]).map(x=>[String(x.id),x]));
+     for(const t of items){
+      const x=lookup.get(t.id);
+      if(!x||x.status!=='catalog'||!Number.isFinite(Number(x.bpm))||Number(x.bpm)<40||Number(x.bpm)>300)continue;
+      if(!state.releases.includes(t.record)||t.record.tracks[t.index]!==t.track||
+         !(t.track.bpm===null||t.track.bpm===undefined||t.track.bpm===''))continue;
+      t.track.bpm=Number(x.bpm);t.track.source='AcousticBrainz';t.track.bpmStatus='catalog';
+      t.track.bpmReferenceUrl=String(x.referenceUrl||'');t.track.bpmReason='archived-algorithm-estimate';
+      t.track.bpmCheckedAt=new Date().toISOString();
+      job.openFound++;job.catalog++;
+     }
+    }catch{job.errors++}
+    storeLater();refresh();
+   }
+  }
+  if(job.stopRequested)return;
   let enabled=typeof gpBpmProviderReady!=='undefined'?gpBpmProviderReady:null;
   if(enabled===null){
    try{enabled=Boolean((await gpRequest('/api/bpm/status')).configured);gpBpmProviderReady=enabled}
    catch{enabled=false;gpBpmProviderReady=false}
   }
-  if(!enabled){job.phase='disabled';job.message='Tracklist disponibili. BPM online non disponibili: la chiave GetSongBPM non è configurata. I dati esistenti non vengono alterati.';return;}
+  if(!enabled){job.phase=job.openFound?'complete':'disabled';job.message=job.openFound+' BPM dall’archivio CC0 AcousticBrainz. GetSongBPM non configurato. '+(archived.length?'Ricerche per MBID processate: '+archived.length+'.':'Senza recording MBID, i soli metadati Discogs non bastano per interrogare AcousticBrainz.')+' La libreria audio locale può essere analizzata con CONNECT AUDIO LIBRARY.';return;}
   if(!discogsConnect.connected){job.phase='disabled';job.message='Per la ricerca BPM tramite backend, collega prima Discogs. CSV, editor e stampa rimangono disponibili.';return;}
-  job.phase='catalog';job.message='Ricerca automatica di BPM per ogni traccia…';refresh();
+  job.phase='catalog';job.message='Ricerca automatica dei BPM mancanti su GetSongBPM…';refresh();
   for(let at=0;at<tasks.length;at+=limit){
    if(job.stopRequested){job.phase='interrupted';break;}
-   const batch=tasks.slice(at,at+limit);
+   const batch=tasks.slice(at,at+limit).filter(t=>t.track.bpm===null||t.track.bpm===undefined||t.track.bpm==='');
+   if(!batch.length){job.done+=Math.min(limit,tasks.length-at);continue}
    const controller=new AbortController();job.controller=controller;
    try{
     const fetched=new Set(),unique=[];

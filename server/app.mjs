@@ -6,6 +6,7 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {oauthAuthorization,parseTokenBody} from './oauth.mjs';
 import {SessionStore} from './store.mjs';
 import {resolveEvidence} from './bpm-match.mjs';
+import {validRecordingMbid,lookupAcousticBrainz} from './bpm-open.mjs';
 
 const folder=dirname(fileURLToPath(import.meta.url));
 const origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:4173';
@@ -13,7 +14,7 @@ const publicOrigin=new URL(origin).origin;
 const configured=Boolean(process.env.DISCOGS_CONSUMER_KEY && process.env.DISCOGS_CONSUMER_SECRET);
 const consumerKey=process.env.DISCOGS_CONSUMER_KEY || '';
 const consumerSecret=process.env.DISCOGS_CONSUMER_SECRET || '';
-const ua=process.env.DISCOGS_USER_AGENT || 'GROOVEPRINT/2.0-alpha';
+const ua=process.env.DISCOGS_USER_AGENT || 'GROOVEPRINT/3.0-alpha';
 const getSongKey=process.env.GETSONGBPM_API_KEY||'';
 const keyHex=process.env.SESSION_ENCRYPTION_KEY || '';
 if(process.env.NODE_ENV==='production' && !origin.startsWith('https://'))throw Error('PUBLIC_ORIGIN must be HTTPS in production');
@@ -28,6 +29,11 @@ function cookies(raw=''){const o={};for(const p of raw.split(';')){const at=p.in
 function same(a,b){const x=Buffer.from(String(a||'')),y=Buffer.from(String(b||''));return x.length===y.length&&timingSafeEqual(x,y);}
 function throttle(id){let now=Date.now(),prior=(counters.get(id)||[]).filter(t=>now-t<60000);if(prior.length>=45)throw httpError(429,'Too many requests');prior.push(now);counters.set(id,prior);if(counters.size>500)for(const [k,v] of counters)if(v[v.length-1]<now-60000)counters.delete(k);}
 async function body(req){let data='',n=0;for await(const b of req){n+=b.length;if(n>8192)throw httpError(413,'Request too large');data+=b.toString();}try{return JSON.parse(data||'{}')}catch{throw httpError(400,'Invalid JSON')}}
+let acousticSequence=Promise.resolve();
+async function limitedArchiveLookup(mbid){
+ const task=async()=>{await new Promise(resolve=>setTimeout(resolve,1100));return lookupAcousticBrainz(mbid,{timeoutMs:7000})};
+ const next=acousticSequence.then(task,task);acousticSequence=next.catch(()=>{});return next;
+}
 let sequence=Promise.resolve(),pauseUntil=0,lastRequest=0;
 async function gatedFetch(url,options){const run=async()=>{const wait=Math.max(0,pauseUntil-Date.now(),lastRequest+350-Date.now());if(wait)await new Promise(r=>setTimeout(r,wait));lastRequest=Date.now();const ctrl=new AbortController();const timer=setTimeout(()=>ctrl.abort(),15000);try{const r=await fetch(url,{...options,signal:ctrl.signal});if(r.status===429){const secs=Number(r.headers.get('retry-after'));pauseUntil=Date.now()+(Number.isFinite(secs)&&secs>0?Math.min(secs*1000,60000):6000);}return r;}finally{clearTimeout(timer);}};const p=sequence.then(run,run);sequence=p.catch(()=>{});return p;}
 async function discogs(path,{method='GET',pair,callback,verifier}={}){const url='https://api.discogs.com'+path;const token=pair?.token,tokenSecret=pair?.secret||'';let last;for(let attempt=0;attempt<3;attempt++){let response;try{response=await gatedFetch(url,{method,headers:{Authorization:oauthAuthorization({method,url,consumerKey,consumerSecret,token,tokenSecret,callback,verifier}),Accept:'application/vnd.discogs.v2.discogs+json','User-Agent':ua}});}catch(e){last=e;if(attempt===2)throw httpError(502,'Discogs network error');await new Promise(r=>setTimeout(r,(attempt+1)*700));continue;}
@@ -90,8 +96,13 @@ function sanitRelease(data){
 const server=http.createServer(async(req,res)=>{res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Permissions-Policy','camera=(),microphone=(),geolocation=()');try{const path=new URL(req.url||'/',publicOrigin).pathname;
 if(req.method==='GET'&&(path==='/'||path==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.discogs.com https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'"});res.end(await readFile(join(folder,'../index.html')));return;}
 if(req.method==='GET'&&path==='/credits'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'});res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="index,follow"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GROOVEPRINT — Credits</title><style>body{background:#111;color:#eee;font:16px/1.6 system-ui,sans-serif;max-width:700px;margin:50px auto;padding:0 24px}a{color:#c5d36a}</style></head><body><h1>GROOVEPRINT — Credits</h1><p>GROOVEPRINT is an independent record collection and printable label app.</p><p>For BPM catalog lookups (when configured), we credit and link to <a href="https://getsongbpm.com/">GetSongBPM.com</a>.</p><p>Record catalog information is provided by <a href="https://www.discogs.com/">Discogs</a> and is subject to their API terms. GROOVEPRINT is not affiliated with either service.</p><p><a href="/">Back to GROOVEPRINT</a></p></body></html>');return;}
+if(req.method==='GET'&&(path==='/assets/bpm-tempo.mjs'||path==='/assets/bpm-library.js')){
+ const target=path.endsWith('.mjs')?'bpm-tempo.mjs':'bpm-library.js';
+ res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
+ res.end(await readFile(join(folder,'../src',target)));return;
+}
 if(req.method==='GET'&&path==='/assets/auto-bpm.js'){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});res.end(await readFile(join(folder,'../src/auto-bpm.js')));return;}
-if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'2.0.0-alpha.1'});
+if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1'});
 if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')){res.writeHead(404);res.end('Not Found');return;}
 if(!['GET','POST'].includes(req.method))return send(res,405,{error:'Method not allowed'});
 if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wrong origin');
@@ -99,8 +110,32 @@ let sess=store.get(cookies(req.headers.cookie).gp_session);if(!sess){const newSe
 const csrf=()=>{if(!same(req.headers['x-grooveprint-csrf'],sess.csrf))throw httpError(403,'Invalid CSRF token');};
 const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not connected to Discogs');};
 if(path==='/api/discogs/status'&&req.method==='GET')return send(res,200,{configured,connected:!!sess.credentials,username:sess.username||null,csrf:sess.csrf,policy:sitePolicy,bpmProviderConfigured:Boolean(getSongKey)});
-if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{configured:Boolean(getSongKey),provider:'GetSongBPM',source:'https://getsongbpm.com/'});
+if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{
+ configured:Boolean(getSongKey),provider:'GetSongBPM',source:'https://getsongbpm.com/',
+ providers:{getsongbpm:{configured:Boolean(getSongKey),requiresKey:true},
+ acousticbrainz:{configured:true,requiresKey:false,requiresRecordingMbid:true,coverage:'archived-2015-2022',liveAvailability:'not-guaranteed'}},
+ musicbrainz:{configured:false,reason:'commercial-api-permission-not-configured'}
+});
 if(path==='/api/bpm/lookup'&&req.method==='GET'){auth();throttle('bpm:'+sess.dbid);const query=new URL(req.url,publicOrigin).searchParams;const artist=String(query.get('artist')||'').trim(),title=String(query.get('title')||'').trim();if(!artist||!title||artist.length>160||title.length>160)throw httpError(400,'Artist and title are required, max 160 chars each');return send(res,200,await getSongBpmLookup(artist,title));}
+if(path==='/api/bpm/open/batch'&&req.method==='POST'){
+ csrf();throttle('bpm-open-session:'+sess.dbid);throttle('bpm-open-global');
+ const request=await body(req);
+ if(!Array.isArray(request.tracks)||request.tracks.length<1||request.tracks.length>8)
+  throw httpError(400,'Provide 1 to 8 tracks');
+ const tracks=request.tracks.map((v,i)=>{
+  if(!v||typeof v!=='object')throw httpError(400,'Track object required');
+  const id=String(v.id??i).slice(0,64),mbid=validRecordingMbid(v.recordingMbid);
+  return {id,mbid};
+ });
+ const cache=new Map(),results=[];
+ for(const item of tracks){
+  if(!item.mbid){results.push({id:item.id,status:'unavailable',bpm:null,reason:'recording-mbid-required',source:'AcousticBrainz'});continue}
+  if(!cache.has(item.mbid))cache.set(item.mbid,await limitedArchiveLookup(item.mbid));
+  results.push({id:item.id,...cache.get(item.mbid)});
+ }
+ return send(res,200,{provider:'AcousticBrainz',sourceLicense:'CC0',results,
+ note:'Archive lookup requires an exact MusicBrainz recording MBID; no title search or fabricated IDs'});
+}
 if(path==='/api/bpm/batch'&&req.method==='POST'){
  csrf();auth();throttle('bpm-batch:'+sess.dbid);
  const payload=await body(req);
