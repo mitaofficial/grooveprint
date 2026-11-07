@@ -101,7 +101,7 @@ function stats(rows){
   unflaggedOctavePct:rate(accepted.filter(octave).length,accepted.length),
   catastrophicPct:rate(predicted.filter(r=>Math.abs(r.bpm-r.groundTruthBpm)>5&&!octave(r)).length,predicted.length),
   unflaggedOver5N:errorsUnaccepted.length,
-  mae:mean(errors),medianAe:median(errors),meanProcessingMs:mean(rows.map(r=>r.processingMs)),
+  mae:mean(errors),medianAe:median(errors),meanProcessingMs:mean(rows.map(r=>r.processingMs)),meanSampledRssMb:mean(rows.filter(r=>Number.isFinite(r.sampledRssMb)).map(r=>r.sampledRssMb)),
   unavailableN:rows.filter(r=>r.status==='unavailable').length,
   decodeFailuresN:rows.filter(r=>r.status==='decode-error').length};
 }
@@ -168,10 +168,11 @@ function analyze(id,category,groundTruthBpm,groundTruthStatus,buffer,detector,en
  const start=performance.now();
  const output=detector(buffer);
  const elapsed=performance.now()-start;
+ const sampledRssMb=Number((process.memoryUsage().rss/1048576).toFixed(2));
  const candidates=Array.isArray(output.bpmCandidates)?output.bpmCandidates.map(c=>Number(c.bpm)).filter(Number.isFinite):[];
  return {id,category,groundTruthBpm,groundTruthStatus,engine,status:output.status||'unavailable',
   bpm:Number.isFinite(output.bpm)?output.bpm:null,requiresReview:output.requiresReview===true,
-  reason:String(output.reason||''),candidateBpm:candidates,candidateScores:Array.isArray(output.bpmCandidates)?output.bpmCandidates.slice(0,8).map(x=>Number(x.relative)||0):[],processingMs:Number(elapsed.toFixed(3))};
+  reason:String(output.reason||''),candidateBpm:candidates,candidateScores:Array.isArray(output.bpmCandidates)?output.bpmCandidates.slice(0,8).map(x=>Number(x.relative)||0):[],processingMs:Number(elapsed.toFixed(3)),sampledRssMb};
 }
 let inputs=[],realAvailability='NOT TESTED';
 if(mode==='synthetic'){
@@ -222,10 +223,11 @@ const report={schemaVersion:1,mode,realAudioValidation:realAvailability,algorith
  data:grouped,notes:['First candidate and auto-accepted accuracy are scored separately.',
   'A non-null score is not a calibrated confidence value.',
   'A synthetic PASS never establishes musical accuracy on released recordings.',
+  'Sampled process RSS is not peak heap usage, and timing varies with CI hardware.',
   'No music or audio bytes are included in report output.']};
 await mkdir(out,{recursive:true});
 await writeFile(resolve(out,'summary.json'),JSON.stringify(report,null,2)+'\n');
-const fields=['id','category','groundTruthStatus','groundTruthBpm','engine','status','bpm','requiresReview','reason','candidateBpm','processingMs'];
+const fields=['id','category','groundTruthStatus','groundTruthBpm','engine','status','bpm','requiresReview','reason','candidateBpm','processingMs','sampledRssMb'];
 const csvCell=v=>{let s=Array.isArray(v)?v.join(';'):v==null?'':String(v);return '"'+s.replaceAll('"','""')+'"'};
 await writeFile(resolve(out,'results.csv'),fields.join(',')+'\n'+results.map(r=>fields.map(k=>csvCell(r[k])).join(',')).join('\n')+'\n');
 const markdown=['# GROOVEPRINT BPM benchmark','', 'Dataset: '+mode,'Real recording validation: '+realAvailability,
