@@ -1,4 +1,77 @@
-# GROOVEPRINT — current checkpoint: product audit and usable trial
+# GROOVEPRINT — current checkpoint: internal BPM and downloadable trial
+
+7 November 2026. This section supersedes earlier next-action instructions to
+restart a general audit or leave V2 benchmark-only in all environments. The
+focused BPM attachment was read in full. Base:
+`aeb0b7854f44a05c1def9e1afe2227bc4e29555e`, clean branch
+`feature/bpm-intelligence-3-open-data`, PR #3 open/draft. Protected main:
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. No merge, deploy, secrets or
+Railway mutation. Ordinary feature-branch commits/push and PR update authorized.
+
+## Current result
+
+- Public root HTML was read anonymously: HTTP 200, SHA-256
+  `29a1f42f672c6a63a038c8c1c0dcb352da767a7dc47dbf6c97f636667807c4db`.
+  It is byte-identical to the known protected main index, contains GetSongBPM
+  footer branding and lacks the internal-engine asset. This proves the old
+  frontend is served; it does not establish backend SHA, actual provider
+  requests or a cache cause.
+- Fixed the first reproducible BPM gap: FILE previously linked playback but
+  referred to an absent analysis command. A visible single-track action now
+  joins the same owned queue/decoder/worker as CONNECT AUDIO LIBRARY.
+- Bind the chosen file to record/track/identity; reorder, removal and identity
+  changes cannot apply it to another track with the same numeric index.
+- Default original V1 unchanged. New shared result/PCM adapter preserves the DSP.
+  Explicit local V1/V2 comparison runs both real algorithms on separate copies;
+  comparison candidates require choice and do not overwrite the previous BPM.
+- Development server alone serves experimental modules. Production denies both
+  even with a compare query parameter. The downloadable standalone HTML embeds
+  the real workers and permits opt-in only for its local-file mode.
+- Keep manual/verified/clear revision barriers, Stop, late-result rejection,
+  library version matching, original Mix Lab grid, historical source evidence
+  and project/PDF semantics. Persist chosen algorithm/analysis duration, never PCM.
+
+## Trial and evidence
+
+`npm run preview:local` builds the standalone app. The final user deliverable
+is `GROOVEPRINT_BPM_LOCALE.zip`, containing HTML and Italian instructions.
+Download, extract and open the HTML on the user's PC; this does not depend on
+the unavailable ChatGPT remote-browser connection. It is not a hosted Railway
+preview, needs no Node to open, and has no live OAuth backend.
+
+Read `docs/BPM-INTEGRATION.md` for the actual path map and public-version
+diagnosis, `docs/BPM-LOCAL-TRIAL.md` for user steps, and
+`docs/evidence/bpm-integration-2026-11-07.json` for sanitized evidence.
+Raw logs are ignored under `.private/checkpoints/bpm-integration/`.
+
+Offline suite: 69/69 plus syntax/repository/privacy guards and synthetic smoke.
+Local Firefox 144 desktop and 390x844 touch flows passed, including real
+file-URL Blob workers, manual 145 preservation, V2 choice, explicit confirmation,
+JSON roundtrip and PDF, with zero HTTP requests and zero owned contexts/workers.
+One generated waveform proves integration only. The final PR workflow must pass
+all six Chromium/Firefox/WebKit desktop/mobile jobs and Node on the final head;
+CI #93 at the base is historical and does not certify this change.
+
+Both DSP source files are byte-identical to the base. Full synthetic comparison
+before/after: all non-timing metrics unchanged, 168 rhythmic cases plus one
+negative; V1 76/168 and V2 158/168 top-1 within ±1. These are inspected development
+cases, not musical generalization. Existing 31 publisher-labelled repeated loops
+are also development material and all require review.
+
+## Next authorized step
+
+Complete final-head CI and deliver the downloadable local ZIP with a working
+link. Then use an authorized full-recording corpus with independent beat-grid
+references and grouped holdout to evaluate musical errors. No algorithm promotion
+or production readiness follows from these integration tests. Native decode
+memory, physical print scale, real OAuth and physical-device endurance remain
+unverified. Preserve main and Railway.
+
+---
+
+## Previous product-audit checkpoint (historical)
+
+# GROOVEPRINT — product audit and usable trial
 
 7 November 2026. This section supersedes earlier next-action instructions about
 restarting the general audit. The attached product-trial mandate was read in

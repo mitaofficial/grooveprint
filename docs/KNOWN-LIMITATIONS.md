@@ -1,6 +1,8 @@
 # Remaining limits — 7 November 2026
 
-1. BPM V2 remains benchmark-only. All 31 repeated publisher-labelled pilot loops
+1. BPM V2 is available only as explicit development/standalone local comparison;
+   V1 remains default and production does not serve V2. See BPM-INTEGRATION.md.
+   All 31 repeated publisher-labelled pilot loops
    still require review; independent full-track accuracy and useful commercial
    automatic coverage are not established. See WORK-CHECKPOINT.md and evidence/.
 2. Discogs CSV provides metadata, not signal or an implied tempo. The retired

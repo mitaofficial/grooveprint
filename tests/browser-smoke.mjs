@@ -3,6 +3,7 @@ import {spawn,execFileSync} from 'node:child_process';
 import {mkdtemp,rm,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
+import {pathToFileURL} from 'node:url';
 import {createServer} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
 import {chromium,firefox,webkit} from 'playwright';
@@ -469,6 +470,44 @@ try{
   assert.deepEqual(guestBpmCalls,[]);
   console.log('BROWSER GUEST JOURNEY',JSON.stringify({...sample,keyboardOpen:true,identifierAttributesSafe:true,guideAndBackupReachable:true,manualBpm:141,pdfPages:2,pdfBytes:pdfBytes.length,jsonRoundtrip:true,reloadRestored:true,bpmApiRequests:0}));
  }finally{await guest.close()}
+ // The deliverable must work as a downloaded file, with real classic Blob workers.
+ const portablePath=join(temp,'GROOVEPRINT-BPM.html');
+ execFileSync(process.execPath,['scripts/build-local-preview.mjs','--out',portablePath]);
+ const offline=await browser.newPage(process.env.GROOVEPRINT_MOBILE==='1'?{viewport:{width:390,height:844},hasTouch:true}:{});
+ const offlineHttp=[],offlineErrors=[];
+ offline.on('request',r=>{if(/^https?:/.test(r.url()))offlineHttp.push(r.url())});offline.on('pageerror',e=>offlineErrors.push(e.message));
+ try{
+  await offline.goto(pathToFileURL(portablePath).href);await offline.waitForFunction(()=>restoreReady&&window.GrooveprintAudioLibrary);
+  assert.equal(await offline.locator('[data-gp-engine]').inputValue(),'v1','local experiment is opt-in');
+  const project={app:'GROOVEPRINT',releases:[{id:'portable',artist:'Synthetic DJ',title:'Local tempo test',tracks:[{position:'A1',title:'Target recording',bpm:145,bpmStatus:'manual',source:'manual'}]}],selected:['portable'],active:'portable'};
+  await offline.locator('#fileChooser').setInputFiles({name:'local-test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
+  await offline.waitForFunction(()=>state.releases[0]?.id==='portable');
+  await offline.locator('[data-gp-engine]').selectOption('compare');
+  await offline.locator('[data-audio-file="0"]').click();
+  const generated=Buffer.from(await page.evaluate(()=>Array.from(new Uint8Array(window.gpTestAudioBytes))));
+  await offline.locator('#previewAudioFile').setInputFiles({name:'Explicit selection, not a filename match.wav',mimeType:'audio/wav',buffer:generated});
+  await offline.waitForFunction(()=>!document.querySelector('[data-gp-track-analyze="0"]').disabled);
+  offline.once('dialog',d=>d.accept());await offline.locator('[data-gp-track-analyze="0"]').click();
+  await offline.waitForFunction(()=>!window.GrooveprintAudioLibrary.job.running&&state.releases[0].tracks[0].bpmComparisonCandidates?.length);
+  const compared=await offline.evaluate(()=>{const t=state.releases[0].tracks[0];return {bpm:t.bpm,status:t.bpmStatus,source:t.source,algorithms:t.bpmComparisons.map(x=>x.algorithm),resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers}}});
+  assert.equal(compared.bpm,145);assert.equal(compared.status,'manual');assert.equal(compared.source,'manual');
+  assert.deepEqual(compared.algorithms,['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental']);assert.deepEqual(compared.resources,{contexts:0,workers:0});
+  const candidate=offline.locator('.gp-bpm-lookup-choice').filter({hasText:'grooveprint-onset-acf-v2-experimental'}).first();
+  offline.once('dialog',d=>d.accept());await candidate.locator('button').click();
+  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='estimated');
+  assert.equal(await offline.evaluate(()=>state.releases[0].tracks[0].bpmAlgorithm),'grooveprint-onset-acf-v2-experimental');
+  offline.once('dialog',d=>d.accept('138'));await offline.locator('[data-bpm-confirm]').first().click();
+  const savedPromise=offline.waitForEvent('download');await offline.getByRole('button',{name:'SAVE PROJECT',exact:true}).click();
+  const saved=JSON.parse(await readFile(await(await savedPromise).path(),'utf8'));
+  assert.ok(saved.releases[0].tracks[0].bpmAnalysisSeconds>20);assert.equal(saved.releases[0].tracks[0].bpmAlgorithm,'grooveprint-onset-acf-v2-experimental');assert.equal(saved.releases[0].tracks[0].bpmStatus,'verified');
+  await offline.locator('#fileChooser').setInputFiles({name:'roundtrip.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});
+  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmAlgorithm==='grooveprint-onset-acf-v2-experimental'&&state.releases[0].tracks[0].bpm===138);
+  await offline.locator('[data-act="step-3"]').click();
+  const exportPromise=offline.waitForEvent('download');await offline.locator('[data-act="pdf"]').click();
+  const pdf=await readFile(await(await exportPromise).path());assert.ok(pdf.toString('latin1').startsWith('%PDF-'));
+  assert.deepEqual(offlineHttp,[],'the local-file BPM journey must make no HTTP requests');assert.deepEqual(offlineErrors,[]);
+  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,selectedEnginePersisted:true,explicitConfirmation:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
+ }finally{await offline.close()}
  // Import historic external evidence without dropping, relabelling or re-querying it.
  const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
   {position:'A1',title:'Stored catalog',bpm:138,bpmStatus:'catalog',source:'GetSongBPM',bpmReferenceUrl:'https://getsongbpm.com/song/saved/X'},

@@ -10,7 +10,7 @@ function fixture(n=1,options={}){
  const releases=[{id:'r',artist:'DJ',tracks:Array.from({length:n},(_,i)=>({position:'A'+(i+1),title:'Tool '+i,bpm:null}))}];
  const files=releases[0].tracks.map(t=>({name:'DJ - '+t.title+'.wav',size:128,arrayBuffer:async()=>new ArrayBuffer(128)}));
  const resources={contexts:0,workers:0,maxContexts:0,maxWorkers:0,decodes:0,posts:0,saves:0,fullRenders:0};
- const workers=[];
+ const workers=[],events={};
  class Context{
   constructor(){resources.contexts++;resources.maxContexts=Math.max(resources.maxContexts,resources.contexts)}
   async decodeAudioData(bytes){resources.decodes++;return options.decode?options.decode(bytes):audio()}
@@ -21,10 +21,10 @@ function fixture(n=1,options={}){
   postMessage(data){resources.posts++;if(options.post)return options.post(this,data);queueMicrotask(()=>this.onmessage?.({data:{id:data.id,result:{status:'estimated',bpm:138,requiresReview:false,bpmCandidates:[{bpm:138,relative:1}]}}}))}
   terminate(){if(!this.terminated){this.terminated=true;resources.workers--}}
  }
- const state={releases},context={window:{AudioContext:Context,Worker},document:{addEventListener(){},querySelector:()=>({set outerHTML(x){}})},
-  state,esc:String,renderApp(){resources.fullRenders++},storeLater(){resources.saves++},setTimeout:(f,ms)=>setTimeout(f,ms===0?0:ms),clearTimeout};
+ const state={releases},context={window:{AudioContext:Context,Worker,GrooveprintBPMDevelopment:options.development===true},document:{addEventListener:(name,fn)=>events[name]=fn,querySelector:()=>({set outerHTML(x){}})},
+  state,esc:String,gpLocalAudioEntry:(r,t,i)=>{const entry=context.localAudioFiles.get(r.id+':'+i);return entry?.track===t?entry:null},localAudioFiles:new Map(),confirm:()=>true,toast(){},renderApp(){resources.fullRenders++},storeLater(){resources.saves++},setTimeout:(f,ms)=>setTimeout(f,ms===0?0:ms),clearTimeout};
  vm.runInNewContext(source('bpm-evidence.js'),context);vm.runInNewContext(source('bpm-library.js'),context);
- return {api:context.window.GrooveprintAudioLibrary,evidence:context.window.GrooveprintBPMEvidence,state,releases,files,resources,workers};
+ return {api:context.window.GrooveprintAudioLibrary,evidence:context.window.GrooveprintBPMEvidence,state,releases,files,resources,workers,context,events};
 }
 function invariant(job){assert.equal(job.total,job.pending+job.active+job.completed+job.skipped+job.errors+job.cancelled);assert.equal(job.processed,job.completed+job.skipped+job.errors)}
 test('stop during decode holds the resource lock, rejects duplicate starts and discards late output',async()=>{
@@ -87,4 +87,21 @@ test('matching preserves numeric and non-ASCII titles, edits and duplicate recor
  assert.equal(f.api.matchFile({name:'M.I.T.A. (2) - 日本の音.flac'},tracks).index,1);
  assert.equal(f.api.matchFile({name:'M.I.T.A. - Agua 02.wav'},tracks).status,'unmatched');
  assert.equal(f.api.matchFile({name:'M.I.T.A. - Agua 02 (Extended Mix).wav'},f.api.trackList([r,{...r,id:'copy',tracks:structuredClone(r.tracks)}])).status,'ambiguous');
+});
+
+test('single-track comparison shares the owned queue, preserves manual data and records only real diagnostics',async()=>{
+ const f=fixture(1,{development:true,post(worker,data){queueMicrotask(()=>worker.onmessage?.({data:{id:data.id,result:{status:'estimated',bpm:138,requiresReview:true,bpmCandidates:[{bpm:138,relative:1,algorithm:'v2'}],comparisons:[{algorithm:'v1',bpm:140},{algorithm:'v2',bpm:138}]}}}))}});
+ const r=f.releases[0],t=r.tracks[0];Object.assign(t,{bpm:145,bpmStatus:'manual',source:'manual'});
+ f.context.localAudioFiles.set('r:0',{track:t,file:{...f.files[0],name:'Explicitly selected different filename.wav'}});
+ f.events.change({target:{matches:()=>true,value:'compare'}});
+ await f.api.analyzeTrack('r',0);
+ assert.equal(t.bpm,145);assert.equal(t.bpmStatus,'manual');assert.equal(t.source,'manual');
+ assert.equal(t.bpmComparisonCandidates[0].algorithm,'v2');assert.equal(t.bpmComparisons.length,2);
+ assert.equal(f.api.job.review,1);assert.equal(f.resources.maxWorkers,1);assert.equal(f.resources.contexts,0);invariant(f.api.job);
+ f.evidence.userEdit(t);assert.equal(t.bpmComparisonCandidates,undefined,'manual edits invalidate pending choices');
+});
+
+test('a single-file association cannot move to another track after removal/reordering',async()=>{
+ const f=fixture(2),r=f.releases[0];f.context.localAudioFiles.set('r:0',{track:r.tracks[0],file:f.files[0]});
+ r.tracks.shift();await f.api.analyzeTrack('r',0);assert.equal(f.resources.decodes,0);assert.equal(r.tracks[0].bpm,null);
 });

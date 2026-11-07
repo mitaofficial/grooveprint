@@ -12,7 +12,7 @@ function canApply(ticket,releases,{replaceExisting=false}={}){
  if(!fields.every((k,i)=>Object.is(track[k],ticket.values[i])))return false;
  return replaceExisting||(!protectedValue(track)&&missing(track));
 }
-function userEdit(track){track.bpmRevision=(Number.isSafeInteger(track.bpmRevision)?track.bpmRevision:0)+1;track.bpmUserEdited=true;}
+function userEdit(track){delete track.bpmComparisonCandidates;track.bpmRevision=(Number.isSafeInteger(track.bpmRevision)?track.bpmRevision:0)+1;track.bpmUserEdited=true;}
 function refreshFields(){
  if(typeof state==='undefined')return;
  const record=state.releases.find(r=>r.id===state.active);if(!record)return;

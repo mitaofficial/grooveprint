@@ -6,7 +6,7 @@ const MAX_FILES=1500,MAX_FILE_BYTES=160*1024*1024,MAX_PCM_BYTES=128*1024*1024,AN
 const job={running:false,generation:0,total:0,processed:0,pending:0,active:0,completed:0,skipped:0,cancelled:0,
  matched:0,estimated:0,review:0,unavailable:0,errors:0,unmatched:0,ambiguous:0,alreadyBpm:0,stale:0,
  found:0,unsupported:0,empty:0,oversize:0,beyondLimit:0,contexts:0,workers:0,maxDecodedBytesObserved:0,phase:'idle',message:''};
-let input=null,current=null;
+let input=null,current=null,mode='v1';
 const norm=v=>String(v||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').toLowerCase().trim().replace(/\s+/g,' ');
 const artistName=v=>String(v||'').replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'');
 function trackList(releases){
@@ -40,17 +40,19 @@ function planFiles(files){
  }
  return plan;
 }
-function localReviews(){return trackList(state.releases).filter(item=>item.track.bpmStatus==='review'&&['local-dsp','audio-estimate'].includes(item.track.source))}
+function localReviews(){return trackList(state.releases).filter(item=>(item.track.bpmComparisonCandidates?.length||item.track.bpmStatus==='review'&&['local-dsp','audio-estimate'].includes(item.track.source)))}
 function openReview(){const first=localReviews()[0];if(first){state.active=first.record.id;state.step=1;if(typeof renderApp==='function')renderApp()}}
 function panel(){
  const label=job.running?(job.phase==='cancelling'?'INTERRUZIONE IN CORSO':'ANALISI LOCALE'):job.phase==='complete'?'SCANSIONE COMPLETATA':job.phase==='cancelled'?'SCANSIONE INTERROTTA':'LIBRERIA AUDIO LOCALE';
  return '<section class="gp-local-audio" role="status" style="margin:12px 0;border-top:1px solid #465239;padding-top:12px">'+
  '<div class="flex between" style="flex-wrap:wrap;gap:8px"><div><b>GROOVEPRINT BPM Engine · sperimentale</b><div class="footnote">'+esc(label)+'</div></div><div class="flex">'+
+ (window.GrooveprintBPMDevelopment===true?'<label>Confronto locale <select data-gp-engine aria-label="Motore BPM locale" '+(job.running?'disabled':'')+'><option value="v1" '+(mode==='v1'?'selected':'')+'>V1 originale</option><option value="compare" '+(mode==='compare'?'selected':'')+'>V1 / V2 sperimentale · scelta manuale</option></select></label>':'')+
  '<button type="button" class="small quiet" data-gp-library-pick="1" '+(job.running?'disabled':'')+'>♫ CONNECT AUDIO LIBRARY</button>'+
  (localReviews().length?'<button type="button" class="small quiet" data-gp-library-review="1">VEDI CANDIDATI</button>':'')+
  (job.running?'<button type="button" class="small quiet" data-gp-library-stop="1" '+(job.phase==='cancelling'?'disabled':'')+'>INTERROMPI AUDIO</button>':'')+'</div></div>'+
  '<p class="footnote">Cartella audio locale: abbinamento esatto di artista e versione, stime sul dispositivo. Nessun audio viene caricato. Usa soltanto file autorizzati; mantieni aperta la scheda.</p>'+
  (job.phase!=='idle'?'<p class="footnote">'+job.processed+'/'+job.total+' elaborati · '+job.estimated+' stime · '+job.review+' da verificare · '+job.unavailable+' senza stima · '+job.skipped+' saltati · '+job.errors+' errori · '+job.cancelled+' annullati</p><p class="footnote">'+job.found+' file trovati · '+job.total+' accettati · '+job.unsupported+' non audio/supportati · '+job.empty+' vuoti · '+job.oversize+' oltre 160 MB · '+job.beyondLimit+' oltre il limite di '+MAX_FILES+'</p>':'')+
+ (job.lastResult?'<p class="footnote">Ultimo calcolo: '+esc(job.lastResult.algorithm)+' · finestra 0–'+esc(job.lastResult.seconds)+' s · '+esc(job.lastResult.reason)+'</p>':'')+
  (job.message?'<p class="footnote">'+esc(job.message)+'</p>':'')+'</section>';
 }
 function redraw(){
@@ -69,7 +71,9 @@ function stop(){
 function runWorker(token,audio){
  if(!token.worker){
   if(typeof window.Worker!=='function')throw Error('Analisi audio locale non disponibile in questo browser: usa un browser aggiornato o inserisci il BPM manualmente.');
-  token.worker=new window.Worker('/assets/bpm-worker.mjs',{type:'module'});job.workers=1;
+  const portable=window.location?.protocol==='file:'&&window.GrooveprintPortableWorkers;
+  const url=portable?portable[token.mode]:(token.mode==='compare'?'/assets/bpm-worker-dev.mjs':'/assets/bpm-worker.mjs');
+  token.worker=new window.Worker(url,portable?{}:{type:'module'});job.workers=1;
  }
  // AudioBuffer is not transferred. Copy only the first two channels / 180 seconds;
  // transfer ownership of these copies. Full-file decode memory remains separate.
@@ -87,12 +91,12 @@ function runWorker(token,audio){
   try{token.worker.postMessage({id,sampleRate:audio.sampleRate,channels},channels.map(c=>c.buffer))}catch{failed()}
  });
 }
-async function analyzeFiles(files){
+async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
  if(job.running)return;
- const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0};current=token;
+ const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
  const generation=job.generation+1;
  for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;
- Object.assign(job,{...plan,files:undefined,running:true,generation,total:list.length,pending:list.length,phase:'preparing',message:''});delete job.files;
+ Object.assign(job,{...plan,files:undefined,running:true,generation,total:list.length,pending:list.length,phase:'preparing',message:'',lastResult:null});delete job.files;
  redraw();
  let ctx=null;
  try{
@@ -105,7 +109,7 @@ async function analyzeFiles(files){
   for(let n=0;n<list.length&&!token.cancelled;n++){
    if(n%30===0)await new Promise(resolve=>setTimeout(resolve,0));
    if(token.cancelled)break;
-   const m=matchFile(list[n],targets);matches.push(m);
+   const m=target&&list.length===1&&state.releases.includes(target.record)&&target.record.tracks?.[target.index]===target.track?{status:'matched',...target}:matchFile(list[n],targets);matches.push(m);
    if(m.status==='matched')occurrences.set(m.track,(occurrences.get(m.track)||0)+1);
   }
   job.phase='running';
@@ -119,7 +123,7 @@ async function analyzeFiles(files){
     if(match.status!=='matched'){job[match.status==='ambiguous'?'ambiguous':'unmatched']++;continue}
     if(occurrences.get(match.track)>1){job.ambiguous++;continue}
     job.matched++;
-    if(!evidence.missing(match.track)||evidence.protectedValue(match.track)){job.alreadyBpm++;continue}
+    if(!replaceExisting&&(!evidence.missing(match.track)||evidence.protectedValue(match.track))){job.alreadyBpm++;continue}
     const ticket=evidence.capture(match.record,match.track);
     const encoded=await file.arrayBuffer();
     if(token.cancelled)break;
@@ -131,14 +135,26 @@ async function analyzeFiles(files){
     const pending=runWorker(token,audio);audio=null;
     const result=await pending;
     if(token.cancelled)break;
-    if(!evidence.canApply(ticket,state.releases)){job.stale++;continue}
+    if(!evidence.canApply(ticket,state.releases,{replaceExisting})){job.stale++;continue}
+    job.lastResult={algorithm:result.algorithm||'grooveprint-onset-acf-v1',status:result.status,reason:result.reason||'',seconds:result.analysisSeconds||0};
     if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
-     match.track.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
-     match.track.bpmCheckedAt=new Date().toISOString();match.track.bpmReason=String(result.reason||'local-estimate');
-     match.track.bpm=result.requiresReview?null:result.bpm;match.track.bpmStatus=result.requiresReview?'review':'estimated';match.track.source='local-dsp';
-     job[result.requiresReview?'review':'estimated']++;
+     if(token.mode==='compare'){
+      // Comparison is diagnostic: preserve the current BPM, status and provenance.
+      match.track.bpmComparisonAt=new Date().toISOString();match.track.bpmComparisonCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
+      match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];
+      job.review++;
+     }else{
+      delete match.track.bpmComparisonCandidates;match.track.bpmComparisons=[];
+      match.track.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
+      match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
+      match.track.bpmCheckedAt=new Date().toISOString();match.track.bpmReason=String(result.reason||'local-estimate');
+      match.track.bpm=result.requiresReview?null:result.bpm;match.track.bpmStatus=result.requiresReview?'review':'estimated';match.track.source='local-dsp';
+      job[result.requiresReview?'review':'estimated']++;
+     }
     }else if(result?.status==='unavailable'){
-     match.track.bpmStatus='unavailable';match.track.bpmReason=String(result.reason||'no-beat-detected');job.unavailable++;
+     if(!replaceExisting&&token.mode!=='compare'){match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmStatus='unavailable';match.track.bpmReason=String(result.reason||'no-beat-detected')}
+     if(token.mode==='compare'){match.track.bpmComparisonCandidates=[];match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];}
+     job.unavailable++;
     }else throw Error('Risultato audio non valido.');
     outcome='completed';storeLater();
    }catch(error){
@@ -152,7 +168,7 @@ async function analyzeFiles(files){
    await new Promise(resolve=>setTimeout(resolve,0));
   }
   job.phase=token.cancelled?'cancelled':'complete';
-  job.message=token.cancelled?'Analisi interrotta: risultati precedenti conservati, risultati tardivi scartati.':'Analisi terminata. Stime da verificare; file non associati o ambigui rimangono invariati.';
+  job.message=token.cancelled?'Analisi interrotta: risultati precedenti conservati, risultati tardivi scartati.':job.errors?'Analisi terminata con '+job.errors+' errori. '+job.message:'Analisi terminata. Stime da verificare; file non associati o ambigui rimangono invariati.';
  }catch(error){job.phase=token.cancelled?'cancelled':'error';job.message=String(error?.message||error)}
  finally{
   job.cancelled+=job.pending;job.pending=0;
@@ -162,6 +178,16 @@ async function analyzeFiles(files){
   if(token.cancelled){job.phase='cancelled';job.message='Analisi interrotta: risultati precedenti conservati, risultati tardivi scartati.'}
   job.running=false;redraw(true);
  }
+}
+async function analyzeTrack(releaseId,index){
+ if(job.running)return toast('Attendi o interrompi l’analisi audio in corso.',true);
+ const record=state.releases.find(r=>r.id===releaseId),track=record?.tracks[index],entry=record&&gpLocalAudioEntry(record,track,index);
+ if(!track||!entry?.file)return toast('Collega il file audio della traccia con FILE.',true);
+ const replaceExisting=!evidence.missing(track)||evidence.protectedValue(track);
+ if(!confirm('Analizzare '+entry.file.name+' come '+track.title+'? Verifica la versione.'+(mode==='compare'?' Il BPM esistente resta invariato finché non scegli un candidato.':replaceExisting?' Il BPM esistente sarà sostituito solo se l’analisi termina e non modifichi la traccia.':'')))return;
+ await analyzeFiles([entry.file],{target:{record,track,index},replaceExisting});
+ // An explicit single-track action may reveal candidates once it settles.
+ if(state.releases.includes(record)&&record.tracks[index]===track&&typeof renderApp==='function')renderApp();
 }
 function chooseFolder(){
  if(job.running)return;
@@ -174,6 +200,7 @@ function chooseFolder(){
  }
  input.click();
 }
-document.addEventListener('click',e=>{if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
-window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,chooseFolder,stop};
+document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-engine]')&&!job.running&&window.GrooveprintBPMDevelopment===true){mode=e.target.value==='compare'?'compare':'v1'}});
+document.addEventListener('click',e=>{const single=e.target.closest('[data-gp-track-analyze]');if(single)void analyzeTrack(single.dataset.releaseId,Number(single.dataset.gpTrackAnalyze));if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
+window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop};
 })();

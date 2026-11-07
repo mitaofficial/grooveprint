@@ -26,7 +26,14 @@ is tested with and without a dummy obsolete key under a network audit. Legacy
 JSON values retain source/reference and are not relabelled as internal estimates.
 Read WORK-CHECKPOINT.md and the latest PR CI for exact results.
 
-**Musical gate remains incomplete:** the challenger stays benchmark-only. Prior
+**Local trial exception, 7 November 2026:** the focused BPM mandate authorizes
+explicit V1/V2 comparison in development and the standalone local HTML. V1 is
+still the default. Comparison preserves the previous BPM until a user chooses a
+candidate; production never serves the experimental modules. Single-track and
+library analysis now share the owned queue. See `BPM-INTEGRATION.md` and
+`BPM-LOCAL-TRIAL.md` for the implementation and downloadable-trial workflow.
+
+**Musical gate remains incomplete:** the challenger is not a production default. Prior
 31/31 results refer to repeated publisher-labelled loops, all review-required;
 158/168 and 137/144 refer to inspected synthetic development cases. These are not
 independent full-track accuracy. No musical confidence, full-track reliability,
