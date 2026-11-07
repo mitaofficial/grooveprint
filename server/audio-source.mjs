@@ -93,7 +93,7 @@ export function createAudioSource({fetchImpl=fetch,lookupImpl,timeoutMs=25000,no
   })();pending.set(key,task);try{return await task}finally{if(pending.get(key)===task)pending.delete(key)}
  }
  async function resolve(input,{signal}={}){
-  if(!input||typeof input!=='object'||[input.artist,input.title,input.album,input.position].some(x=>typeof x!=='string'||x.length>500||/[\x00-\x1f]/.test(x)))throw Error('invalid-track');
+  if(!input||typeof input!=='object'||[input.artist,input.title,input.album,input.position].some(x=>typeof x!=='string'||x.length>500||/[\x00-\x1f]/.test(x))||(input.albumArtist!==undefined&&(typeof input.albumArtist!=='string'||input.albumArtist.length>500||/[\x00-\x1f]/.test(input.albumArtist))))throw Error('invalid-track');
   if(!/^[1-9]\d{0,11}$/.test(String(input.releaseId||''))||!input.title.trim()||!input.position.trim()||!input.album.trim()||!input.artist.trim()||/^(?:various|various artists|unknown)$/i.test(input.artist))return {status:'unavailable',reason:'incomplete-recording-identity'};
   const collection=await album(input,signal),dur=seconds(input.duration),files=[];
   for(const item of collection.items){const m=item.metadata;
