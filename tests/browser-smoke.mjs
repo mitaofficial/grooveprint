@@ -266,6 +266,39 @@ try{
  assert.ok(perf.focused,'Caret focus must survive delayed search updates');
  console.log('BROWSER COLLECTION PERFORMANCE',JSON.stringify(perf));
 
+ // PDF geometry regression: inspect actual vector PDF bytes, not CSS preview.
+ const pdfGeometry=await page.evaluate(async()=>{
+  const oldSheet=state.sheet,oldExtras=state.design.extras;
+  try{
+   state.sheet={pageW:210,pageH:297,labelW:105,labelH:74.25,
+    cols:2,rows:4,left:0,top:0,gapX:0,gapY:0};
+   state.design.extras=[];
+   const errors=validateSheet();
+   if(errors.length)throw Error('Valid 105 × 74.25 mm geometry rejected: '+errors.join(', '));
+   const pdf=buildPdf({calibration:true});
+   const raw=new TextDecoder('latin1').decode(await pdf.arrayBuffer());
+   const media=raw.match(/\/MediaBox \[0 0 ([0-9.]+) ([0-9.]+)\]/);
+   const boxes=[...raw.matchAll(/([0-9.]+) ([0-9.]+) ([0-9.]+) ([0-9.]+) re S Q/g)]
+    .map(m=>m.slice(1).map(Number));
+   return {mime:pdf.type,bytes:pdf.size,
+    media:media?[Number(media[1]),Number(media[2])]:null,boxes};
+  }finally{state.sheet=oldSheet;state.design.extras=oldExtras}
+ });
+ assert.equal(pdfGeometry.mime,'application/pdf');
+ assert.ok(pdfGeometry.bytes>1000,'PDF should contain vectors and font resources');
+ assert.ok(pdfGeometry.media,'PDF MediaBox must exist');
+ assert.ok(Math.abs(pdfGeometry.media[0]-210*72/25.4)<0.02);
+ assert.ok(Math.abs(pdfGeometry.media[1]-297*72/25.4)<0.02);
+ assert.equal(pdfGeometry.boxes.length,8,'A4 2 × 4 must contain eight label boundaries');
+ for(const [x,y,w,h] of pdfGeometry.boxes){
+  assert.ok(Math.abs(w-105*72/25.4)<0.02,'Incorrect 105 mm label width');
+  assert.ok(Math.abs(h-74.25*72/25.4)<0.02,'Incorrect 74.25 mm label height');
+  assert.ok(x>=0&&y>=0&&x+w<=pdfGeometry.media[0]+0.02&&y+h<=pdfGeometry.media[1]+0.02,
+   'A label must not exceed the A4 MediaBox');
+ }
+ console.log('BROWSER PDF GEOMETRY',JSON.stringify({pages:1,labels:pdfGeometry.boxes.length,
+  mediaPt:pdfGeometry.media,labelMm:[105,74.25],pdfBytes:pdfGeometry.bytes}));
+
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
 }finally{
