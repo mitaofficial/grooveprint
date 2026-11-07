@@ -1,5 +1,20 @@
 # GROOVEPRINT — current checkpoint: automatic import, partial source coverage
 
+## Follow-up corrections on the existing feature branch — 7 November 2026
+
+These changes continue the automatic-import research without changing the approved scope or altering `main`/Railway. The earlier research proof remains limited to curated open audio. No new independently verified musical holdout or commercial-source access has been obtained.
+
+- **Album/track identity:** source search uses the release/album artist for non-compilations, keeping exact track artist, original title/version, album and duration checks to avoid mismatched guest remix credits.
+- **Rights matching:** accepts exact CC0/CC BY 3.0/4.0 license URLs with or without a trailing slash; unsupported NC/ND/SA licenses remain excluded.
+- **User review:** the BPM review shortcut prioritizes DSP candidates and removes active filters that would hide the chosen release.
+- **Stale writes:** shared audio tickets now reject a result if release title, track duration or tracklist origin changes during source search or decode, alongside the previous strict identity, revision and manual-value barriers.
+- **Print:** preflight distinguishes missing BPMs from present but unverified DSP/catalog estimates. This is a warning, not a forced overwrite or invented tempo.
+- **Accuracy of messaging:** development-only automatic audio access is distinguished from public Railway `main` and portable HTML, and import wording no longer implies that all imported BPM fields are necessarily permanent blanks.
+- **Regressions added:** `tests/audio-source.test.mjs`, `tests/bpm-auto.test.mjs` and `tests/review-output.test.mjs` exercise these cases. Final-head CI is required; previous runs do not certify a later head.
+
+**Still blocked:** unrestricted commercial techno/hardgroove Discogs BPM coverage requires legally usable version-identifiable audio/preview rights; independent tempo accuracy and an auto-acceptance policy have not been established. All automatic candidates remain review-only. No merge, hosting creation, production deploy, credential change or purchase.
+
+---
 7 November 2026. The attached BPM_AUTOMATICO_IMPORT_DISCOGS(1).md was read in
 full and applied. This section supersedes earlier next-action instructions.
 Base verified clean: `fa00c353cdba31eb8ca02b57715dca51ac3627ae`, feature branch
