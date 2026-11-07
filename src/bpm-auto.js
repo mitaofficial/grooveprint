@@ -97,7 +97,18 @@ function retry(){
  for(const {track} of library.trackList(state.releases)){const item=seen.get(track);if(item&&['error','cancelled','stale'].includes(item.phase))seen.delete(track)}
  schedule();
 }
-function openReview(){const item=library.trackList(state.releases).find(x=>x.track.bpmAudioEvidence||seen.get(x.track)?.phase==='review');if(item){state.active=item.record.id;state.step=1;renderApp()}}
+function openReview(){
+ const tracks=library.trackList(state.releases);
+ // Prefer actionable DSP candidates; a missing/unsupported audio source is not a BPM estimate.
+ const item=tracks.find(x=>x.track.bpmStatus==='review'&&Array.isArray(x.track.bpmCandidates)&&x.track.bpmCandidates.length)
+  ||tracks.find(x=>x.track.bpmStatus==='review'||seen.get(x.track)?.phase==='review')
+  ||tracks.find(x=>x.track.bpmAudioEvidence);
+ if(!item){toast('Nessun risultato BPM da verificare.',true);return}
+ // Direct navigation must not leave the target hidden behind a previous collection filter.
+ state.search='';state.statusFilter='All';state.formatFilter='All';state.folderFilter='All';
+ if(typeof reviewPage!=='undefined')reviewPage=0;
+ state.active=item.record.id;state.step=1;renderApp();
+}
 async function example(){
  if(!available||discogsSync.running||discogsConnect.running)return;
  try{
