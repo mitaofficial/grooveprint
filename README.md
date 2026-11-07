@@ -13,11 +13,11 @@ This is alpha software. Test a single collection folder before broader use. API 
 
 This is a work-in-progress feature on PR #3, not a production-approved BPM accuracy claim. `npm test` runs Node unit tests; `npm run test:syntax` checks syntax; `node tests/browser-smoke.mjs` exercises the full Chromium flow after installing Playwright and Chromium (the CI workflow does this automatically).
 
-OAuth-backed Discogs collection membership and Discogs-sourced tracklists are **temporary**. They expire after 15 minutes, are removed from the active view, and are not saved to a persistent project snapshot. Revalidation is attempted only while connected, with at most one pending timer, no concurrent Discogs/auto-BPM job, an initial minimum 60-second request interval, exponential backoff for failures (60/120/240 seconds) and at most three automatic failed attempts per expiry. After repeated errors, use **RISINCRONIZZA DISCOGS** manually. Authentication errors and HTTP 429 stop automatic retries; check the session or rate limit first.
+OAuth-backed Discogs collection membership and Discogs-sourced tracklists are **temporary**. They expire after 15 minutes, are removed from the active view, and are not saved to a persistent project snapshot. Revalidation is attempted only while connected, with at most one pending timer, no concurrent Discogs/metadata-recovery job, an initial minimum 60-second request interval, exponential backoff for failures (60/120/240 seconds) and at most three automatic failed attempts per expiry. After repeated errors, use **RISINCRONIZZA DISCOGS** manually. Authentication errors and HTTP 429 stop automatic retries; check the session or rate limit first.
 
 User-entered/confirmed BPMs are stored separately in browser-local evidence keyed by Discogs release ID, position, artist, and track title. They can be restored when the *same* track is fetched again, without persisting the private Discogs collection. A different track/version must not inherit a prior manual value. Local evidence may be lost if the user clears browser storage; export user-owned projects separately as appropriate.
 
-The AcousticBrainz open-data adapter needs an exact recording MBID and covers only archived recordings. The optional on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. Do not describe a successful provider probe as proof that a usable BPM was obtained. No audio data is sent to GROOVEPRINT by the local analyzer.
+The internal on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. No audio data is sent to GROOVEPRINT by the local analyzer. The isolated AcousticBrainz research adapter needs an exact recording MBID and covers only archived recordings; it is not called by the default UI. A successful archive availability probe does not prove that a usable BPM was obtained.
 
 ## Musical BPM benchmarking (experimental)
 
@@ -42,3 +42,8 @@ For the next independent full-track pilot, see [Ableton Live 12 BPM reference wo
 ## Development stability gate
 
 Before pushing to the feature branch run `npm run validate` (offline: tracked-file privacy, configuration, Node unit/syntax tests and short synthetic BPM benchmark). CI cancels superseded PR runs but retains checks on `main`. For recorded limitations and remaining performance tests see [Operation Stability audit](docs/operation-stability-audit-2026-11-07.md).
+
+
+## Internal BPM analysis
+
+GROOVEPRINT BPM Engine is experimental, processes authorized local audio in a browser worker and needs no external BPM API key. CSV/Discogs tracklists alone leave missing BPMs empty. Connect local audio, inspect candidates and confirm explicitly. Historical imported values keep their source; metadata recovery and the optional archive research adapter are separate from local signal analysis. See docs/WORK-CHECKPOINT.md.

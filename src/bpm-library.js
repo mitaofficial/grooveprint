@@ -40,11 +40,14 @@ function planFiles(files){
  }
  return plan;
 }
+function localReviews(){return trackList(state.releases).filter(item=>item.track.bpmStatus==='review'&&['local-dsp','audio-estimate'].includes(item.track.source))}
+function openReview(){const first=localReviews()[0];if(first){state.active=first.record.id;state.step=1;if(typeof renderApp==='function')renderApp()}}
 function panel(){
  const label=job.running?(job.phase==='cancelling'?'INTERRUZIONE IN CORSO':'ANALISI LOCALE'):job.phase==='complete'?'SCANSIONE COMPLETATA':job.phase==='cancelled'?'SCANSIONE INTERROTTA':'LIBRERIA AUDIO LOCALE';
  return '<section class="gp-local-audio" role="status" style="margin:12px 0;border-top:1px solid #465239;padding-top:12px">'+
- '<div class="flex between" style="flex-wrap:wrap;gap:8px"><b>'+esc(label)+'</b><div class="flex">'+
+ '<div class="flex between" style="flex-wrap:wrap;gap:8px"><div><b>GROOVEPRINT BPM Engine · sperimentale</b><div class="footnote">'+esc(label)+'</div></div><div class="flex">'+
  '<button type="button" class="small quiet" data-gp-library-pick="1" '+(job.running?'disabled':'')+'>♫ CONNECT AUDIO LIBRARY</button>'+
+ (localReviews().length?'<button type="button" class="small quiet" data-gp-library-review="1">VEDI CANDIDATI</button>':'')+
  (job.running?'<button type="button" class="small quiet" data-gp-library-stop="1" '+(job.phase==='cancelling'?'disabled':'')+'>INTERROMPI AUDIO</button>':'')+'</div></div>'+
  '<p class="footnote">Cartella audio locale: abbinamento esatto di artista e versione, stime sul dispositivo. Nessun audio viene caricato. Usa soltanto file autorizzati; mantieni aperta la scheda.</p>'+
  (job.phase!=='idle'?'<p class="footnote">'+job.processed+'/'+job.total+' elaborati · '+job.estimated+' stime · '+job.review+' da verificare · '+job.unavailable+' senza stima · '+job.skipped+' saltati · '+job.errors+' errori · '+job.cancelled+' annullati</p><p class="footnote">'+job.found+' file trovati · '+job.total+' accettati · '+job.unsupported+' non audio/supportati · '+job.empty+' vuoti · '+job.oversize+' oltre 160 MB · '+job.beyondLimit+' oltre il limite di '+MAX_FILES+'</p>':'')+
@@ -52,7 +55,7 @@ function panel(){
 }
 function redraw(){
  const el=document.querySelector?.('.gp-local-audio');if(el)el.outerHTML=panel();
- evidence.refreshFields();window.GrooveprintAutoBPM?.refreshPanel();
+ evidence.refreshFields();window.GrooveprintCollectionEnrichment?.refreshPanel();
 }
 const abortError=()=>Object.assign(new Error('Analisi interrotta'),{name:'AbortError'});
 function stop(){
@@ -171,6 +174,6 @@ function chooseFolder(){
  }
  input.click();
 }
-document.addEventListener('click',e=>{if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
 window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,chooseFolder,stop};
 })();

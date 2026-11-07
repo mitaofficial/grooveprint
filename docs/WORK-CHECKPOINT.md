@@ -1,3 +1,104 @@
+# GROOVEPRINT — current checkpoint: internal engine, catalog removal
+
+Date: 7 November 2026. This section supersedes the historical stabilization record below.
+Starting branch HEAD: `a644c8ef549b38a03147adcfd4c25dc5f8a910b9`; PR #3 was open,
+draft, mergeable and CI #91 passed all seven jobs. Main remains
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. Shell checkout was clean.
+No main update, merge, deploy, secret/environment change or Railway operation is authorized.
+
+## Product decision and implementation
+
+GetSongBPM is **removed from active integration**, superseding the former optional
+provider decision. It has not been replaced with another BPM service.
+
+- Delete `server/bpm-match.mjs`, the server client/key reader and remote catalog
+  processing. Old GET lookup / POST batch return `410 BPM_CATALOG_RETIRED`; origin,
+  CSRF and throttling safeguards remain. A valid old key has no effect.
+- `/api/bpm/status` describes the experimental local-audio engine: audio required,
+  no upload, no catalog lookup, unchanged baseline algorithm. Discogs status has
+  no provider-configuration field.
+- Replace `src/auto-bpm.js` with `src/collection-enrichment.js`. All callers,
+  lifecycle/busy checks, owned cancellation and restart epochs now concern only
+  metadata/tracklists. It never assigns BPM or calls a catalog/archive endpoint.
+- Remove fixed credits, setup/signup messages, catalog panels, controls, cache and
+  request functions. Remove the obsolete asset and update syntax/package scripts.
+- Separate `gpLocalBpmCandidates` / `chooseLocalBpmCandidate` from historic provenance.
+  Selecting a local candidate stays `estimated`; explicit confirmation sets `verified`.
+  The engine panel and VEDI CANDIDATI provide the internal-audio path.
+- Preserve existing external BPM, raw source, reference URL, manual/verified values,
+  clears, project JSON and user evidence. Stored HTTPS references are sanitized when
+  displayed; they do not trigger automatic lookup or relabel data as internal DSP.
+- The explicit archive adapter and availability probe remain isolated research;
+  neither stored MBIDs nor CSV import invokes them as fallback.
+
+Default product flow: CSV/Discogs metadata -> voluntarily connected authorized
+local audio -> exact version matching -> original detector worker -> estimates /
+review -> explicit confirmation -> editor/PDF. Missing BPM stays empty without
+signal or existing user evidence. No external key or Discogs login is needed for
+local-audio analysis itself.
+
+## Verification
+
+Sanitized machine-readable evidence is stored in
+`docs/evidence/provider-removal-2026-11-07.json` (local runs, request counts,
+preserved history, PDF comparisons and unchanged detector hashes).
+
+- The pre-change offline suite passed 69 tests. The new suite has 59 cases:
+  seven retired catalog-matcher cases were removed; 13 remote-orchestrator tests
+  were replaced by eight metadata-only lifecycle tests; one backend test became
+  two with/without-key authenticated egress audits; one static runtime removal
+  guard was added. Browser regressions now check absence rather than mock success
+  from a replacement catalog. Test-count changes reflect retired functionality.
+- `npm run validate`: offline tests, syntax, repository privacy/config guard and
+  synthetic smoke. `npm run test:audio-lifecycle`, `npm run benchmark:compare`, and
+  the cached authorized 31-loop pilot were executed. Inspect the final command
+  results and latest PR CI before relying on any historical run number.
+- The backend tests run the real Node server with a test-only outbound-network
+  audit for fetch/http/https. They exercise a real fixture-authorized session,
+  CSRF/origin failures, internal status and retired routes both without and with
+  a dummy legacy key. **Zero backend outgoing requests** in these scenarios.
+- Firefox desktop and 390x844 touch viewport exercise Discogs import, metadata Stop
+  with late response/queued restart, two expiry cycles, no BPM from metadata/MBID,
+  actual WAV decode/worker, local candidate choice and explicit confirmation,
+  1500-row navigation, seven PDF presets/cancellation, CSV errors and legacy JSON.
+  **Zero BPM API requests and zero retired-host requests** through the full flow.
+- Existing controlled 10/100/500/1500 queues, resource cleanup, manual-clear/revision
+  barriers and 30 real decodes of the same generated WAV remain covered. These
+  are not 1500 distinct real recordings or a native-memory leak proof.
+- Chromium/Firefox/WebKit desktop/mobile CI and the aggregate `browser` required
+  check remain intact. Local Chromium/WebKit environment limitations from the
+  historical section do not imply a test pass; latest CI decides their result.
+
+Retained provider-name occurrences are classified: negative/legacy test fixtures,
+this removal record and explicitly marked historical research. Current runtime
+`index.html`, `src/` and `server/` contain no retired provider name/domain/key.
+Current configuration docs no longer instruct signup/key activation. Existing
+historical source strings inside user-imported data are intentionally preserved.
+
+## DSP and remaining limits
+
+No detector or worker algorithm was changed/promoted by this removal:
+
+- Baseline SHA-256: `63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4`.
+- Challenger SHA-256: `0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc`.
+
+Development counts remain 158/168 original synthetic and 137/144 follow-up top-1
+for the challenger; 31/31 repeated publisher-labelled loops, all review-required.
+These are inspected development data, not independently verified full tracks.
+No confidence calibration or musical production approval follows from removal.
+Full-file native decode remains non-abortable; physical phones/print and extended
+native-memory endurance remain distinct, unverified gates.
+
+Next single research action: use authorized complete recordings with independent
+beat-grid references and a grouped untouched holdout in the existing corrected
+benchmark. Do not rebuild an external BPM lookup or re-audit completed removal.
+The source is in the development PR; an unchanged deployed site can still display
+its prior implementation until a separately authorized release.
+
+---
+
+## Historical stabilization checkpoint (superseded where provider behavior differs)
+
 # GROOVEPRINT — execution checkpoint, 7 November 2026
 
 ## Resume here

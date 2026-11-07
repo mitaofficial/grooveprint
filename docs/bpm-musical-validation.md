@@ -4,7 +4,7 @@
 
 ## Code audit: observed design limitations
 
-Reviewed: `src/bpm-tempo.mjs`, `src/bpm-library.js`, `src/auto-bpm.js` and existing test suite.
+Reviewed: `src/bpm-tempo.mjs`, `src/bpm-library.js`, `src/collection-enrichment.js` and existing test suite.
 
 1. **Integer-lag resolution:** approximately 100 onset frames/second, with `tempo = 60 * Hz / integerLag`. At exactly 100 Hz, a 138 BPM period falls between lag 43 (139.53 BPM) and 44 (136.36 BPM). No sub-lag interpolation exists. Accuracy within ±1 BPM is not assured even on perfect beat trains.
 2. **Only the beginning of the track:** up to the first 180 seconds are evaluated; there is no multi-window consensus to protect against intro, breakdown or changes in tempo.

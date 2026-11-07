@@ -14,7 +14,7 @@ const port=await new Promise((resolve,reject)=>{
  const server=createServer();server.once('error',reject);server.listen(0,'127.0.0.1',()=>{const n=server.address().port;server.close(()=>resolve(n))});
 });
 const temp=await mkdtemp(join(tmpdir(),'grooveprint-browser-'));
-const server=spawn(process.execPath,['server/app.mjs'],{cwd:process.cwd(),env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:'http://127.0.0.1:'+port,NODE_ENV:'test',SQLITE_PATH:join(temp,'db.sqlite'),SESSION_ENCRYPTION_KEY:'b'.repeat(64),DISCOGS_CONSUMER_KEY:'test',DISCOGS_CONSUMER_SECRET:'test',GETSONGBPM_API_KEY:''},stdio:['ignore','pipe','pipe']});
+const server=spawn(process.execPath,['server/app.mjs'],{cwd:process.cwd(),env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:'http://127.0.0.1:'+port,NODE_ENV:'test',SQLITE_PATH:join(temp,'db.sqlite'),SESSION_ENCRYPTION_KEY:'b'.repeat(64),DISCOGS_CONSUMER_KEY:'test',DISCOGS_CONSUMER_SECRET:'test'},stdio:['ignore','pipe','pipe']});
 let serverErrors='';server.stderr.on('data',buf=>serverErrors+=String(buf));
 const base='http://127.0.0.1:'+port;
 async function ready(){
@@ -31,12 +31,13 @@ try{
  browser=await browserType.launch({executablePath:browserName==='chromium'?process.env.GROOVEPRINT_CHROMIUM_PATH||undefined:undefined,headless:true,args:browserName==='chromium'?['--no-sandbox']:[]});
  const page=await browser.newPage(process.env.GROOVEPRINT_MOBILE==='1'?{viewport:{width:390,height:844},hasTouch:true}:{});
  console.log('BROWSER ENVIRONMENT',JSON.stringify({browser:browserName,version:browser.version(),node:process.version,mobileViewport:process.env.GROOVEPRINT_MOBILE==='1'}));
- let discogsCalls=0,bpmCalls=0,tracklistCalls=0,localAnalysisActive=false;
+ let discogsCalls=0,tracklistCalls=0,localAnalysisActive=false;
+ const bpmApiCalls=[],retiredRequests=[];
  const audioNetwork=[];
- page.on('request',request=>{if(localAnalysisActive)audioNetwork.push({method:request.method(),url:request.url(),bytes:request.postDataBuffer()?.length||0})});
+ page.on('request',request=>{const url=new URL(request.url());if(/(^|\.)(getsongbpm\.com|getsong\.co)$/i.test(url.hostname))retiredRequests.push(url.hostname);if(localAnalysisActive)audioNetwork.push({method:request.method(),url:request.url(),bytes:request.postDataBuffer()?.length||0})});
  page.on('pageerror',error=>{throw error});
  const json=body=>({status:200,contentType:'application/json',body:JSON.stringify(body)});
- await page.route('**/api/discogs/status',route=>route.fulfill(json({configured:true,connected:true,username:'TEST_ACCOUNT',csrf:'test-csrf',policy:{displayMaxAgeMs:900000},bpmProviderConfigured:true})));
+ await page.route('**/api/discogs/status',route=>route.fulfill(json({configured:true,connected:true,username:'TEST_ACCOUNT',csrf:'test-csrf',policy:{displayMaxAgeMs:900000}})));
  await page.route('**/api/discogs/folders',route=>route.fulfill(json({folders:[{id:0,name:'All collection',count:1}]})));
  await page.route('**/api/discogs/sync',route=>{
   discogsCalls++;return route.fulfill(json({releases:[{discogsInstanceId:'101',discogsFolderId:0,releaseId:'123456',artist:'The Advent',title:'Fictional Groove Test',label:'Test Label',catalog:'TEST-001',year:'2002',format:'Vinyl'}],pagination:{page:1,pages:1,items:1}}))
@@ -44,73 +45,70 @@ try{
  await page.route('**/api/discogs/releases/123456',route=>{
   tracklistCalls++;return route.fulfill(json({tracklist:[{position:'A1',title:'Original Groove (Original Mix)',type_:'track',duration:'06:00',artists:[{name:'The Advent',id:111}]}],videos:[]}))
  });
- await page.route('**/api/bpm/status',route=>route.fulfill(json({configured:true,provider:'GetSongBPM'})));
- await page.route('**/api/bpm/batch',async route=>{
-  bpmCalls++;const data=route.request().postDataJSON();
-  assert.equal(data.tracks.length,1);
-  assert.equal(data.tracks[0].artist,'The Advent');
-  assert.equal(data.tracks[0].title,'Original Groove (Original Mix)');
-  return route.fulfill(json({configured:true,results:[{id:data.tracks[0].id,status:'catalog',bpm:138,referenceUrl:'https://getsongbpm.com/song/fictional/X',verified:false}]}));
- });
+ await page.route('**/api/bpm/**',route=>{bpmApiCalls.push(new URL(route.request().url()).pathname);return route.fulfill({status:410,contentType:'application/json',body:JSON.stringify({code:'UNEXPECTED_CATALOG_CALL'})})});
+ await page.route(/^https?:\/\/([^/]*\.)?(getsongbpm\.com|getsong\.co)(?:\/|$)/i,route=>route.abort());
  await page.goto(base,{waitUntil:'domcontentloaded'});
  await page.locator('[data-act="gp-sync"]').first().waitFor({timeout:20000});
  await page.locator('[data-act="gp-sync"]').first().click();
  await page.waitForFunction(()=>{
   const release=state.releases.find(r=>r.releaseId==='123456');
-  return Boolean(release&&release.tracks[0]&&release.tracks[0].bpm===138&&release.tracks[0].bpmStatus==='catalog');
+  return Boolean(release&&release.tracks[0]&&release.tracks[0].bpm===null&&!window.GrooveprintCollectionEnrichment.job.running&&!discogsSync.running);
  },{timeout:30000});
  assert.equal(discogsCalls,1);
  assert.equal(tracklistCalls,1);
- assert.equal(bpmCalls,1);
+ assert.equal(bpmApiCalls.length,0,'Metadata import never calls a BPM catalog');
  assert.equal(await page.locator('[data-bpm-quick]').count(),0);
  const bpms=await page.evaluate(()=>state.releases.find(r=>r.releaseId==='123456').tracks.map(t=>({position:t.position,artist:t.artist,bpm:t.bpm,status:t.bpmStatus})));
  assert.equal(bpms[0].position,'A1');
  assert.equal(bpms[0].artist,'The Advent');
- assert.equal(bpms[0].bpm,138);
- assert.equal(bpms[0].status,'catalog');
+ assert.equal(bpms[0].bpm,null);
+ assert.equal(bpms[0].status||'','');
+ assert.ok(!/getsongbpm|api key|chiave api/i.test(await page.locator('body').innerText()),'Fresh collection has no retired branding or activation prompts');
+ assert.match(await page.locator('.gp-local-audio').innerText(),/GROOVEPRINT BPM Engine/);
+ // Stop a real owned metadata request; late fulfillment must not attach tracks or restart.
+ let releaseGate,seenResolve,finishedResolve;
+ const gate=new Promise(resolve=>releaseGate=resolve),seen=new Promise(resolve=>seenResolve=resolve),finished=new Promise(resolve=>finishedResolve=resolve);
+ const delayedTracklist=async route=>{seenResolve();await gate;try{await route.fulfill(json({tracklist:[{position:'A1',title:'Late response must be discarded',type_:'track'}],videos:[]}))}catch{}finally{finishedResolve()}};
+ await page.route('**/api/discogs/releases/123456',delayedTracklist);
+ await page.evaluate(()=>{const r=state.releases.find(r=>r.releaseId==='123456');window.gpSavedFixtureTracks=r.tracks;r.tracks=[];void window.GrooveprintCollectionEnrichment.run()});
+ await seen;
+ await page.evaluate(()=>window.GrooveprintCollectionEnrichment.run());
+ await page.locator('[data-gp-enrich-stop]').click();
+ await page.waitForFunction(()=>!window.GrooveprintCollectionEnrichment.job.running&&!discogsSync.running);
+ releaseGate();await finished;
+ const stoppedMetadata=await page.evaluate(async()=>{await new Promise(requestAnimationFrame);const r=state.releases.find(r=>r.releaseId==='123456');return {phase:window.GrooveprintCollectionEnrichment.job.phase,restart:window.GrooveprintCollectionEnrichment.job.restartRequested,lateTracks:r.tracks.length}});
+ assert.deepEqual(stoppedMetadata,{phase:'interrupted',restart:false,lateTracks:0});
+ await page.unroute('**/api/discogs/releases/123456',delayedTracklist);
+ await page.evaluate(()=>{state.releases.find(r=>r.releaseId==='123456').tracks=window.gpSavedFixtureTracks;delete window.gpSavedFixtureTracks;renderApp()});
+ console.log('BROWSER METADATA CANCELLATION',JSON.stringify(stoppedMetadata));
  // Regression: when source membership expires, never show a successful
  // "63 tracklists" banner while the active collection contains zero tracks.
- // Revalidate Discogs and recover the tracklist and catalog BPM automatically.
- await page.waitForFunction(()=>!window.GrooveprintAutoBPM.job.running&&!discogsSync.running);
+ // Revalidate Discogs and recover tracklist metadata; BPM stays missing without audio.
+ await page.waitForFunction(()=>!window.GrooveprintCollectionEnrichment.job.running&&!discogsSync.running);
  await page.evaluate(()=>{
   const release=state.releases.find(r=>r.releaseId==='123456');
   release.discogsFetchedAt=new Date(Date.now()-16*60*1000).toISOString();
   renderApp();
  });
- await page.waitForFunction(()=>gpExpiredCount>0&&state.releases.some(r=>r.releaseId==='123456'&&r.tracks.some(t=>t.bpm===138))&&
-   !discogsConnect.running&&!window.GrooveprintAutoBPM.job.running,{timeout:45000});
+ await page.waitForFunction(()=>gpExpiredCount>0&&state.releases.some(r=>r.releaseId==='123456'&&r.tracks.some(t=>t.bpm===null))&&
+   !discogsConnect.running&&!window.GrooveprintCollectionEnrichment.job.running,{timeout:45000});
  assert.equal(discogsCalls,2,'expired membership should trigger re-sync');
  assert.equal(tracklistCalls,2,'expired tracklist must be reloaded');
- assert.equal(bpmCalls,2,'new tracklist should trigger catalog lookup');
+ assert.equal(bpmApiCalls.length,0,'New tracklist must not trigger any catalog lookup');
  const final=await page.evaluate(()=>({releaseCount:state.releases.length,trackCount:state.releases.flatMap(r=>r.tracks).length,
   liveNotice:syncNotice(),refreshNeeded:gpSourceRevalidationNeeded}));
  assert.equal(final.releaseCount,1);
  assert.equal(final.trackCount,1);
  assert.equal(final.refreshNeeded,false);
  assert.match(final.liveNotice,/1 tracce disponibili/);
- // A catalog-first, no-key path: user-provided exact recording MBID
- // should find a CC0 BPM even when GetSongBPM is unavailable.
- let acousticCalls=0;
- await page.route('**/api/bpm/open/batch',route=>{
-  acousticCalls++;
-  const data=route.request().postDataJSON();
-  assert.equal(data.tracks[0].recordingMbid,'6df2d3b5-25e1-4d4c-a196-0404990a93ec');
-  return route.fulfill(json({provider:'AcousticBrainz',sourceLicense:'CC0',results:[{
-   id:data.tracks[0].id,status:'catalog',bpm:117.29,source:'AcousticBrainz',
-   referenceUrl:'https://acousticbrainz.org/api/v1/6df2d3b5-25e1-4d4c-a196-0404990a93ec/low-level'
-  }]}));
- });
- await page.evaluate(()=>{
+ // A stored recording MBID is metadata, not an automatic archive fallback.
+ await page.evaluate(async()=>{
   const t=state.releases.find(r=>r.releaseId==='123456').tracks[0];
-  t.bpm=null;t.bpmStatus='';t.recordingMbid='6df2d3b5-25e1-4d4c-a196-0404990a93ec';
-  void window.GrooveprintAutoBPM.run({fetchTracklists:false});
+  t.recordingMbid='6df2d3b5-25e1-4d4c-a196-0404990a93ec';
+  await window.GrooveprintCollectionEnrichment.run({fetchTracklists:false});
+  if(t.bpm!==null)throw Error('Metadata alone invented a tempo');
  });
- await page.waitForFunction(()=>{
-  const t=state.releases.find(r=>r.releaseId==='123456')?.tracks[0];
-  return t?.bpm===117.29&&t.bpmStatus==='catalog'&&t.source==='AcousticBrainz';
- },{timeout:25000});
- assert.equal(acousticCalls,1);
- assert.equal(bpmCalls,2,'AcousticBrainz result should avoid unnecessary GetSongBPM requests');
+ assert.equal(bpmApiCalls.length,0,'No automatic BPM source, including the archive');
 
  assert.ok(await page.locator('[data-gp-library-pick]').count()>0,'Bulk audio folder control should appear');
  // Test real Chromium Web Audio decoding from a synthetic 138 BPM WAV.
@@ -145,7 +143,17 @@ try{
  assert.equal(localResult.job.errors,0,'Browser should decode and analyze the local WAV');
  assert.ok(['estimated','review'].includes(localResult.status),JSON.stringify(localResult));
  assert.ok(localResult.candidates.some(x=>Math.abs(x.bpm-138)<=3),JSON.stringify(localResult));
- assert.equal(bpmCalls,2,'Local audio analysis must not call the remote BPM provider');
+ assert.equal(bpmApiCalls.length,0,'Local engine must not call a remote BPM provider');
+ // Real local candidates are selectable and only an explicit confirmation marks verified.
+ await page.locator('.rel-item').first().click();
+ const choice=await page.evaluate(()=>{const t=state.releases.find(r=>r.releaseId==='123456').tracks[0];return {bpm:t.bpmCandidates[0].bpm}});
+ assert.ok(await page.locator('[data-bpm-choose]').count()>0,'Internal engine candidates remain usable');
+ page.once('dialog',dialog=>dialog.accept());await page.locator('[data-bpm-choose]').first().click();
+ let chosen=await page.evaluate(()=>{const t=state.releases.find(r=>r.releaseId==='123456').tracks[0];return {bpm:t.bpm,status:t.bpmStatus,source:t.source}});
+ assert.equal(chosen.bpm,choice.bpm);assert.equal(chosen.status,'estimated');assert.equal(chosen.source,'local-dsp');
+ page.once('dialog',dialog=>dialog.accept(String(choice.bpm)));await page.locator('[data-bpm-confirm]').first().click();
+ chosen=await page.evaluate(()=>{const t=state.releases.find(r=>r.releaseId==='123456').tracks[0];return {bpm:t.bpm,status:t.bpmStatus,source:t.source}});
+ assert.equal(chosen.status,'verified');assert.equal(chosen.source,'user-verified');
  // Exercise real browser decoding and worker ownership over repeated synthetic content.
  const lifecycle=await page.evaluate(async()=>{
   const original=state.releases,active=state.active,selected=state.selected;
@@ -199,7 +207,7 @@ try{
  // Discogs collection data or silently replacing it with provider BPM.
  // Force a short busy window at the instant of the second expiry; the old
  // scheduler discarded revalidation here and left the collection empty.
- await page.waitForFunction(()=>!window.GrooveprintAutoBPM.job.running&&!discogsSync.running&&!discogsConnect.running,null,{timeout:12000});
+ await page.waitForFunction(()=>!window.GrooveprintCollectionEnrichment.job.running&&!discogsSync.running&&!discogsConnect.running,null,{timeout:12000});
  const secondExpiry=await page.evaluate(()=>{
   const r=state.releases.find(x=>x.releaseId==='123456'),t=r.tracks[0];
   t.bpm=145;t.bpmStatus='manual';t.source='manual';
@@ -221,7 +229,7 @@ try{
  try{await page.waitForFunction(()=>{
   const r=state.releases.find(x=>x.releaseId==='123456');
   return gpExpiredCount>=2&&r?.tracks[0]?.bpm===145&&r?.tracks[0]?.bpmStatus==='manual'&&
-   !discogsConnect.running&&!discogsSync.running&&!window.GrooveprintAutoBPM.job.running;
+   !discogsConnect.running&&!discogsSync.running&&!window.GrooveprintCollectionEnrichment.job.running;
  },null,{timeout:11000})}catch(error){
   console.log('EVIDENCE DEBUG',JSON.stringify(await page.evaluate(()=>{
     const r=state.releases.find(x=>x.releaseId==='123456');
@@ -229,14 +237,13 @@ try{
       id:r.id,releaseId:r.releaseId,artist:r.artist,sourceAt:r.discogsFetchedAt,
       tracks:r.tracks.map(t=>({title:t.title,artist:t.artist,bpm:t.bpm,status:t.bpmStatus,source:t.source,mbid:t.recordingMbid}))
     },evidence:Array.from(gpEvidenceStore().entries()).slice(-4),sync:{running:discogsConnect.running,trackRunning:discogsSync.running},
-    auto:window.GrooveprintAutoBPM.job.phase,refreshNeeded:gpSourceRevalidationNeeded,
+    auto:window.GrooveprintCollectionEnrichment.job.phase,refreshNeeded:gpSourceRevalidationNeeded,
      retryTimer:gpSourceRefreshTimer!==null,retryFailures:gpSourceRefreshFailures};
   })));throw error;
  }
  assert.equal(discogsCalls,3,'expired collection membership must refresh');
  assert.equal(tracklistCalls,3,'tracklist must be fetched after expiration');
- assert.equal(acousticCalls,1,'manual correction wins over CC0 archive');
- assert.equal(bpmCalls,2,'manual correction wins over GetSongBPM');
+ assert.equal(bpmApiCalls.length,0,'Manual correction wins without any automatic catalog requests');
  // Evidence is keyed by exact track identity: the correction must not leak
  // into another edit/version of the same release.
  const evidenceGuard=await page.evaluate(()=>{
@@ -410,14 +417,29 @@ try{
   assert.deepEqual(await page.evaluate(()=>state.releases.map(r=>r.id)),beforeCsv,'Invalid CSV must preserve the current project');
   assert.equal(await page.evaluate(()=>pendingCSV),null);
  }
- await page.evaluate(()=>{gpBpmProviderReady=false});
  await page.locator('#fileChooser').setInputFiles({name:'copies.csv',mimeType:'text/csv',buffer:Buffer.from('Artist,Title,Release ID,Format,Tracklist\nExample DJ,Test EP,99999,Vinyl,A1 Groove\nExample DJ,Test EP,99999,Vinyl,A1 Groove')});
  await page.waitForFunction(()=>pendingCSV?.filename==='copies.csv');
  await page.locator('#autoEnrich').uncheck();await page.locator('[data-act="apply-csv"]').click();
- try{await page.waitForFunction(()=>state.releases.length===2&&!window.GrooveprintAutoBPM.job.running)}catch(error){console.log('CSV FIXTURE DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({count:state.releases.length,job:window.GrooveprintAutoBPM.job.phase,running:window.GrooveprintAutoBPM.job.running,sync:discogsSync.running,pending:pendingCSV&&{mapping:pendingCSV.mapping,rows:pendingCSV.parsed.rows},toast:document.getElementById('toast').textContent}))));throw error}
+ try{await page.waitForFunction(()=>state.releases.length===2&&!window.GrooveprintCollectionEnrichment.job.running)}catch(error){console.log('CSV FIXTURE DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({count:state.releases.length,job:window.GrooveprintCollectionEnrichment.job.phase,running:window.GrooveprintCollectionEnrichment.job.running,sync:discogsSync.running,pending:pendingCSV&&{mapping:pendingCSV.mapping,rows:pendingCSV.parsed.rows},toast:document.getElementById('toast').textContent}))));throw error}
  const imported=await page.evaluate(()=>({count:state.releases.length,uniqueIds:new Set(state.releases.map(r=>r.id)).size,tracks:state.releases.map(r=>r.tracks.length),flagged:state.releases.filter(r=>r.duplicate).length}));
  assert.deepEqual(imported,{count:2,uniqueIds:2,tracks:[1,1],flagged:1});
  console.log('BROWSER CSV',JSON.stringify({malformedPreserved:true,emptyPreserved:true,legitimateCopies:imported}));
+ // Import historic external evidence without dropping, relabelling or re-querying it.
+ const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
+  {position:'A1',title:'Stored catalog',bpm:138,bpmStatus:'catalog',source:'GetSongBPM',bpmReferenceUrl:'https://getsongbpm.com/song/saved/X'},
+  {position:'A2',title:'Manual',bpm:145,bpmStatus:'manual',source:'manual'},
+  {position:'B1',title:'Verified',bpm:140,bpmStatus:'verified',source:'user-verified'},
+  {position:'B2',title:'Cleared',bpm:null,bpmStatus:'manual',source:'manual',bpmUserEdited:true}
+ ]}],selected:['legacy'],active:'legacy'};
+ await page.locator('#fileChooser').setInputFiles({name:'legacy.grooveprint.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(legacyProject))});
+ await page.waitForFunction(()=>state.releases[0]?.id==='legacy');
+ const legacySaved=await page.evaluate(()=>state.releases[0].tracks.map(t=>({bpm:t.bpm,status:t.bpmStatus,source:t.source,reference:t.bpmReferenceUrl})));
+ assert.equal(legacySaved[0].bpm,138);assert.equal(legacySaved[0].status,'catalog');assert.equal(legacySaved[0].source,'GetSongBPM');assert.equal(legacySaved[0].reference,'https://getsongbpm.com/song/saved/X');
+ assert.equal(legacySaved[1].bpm,145);assert.equal(legacySaved[1].status,'manual');assert.equal(legacySaved[2].status,'verified');assert.equal(legacySaved[3].bpm,null);assert.equal(legacySaved[3].status,'manual');
+ assert.match(await page.locator('.gp-bpm-history').first().innerText(),/Provenienza storica/);
+ assert.equal(await page.locator('[data-bpm-search],[data-bpm-bulk],.gsb-public-credit').count(),0);
+ assert.equal(bpmApiCalls.length,0,'Full metadata/audio/legacy flow makes zero BPM API requests');assert.deepEqual(retiredRequests,[]);
+ console.log('BROWSER PROVIDER REMOVAL',JSON.stringify({bpmApiRequests:0,retiredHostRequests:0,legacyEvidencePreserved:true,localCandidateSelection:true,explicitConfirmation:true}));
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
 }finally{

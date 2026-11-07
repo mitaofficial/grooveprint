@@ -1,3 +1,5 @@
+> Historical record: the catalog-provider design below was superseded on 2026-11-07. GetSongBPM is removed from active integration. Follow ARCHITECTURE.md, BPM-INTELLIGENCE.md and WORK-CHECKPOINT.md for the current product. Old key/backlink instructions are not active setup steps.
+
 # GROOVEPRINT 3.0 — BPM research (2026-11-06)
 
 ## Verified public evidence

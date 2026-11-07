@@ -1,21 +1,22 @@
-# Architecture — implemented scope
+# Internal BPM architecture
 
-```text
-Discogs/CSV tracklist
-  → exact artist + version metadata (if available)
-  → verified MusicBrainz Recording MBID (optional user-provided)
-     → POST /api/bpm/open/batch → server/bpm-open.mjs → AcousticBrainz CC0
-  → GetSongBPM (only when configured)
-  → track.bpm / bpmStatus / source / reference
-  → label preview and PDF
+The primary path is GROOVEPRINT BPM Engine (experimental), using authorized local
+signal. Discogs supplies track metadata, not an implied tempo or audio file.
 
-CONNECT AUDIO LIBRARY (one folder in current browser tab)
-  → strict file basename matching, no fuzzy silent assignment
-  → browser Web Audio decode → src/bpm-tempo.mjs
-  → estimate or REVIEW if half/double ambiguity
-  → track.bpm and candidates → label design/PDF
-```
+1. Import CSV or synchronize collection metadata.
+2. Recover missing tracklists if requested.
+3. User connects authorized audio; exact artist/title/version matching abstains on ambiguity.
+4. One context decodes sequentially; copied bounded PCM is transferred to one reusable worker.
+5. The unchanged original detector returns an estimate or review candidates.
+6. Evidence tickets discard results for changed tracks, collections, user revisions or cancelled jobs.
+7. Choosing a local candidate remains `estimated`; explicit user confirmation creates `verified`.
+8. The editor and PDF preserve that distinction and existing historical external evidence.
 
-Server: Node 22, CSRF-protected batch; no Acoustic credentials or client-side secrets. Explicit MBID-only archive lookup. Limit eight per HTTP request; global and per-session rate protection. Browser: 1 folder selection, one-by-one decode to bound simultaneous memory, up to 1500 candidate files <=160 MiB each. No audio uploading. User-created BPM and manually supplied MBIDs are stored locally in a separate evidence map keyed by a nonplaintext release/position/artist-title hash. This excludes collection membership, folder identifiers and raw Discogs metadata; matching is conservative and user-generated records survive source expiry.
+No title/artist catalog API participates in this path. `/api/bpm/status` describes
+local capabilities, never a key-configured provider. Former catalog endpoints
+return `410 BPM_CATALOG_RETIRED`; no browser caller remains.
+The archive research adapter is explicit and isolated. It is not a fallback.
 
-**Not implemented:** licensed auto-MBID resolution by title, background persisted queue, a multi-algorithm DSP ensemble, calibrated confidence, large-scale dataset index, browser-closed execution, paid plans. Absence of those features must not be hidden.
+The challenger stays in `src/bpm-tempo-experiment.mjs` for measured development.
+Neither provider removal nor a green CI promotes it into the UI. See
+`BPM-PRODUCTION-STATUS.md` for the independent musical-validation gate.

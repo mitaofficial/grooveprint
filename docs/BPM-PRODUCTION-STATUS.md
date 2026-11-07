@@ -1,34 +1,33 @@
-# GROOVEPRINT 3.0 — current product and BPM status
+# GROOVEPRINT — internal BPM product status
 
-Development is confined to PR #3 / `feature/bpm-intelligence-3-open-data`.
-No merge, main update, release, production secret change or Railway operation was
-performed. Read [WORK-CHECKPOINT.md](WORK-CHECKPOINT.md) and the latest PR CI before
-resuming; prior CI #90 is a historical baseline.
+GetSongBPM integration was removed from active code on the development branch
+`feature/bpm-intelligence-3-open-data`, PR #3. No main update, merge, deployment,
+production secret change or Railway operation was performed. A live site left
+on its previous release is not evidence that the development removal was deployed.
 
-The base application now has cancellable bounded local-audio work, protected
-manual clears/revisions, provider cancellation and restart control, recovery of
-user-only evidence, complete collection navigation, strict CSV failure behavior
-and progressive, cancellable vector PDF export from a frozen snapshot.
+**Default BPM path:** the experimental GROOVEPRINT BPM Engine analyzes authorized
+local audio in the browser using the unchanged original detector worker. Import
+recovers metadata only; a missing BPM stays missing without signal or explicit
+user input. There is no BPM provider signup/key gate or automatic remote fallback.
 
-**Base product:** candidate for a scoped beta of the locally verified CSV,
-collection, editor and PDF paths once the final cross-browser CI passes. Connected
-Discogs behavior has deterministic mocks and two-expiry regressions; live OAuth,
-physical print and real-device/native-memory endurance are not certified.
+**Preserved:** user manual/verified values, explicit clears, local candidates,
+version matching, stop/resource ownership, historical external provenance,
+project import/export, Discogs tracklists/two-expiry recovery and vector PDF.
+The isolated archive research adapter is not called by the default browser path.
 
-**Local BPM detector:** EXPERIMENTAL. The production baseline module is unchanged;
-the revised V2 is benchmark-only and is not served to the browser. Development
-results are 31/31 first choices on repeated publisher-labelled loops, 158/168
-original synthetic cases and 137/144 follow-up synthetic cases. The 31 real loops
-still have zero automatically accepted predictions. These are not independent
-full-track musical results and do not approve BPM Pro.
+**Removed:** catalog client, environment-key reader, matching resolver, lookup/
+batch implementation, cache, readiness polling, promotional credits, service
+controls and activation instructions. Retired API routes return 410; capability
+status describes local signal analysis. Security checks remain on shared routes.
 
-**Catalog providers:** optional. Correct requests and matching are exercised with
-mocks. MusicBrainz title search remains disabled; AcousticBrainz needs recording
-MBIDs; no API key or new licensed PCM source was provisioned. Live availability is
-not evidence of local DSP accuracy.
+**Verification:** the new offline suite and full browser flows explicitly check
+zero retired service/network/API use. A valid fixture-authorized backend session
+is tested with and without a dummy obsolete key under a network audit. Legacy
+JSON values retain source/reference and are not relabelled as internal estimates.
+Read WORK-CHECKPOINT.md and the latest PR CI for exact results.
 
-Remaining musical gate: authorized complete recordings, independently checked
-beat-grid references, grouped development/calibration/untouched evaluation data,
-and precision reported together with automatic coverage. Target objectives are
-not achieved results. No calibrated probabilities or verified badges are inferred
-from an algorithmic/catalog estimate.
+**Musical gate remains incomplete:** the challenger stays benchmark-only. Prior
+31/31 results refer to repeated publisher-labelled loops, all review-required;
+158/168 and 137/144 refer to inspected synthetic development cases. These are not
+independent full-track accuracy. No musical confidence, full-track reliability,
+physical print/device endurance or live OAuth certification is implied.

@@ -18,7 +18,7 @@ Verified: 2026-11-07
 | aubio | GPLv3 or later. https://github.com/aubio/aubio | Research reference only unless compatibility is approved |
 | MusicBrainz API | Free non-commercial API; commercial use needs arrangements. Core database dumps are CC0, supplementary content has separate NC restrictions. https://musicbrainz.org/doc/MusicBrainz_API and https://musicbrainz.org/doc/About/Data_License | No unlicensed commercial live queries. Offline CC0 core data is a distinct option |
 | AcousticBrainz | Historical algorithmic values, exact MBID needed by the current adapter; collection stopped in 2022. https://tempopeek.com/about | Archived catalog evidence, not proof of user-measured tempo |
-| GetSongBPM | Optional provider; requires configured access and contractual review | Keep optional; no invented fallback |
+| GetSongBPM | Historical integration, removed 2026-11-07 | No active client, key or fallback |
 
 ## Measured real-produced audio pilot
 

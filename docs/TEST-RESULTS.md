@@ -1,3 +1,5 @@
+> Historical record: the catalog-provider design below was superseded on 2026-11-07. GetSongBPM is removed from active integration. Follow ARCHITECTURE.md, BPM-INTELLIGENCE.md and WORK-CHECKPOINT.md for the current product. Old key/backlink instructions are not active setup steps.
+
 # Test plan & evidence — alpha
 
 Tests in this branch: `tests/bpm-match.test.mjs`, `tests/auto-bpm.test.mjs`, `tests/frontend-syntax.test.mjs`, `tests/server-smoke.test.mjs`.

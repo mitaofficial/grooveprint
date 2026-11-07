@@ -1,12 +1,13 @@
-# Provider matrix
+# BPM inputs and active capabilities
 
-| Provider | BPM by title | ID requirement | Commercial/legal posture | Production decision |
-| --- | --- | --- | --- | --- |
-| AcousticBrainz | No | Verified MusicBrainz Recording MBID | Archived metadata CC0; 2015–2022 | APPROVED for MBID lookup; live probe HTTP 200 |
-| MusicBrainz web API | Recording identity only | Artist/title search | Free web API noncommercial; contact for commercial plans | BLOCKED until permission |
-| GetSongBPM | Yes | Server API key | Backlink and API terms | BLOCKED until key exists |
-| SonoVault | Yes | Own key; contract | Restrictions on distribution/derived catalogs | BLOCKED until explicit allowed-use review |
-| Spotify Audio Features | Historical | Client credentials | New-app access restricted | REJECTED as primary dependency |
-| GROOVEPRINT local DSP | N/A | User-authorized audio PCM | Original app code; rights for audio remain with user | EXPERIMENTAL; user-visible |
+| Input | Default application use | Requirement | Status |
+|---|---|---|---|
+| Authorized local audio | Internal browser DSP | User-selected signal and supported browser codec | Experimental estimates/review |
+| Explicit manual input / tap | User-created BPM evidence | User action | Protected from automatic replacement |
+| Imported historic BPM | Preserve original value and provenance | Existing project data | Not relabelled as internal/verified |
+| Discogs metadata | Recording/tracklist information | CSV or permitted metadata access | Does not imply a BPM/audio source |
+| AcousticBrainz adapter | None automatically | Explicit research request and recording MBID | Isolated adapter/probe only |
+| GetSongBPM | None | No key is read | Integration retired 2026-11-07 |
 
-Never conflate a catalog value with VERIFIED_AUDIO. External provider reachability is not a guaranteed SLA. Negative match is an honest no-result.
+No new external provider replaces the retired integration. The current engine
+requires audio and independent musical validation remains a separate gate.

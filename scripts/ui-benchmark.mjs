@@ -12,13 +12,13 @@ const project=resolve(arg('--project','.')),label=arg('--label','working'),brows
 if(!/^[a-z0-9-]+$/i.test(label))throw Error('Use an opaque benchmark label');
 const port=await new Promise(resolve=>{const s=createServer();s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>resolve(p))})});
 const temp=await mkdtemp(join(tmpdir(),'gp-ui-')),base='http://127.0.0.1:'+port;
-const server=spawn(process.execPath,['server/app.mjs'],{cwd:project,env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:base,NODE_ENV:'test',SQLITE_PATH:join(temp,'db.sqlite'),SESSION_ENCRYPTION_KEY:'b'.repeat(64),DISCOGS_CONSUMER_KEY:'test',DISCOGS_CONSUMER_SECRET:'test',GETSONGBPM_API_KEY:''},stdio:'ignore'});
+const server=spawn(process.execPath,['server/app.mjs'],{cwd:project,env:{...process.env,PORT:String(port),PUBLIC_ORIGIN:base,NODE_ENV:'test',SQLITE_PATH:join(temp,'db.sqlite'),SESSION_ENCRYPTION_KEY:'b'.repeat(64),DISCOGS_CONSUMER_KEY:'test',DISCOGS_CONSUMER_SECRET:'test'},stdio:'ignore'});
 let browser;
 try{
  for(let n=0;n<100;n++){try{if((await fetch(base+'/health')).ok)break}catch{}await delay(100)}
  browser=await {chromium,firefox,webkit}[browserName].launch({headless:true,args:browserName==='chromium'?['--no-sandbox']:[],executablePath:browserName==='chromium'?process.env.GROOVEPRINT_CHROMIUM_PATH||undefined:undefined});
  const page=await browser.newPage({viewport:{width:1365,height:900}});page.on('pageerror',error=>{throw error});
- await page.route('**/api/discogs/status',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({configured:false,connected:false,csrf:'test',bpmProviderConfigured:false})}));
+ await page.route('**/api/discogs/status',r=>r.fulfill({contentType:'application/json',body:JSON.stringify({configured:false,connected:false,csrf:'test'})}));
  await page.goto(base);await page.waitForFunction(()=>restoreReady&&window.GrooveprintAudioLibrary);
  const data=await page.evaluate(async()=>{
   const sizes=[50,250,500,1000,3000],measures=[];

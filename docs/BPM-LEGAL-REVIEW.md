@@ -1,3 +1,5 @@
+> Historical record: the catalog-provider design below was superseded on 2026-11-07. GetSongBPM is removed from active integration. Follow ARCHITECTURE.md, BPM-INTELLIGENCE.md and WORK-CHECKPOINT.md for the current product. Old key/backlink instructions are not active setup steps.
+
 # Legal & licensing review (engineering, not legal advice)
 
 - **AcousticBrainz:** published database is CC0. It is suitable as a historical BPM source, provided that the exact MusicBrainz recording ID is reliable and results are clearly marked as old algorithmic estimates.

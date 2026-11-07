@@ -3,9 +3,10 @@
 1. BPM V2 remains benchmark-only. All 31 repeated publisher-labelled pilot loops
    still require review; independent full-track accuracy and useful commercial
    automatic coverage are not established. See WORK-CHECKPOINT.md and evidence/.
-2. Discogs CSV provides metadata, not audio or guaranteed recording MBIDs. Catalog
-   providers are optional; no new API key, commercial search permission or raw-audio
-   provider was provisioned. Connected flows use mocks unless explicitly marked live.
+2. Discogs CSV provides metadata, not signal or an implied tempo. The retired
+   catalog integration has no active client, key reader or fallback. Local analysis
+   needs authorized audio; the archive adapter is isolated research. Connected
+   Discogs regression flows use mocks unless explicitly marked live.
 3. Local jobs need the tab open. A running decode cannot be aborted through Web
    Audio; stop discards its result and holds the single-decoder lock until cleanup.
    Native decode can allocate the full file before the 128 MiB PCM check. Neither
