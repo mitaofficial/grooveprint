@@ -33,3 +33,27 @@ test('real benchmark without manifest does not invent validation results',()=>{
  assert.notEqual(result.status,0);
  assert.match(result.stderr,/requires --manifest/);
 });
+
+test('experimental detector flags a sparse octave alternative for human review',async()=>{
+ const tmp=await mkdtemp(join(tmpdir(),'grooveprint-tempo-compare-'));
+ try{
+  const runner=resolve('scripts/bpm-benchmark.mjs');
+  const cmd=spawnSync(process.execPath,[runner,'--synthetic','--quick','--compare','src/bpm-tempo-experiment.mjs','--out',tmp],{encoding:'utf8',timeout:120000});
+  assert.equal(cmd.status,0,cmd.stderr);
+  const lines=(await readFile(join(tmp,'results.csv'),'utf8')).split('\n');
+  const header=lines[0].split(',').map(v=>v.replaceAll('"',''));
+  const col=k=>header.indexOf(k);
+  const target=lines.find(l=>l.includes('"synth_138_sparse"')&&l.includes('"challenger"'));
+  assert.ok(target,'expected synthetic 138 sparse diagnostic');
+  const cells=target.split(',').map(x=>x.replaceAll('"',''));
+  assert.equal(cells[col('requiresReview')],'true','do not auto-accept an octave-ambiguous sparse groove');
+  const summary=JSON.parse(await readFile(join(tmp,'summary.json'),'utf8'));
+  assert.ok(summary.data.challenger.overall.autoAcceptedPct<=100);
+ }finally{await rm(tmp,{recursive:true,force:true})}
+});
+
+test('local Chromium benchmark exposes help without Playwright or user music files',()=>{
+ const cmd=spawnSync(process.execPath,[resolve('scripts/bpm-browser-benchmark.mjs'),'--help'],{encoding:'utf8',timeout:20000});
+ assert.equal(cmd.status,0,cmd.stderr);
+ assert.match(cmd.stdout,/No files\/audio are uploaded/);
+});
