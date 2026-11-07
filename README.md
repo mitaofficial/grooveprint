@@ -38,3 +38,7 @@ The independent CI job `licensed_audio_pilot` evaluates 31 WaivOps / Patchbanks 
 See [licensed dataset, results and licensing assessment](docs/bpm-open-audio-rights-audit-2026-11-07.md). Run locally with `npm run benchmark:licensed-techno` (Node 22, FFmpeg, internet). The experimental DSP is not enabled in GROOVEPRINT production.
 
 For the next independent full-track pilot, see [Ableton Live 12 BPM reference workflow](docs/ableton-tempo-validation-guide.md). Start with `npm run benchmark:init-local`: it creates a private manifest with every BPM explicitly unverified. Only set `groundTruthStatus: "verified"` after checking the beat grid in a DAW.
+
+## Development stability gate
+
+Before pushing to the feature branch run `npm run validate` (offline: tracked-file privacy, configuration, Node unit/syntax tests and short synthetic BPM benchmark). CI cancels superseded PR runs but retains checks on `main`. For recorded limitations and remaining performance tests see [Operation Stability audit](docs/operation-stability-audit-2026-11-07.md).
