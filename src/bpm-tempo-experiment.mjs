@@ -14,7 +14,7 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  if(N<1200)return {status:'unavailable',bpm:null,reason:'too-few-analysis-frames'};
  const low=new Float32Array(N),full=new Float32Array(N);
  const lp=new Float64Array(channels),alpha=1-Math.exp(-2*Math.PI*160/sr);
- let prevLow=0,prevFull=0,smoothedLow=0,smoothedFull=0;
+ let prevLow=0,prevFull=0,smoothedLow=0,smoothedFull=0,totalLevel=0,totalPositiveFlux=0;
  const smoothFactor=1-Math.exp(-frame/(sr*.022)); // reduce carrier-frequency envelope ripple
  for(let k=0;k<N;k++){
   let lowEnergy=0,wideEnergy=0;
@@ -32,8 +32,14 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
   smoothedFull+=smoothFactor*(f-smoothedFull);
   low[k]=Math.max(0,smoothedLow-prevLow);
   full[k]=Math.max(0,smoothedFull-prevFull);
+  totalLevel+=smoothedFull;
+  totalPositiveFlux+=full[k];
   prevLow=smoothedLow;prevFull=smoothedFull;
  }
+ // A continuous tone or bed of noise is not a stable musical pulse, even
+ // when carrier-frequency ripple creates autocorrelation maxima. Require
+ // measurable positive energy changes before normalizing the onset streams.
+ if(totalPositiveFlux/(totalLevel+1e-9)<.015)return {status:'unavailable',bpm:null,reason:'insufficient-rhythmic-transient-contrast'};
  function whiten(x){
   let mean=0,ss=0;
   for(const v of x)mean+=v;
