@@ -24,3 +24,26 @@ test('licensed pilot rejects invalid batch sizes before downloading audio',()=>{
   assert.match(p.stderr,/--limit must be 1\.\.12/);
  }
 });
+
+test('local manifest initializer never fabricates independently verified BPM and protects user edits',async()=>{
+ const {mkdtemp,mkdir,writeFile,readFile,rm}=await import('node:fs/promises');
+ const {tmpdir}=await import('node:os');
+ const {join}=await import('node:path');
+ const folder=await mkdtemp(join(tmpdir(),'grooveprint-local-manifest-'));
+ try{
+  await mkdir(join(folder,'audio'));
+  await writeFile(join(folder,'audio','my-track.wav'),Buffer.alloc(2048));
+  const run=()=>spawnSync(process.execPath,[resolve('scripts/tempo-manifest-init.mjs'),'--dataset',folder],
+   {encoding:'utf8',timeout:20000});
+  const first=run();
+  assert.equal(first.status,0,first.stderr);
+  const manifest=JSON.parse(await readFile(join(folder,'manifest.json'),'utf8'));
+  assert.equal(manifest.tracks.length,1);
+  assert.equal(manifest.tracks[0].groundTruthStatus,'unavailable');
+  assert.equal(manifest.tracks[0].groundTruthBpm,null);
+  assert.equal(manifest.tracks[0].verificationMethod,'');
+  const second=run();
+  assert.notEqual(second.status,0);
+  assert.match(second.stderr,/refusing to overwrite manual BPM edits/);
+ }finally{await rm(folder,{recursive:true,force:true})}
+});
