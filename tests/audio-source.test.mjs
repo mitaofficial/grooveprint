@@ -67,3 +67,14 @@ test('a guest track artist cannot override the release artist used for album dis
  assert.equal(searches,1,'same release should reuse bounded album lookup despite track credits differing');
  assert.equal((await f.resolve({...t,albumArtist:'Wrong Album Artist'})).status,'unavailable','wrong release artist must fail metadata identity');
 });
+
+test('rights resolver accepts canonical CC links with or without trailing slash, never NC/ND/SA',async()=>{
+ const normalized=fixture(d=>{d.metadata.licenseurl='http://creativecommons.org/licenses/by/4.0';d.files[0].licenseurl='https://creativecommons.org/licenses/by/4.0'});
+ const answer=await normalized.source.resolve(input);
+ assert.equal(answer.status,'matched');
+ assert.equal(answer.evidence.license,'https://creativecommons.org/licenses/by/4.0/');
+ for(const rights of ['https://creativecommons.org/licenses/by-sa/4.0','https://creativecommons.org/licenses/by-nc/4.0','https://creativecommons.org/licenses/by-nd/4.0','https://creativecommons.org/licenses/by/4.0/?untrusted=1']){
+  const unsupported=fixture(d=>d.files[0].licenseurl=rights);
+  assert.equal((await unsupported.source.resolve(input)).status,'unavailable',rights);
+ }
+});
