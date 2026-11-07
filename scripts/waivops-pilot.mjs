@@ -167,4 +167,10 @@ const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
 await writeFile(resolve(target,'report.md'),table.join('\n')+'\n');
 console.log(JSON.stringify({kind:'licensed-edm-tech-publisher-label-pilot',independentGroundTruth:false,
  out:relative(project,target),analyzed:rows.length,downloadDecodeErrors:errors.length,v1:report.v1,v2:report.v2}));
+// Diagnoses on publisher labels only. No audio or private file metadata in logs.
+const sourceLabelMisses=rows.filter(r=>r.v2.status!=='estimated'||Math.abs(r.v2.bpm-r.publisherBpm)>1)
+ .map(r=>({id:r.id,publisherBpm:r.publisherBpm,primaryBpm:r.v2.bpm,
+   review:r.v2.requiresReview,reason:r.v2.reason,candidates:r.v2.candidates.slice(0,4)}));
+console.log(JSON.stringify({kind:'publisher-label-v2-mismatches',count:sourceLabelMisses.length,cases:sourceLabelMisses,
+ groundTruthVerified:false}));
 if(errors.length)process.exitCode=2;
