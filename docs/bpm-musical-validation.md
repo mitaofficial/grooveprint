@@ -55,7 +55,7 @@ Run with WAV PCM (16/24/32-bit integer or float32):
 node scripts/bpm-benchmark.mjs --real --manifest .private/tempo-dataset/manifest.json --out .private/benchmarks/real
 ```
 
-For compressed music, install FFmpeg locally and use `--decoder ffmpeg` (or `npm run benchmark:real`). It decodes locally to 12 kHz stereo float32 for a maximum of 180 seconds, **without uploading audio**. FFmpeg resampling can differ from native Web Audio browser decoding; cross-validation on Chromium is a separate required gate.
+For compressed music, install FFmpeg locally and use `--decoder ffmpeg` (or `npm run benchmark:real`). It decodes locally to 12 kHz stereo float32 for a maximum of 180 seconds, **without uploading audio**. FFmpeg resampling can differ from native Web Audio browser decoding; cross-validation on Chromium is a separate required gate. An independent local Chromium runner is now supplied. Install Playwright and Chromium locally with `npm install --no-save playwright@1.57.0` and `npx playwright install chromium`, then run `npm run benchmark:browser`. This runner uses the real `AudioContext.decodeAudioData()` path and loads files through a browser file input, never an audio HTTP upload. It creates `browser-summary.json` and `browser-results.csv` using opaque IDs. These browser results have not been measured on real recordings until the user supplies the files.
 
 Decoded failures are reported as `decode-error` and count toward total file coverage. The `.private/` directory is excluded from Git. Never commit unauthorized recordings.
 
