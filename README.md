@@ -18,3 +18,15 @@ OAuth-backed Discogs collection membership and Discogs-sourced tracklists are **
 User-entered/confirmed BPMs are stored separately in browser-local evidence keyed by Discogs release ID, position, artist, and track title. They can be restored when the *same* track is fetched again, without persisting the private Discogs collection. A different track/version must not inherit a prior manual value. Local evidence may be lost if the user clears browser storage; export user-owned projects separately as appropriate.
 
 The AcousticBrainz open-data adapter needs an exact recording MBID and covers only archived recordings. The optional on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. Do not describe a successful provider probe as proof that a usable BPM was obtained. No audio data is sent to GROOVEPRINT by the local analyzer.
+
+## Musical BPM benchmarking (experimental)
+
+See [DSP audit and musical validation protocol](docs/bpm-musical-validation.md) and the [local ground-truth manifest example](docs/tempo-manifest.example.json).
+
+- `npm run benchmark:synthetic`: deterministic synthetic baseline; outputs summary, anonymized CSV and Markdown in `.private/benchmarks/synthetic/`.
+- `npm run benchmark:compare`: compare baseline and experimental multiband/200 Hz detector on identical synthetic inputs. This does not enable the experiment in production.
+- `npm run benchmark:real`: independently verified local files using FFmpeg (install separately).
+- `npm run benchmark:browser`: real browser decoder path via locally installed Playwright/Chromium; no audio uploaded.
+- `npm test`: regression tests including a short tempo benchmark.
+
+**Synthetic performance is not a claim about real music.** Do not merge or deploy the experimental detector until sufficient independently verified real recordings meet the agreed evaluation criteria.
