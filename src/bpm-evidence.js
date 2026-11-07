@@ -3,12 +3,12 @@
 'use strict';
 const missing=t=>t.bpm===null||t.bpm===undefined||t.bpm===''||!Number.isFinite(Number(t.bpm))||Number(t.bpm)<=0;
 const protectedValue=t=>['manual','verified','tap'].includes(t.bpmStatus)||['tap','user-verified'].includes(t.source)||t.bpmUserEdited===true;
-const fields=['position','title','artist','recordingMbid','bpm','bpmStatus','source','bpmRevision','bpmUserEdited'];
-function capture(record,track){return {record,track,recordId:record.id,releaseId:record.releaseId,instanceId:record.discogsInstanceId,artist:record.artist,values:fields.map(k=>track[k])}}
+const fields=['position','title','artist','duration','recordingMbid','trackSource','bpm','bpmStatus','source','bpmRevision','bpmUserEdited'];
+function capture(record,track){return {record,track,recordId:record.id,releaseId:record.releaseId,instanceId:record.discogsInstanceId,artist:record.artist,albumTitle:record.title,values:fields.map(k=>track[k])}}
 function canApply(ticket,releases,{replaceExisting=false}={}){
  if(!ticket||!releases.includes(ticket.record)||!ticket.record.tracks?.includes(ticket.track))return false;
  const {record,track}=ticket;
- if(record.id!==ticket.recordId||record.releaseId!==ticket.releaseId||record.discogsInstanceId!==ticket.instanceId||record.artist!==ticket.artist)return false;
+ if(record.id!==ticket.recordId||record.releaseId!==ticket.releaseId||record.discogsInstanceId!==ticket.instanceId||record.artist!==ticket.artist||record.title!==ticket.albumTitle)return false;
  if(!fields.every((k,i)=>Object.is(track[k],ticket.values[i])))return false;
  return replaceExisting||(!protectedValue(track)&&missing(track));
 }
