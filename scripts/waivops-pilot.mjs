@@ -22,24 +22,43 @@ const project=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2);
 const arg=(key,fallback)=>{const ix=args.indexOf(key);return ix===-1?fallback:args[ix+1]};
 const offline=args.includes('--offline'),dryRun=args.includes('--dry-run');
-const maxFiles=Number(arg('--limit','12'));
-if(!Number.isInteger(maxFiles)||maxFiles<1||maxFiles>12)throw Error('--limit must be 1..12');
+const maxFiles=Number(arg('--limit','31'));
+if(!Number.isInteger(maxFiles)||maxFiles<1||maxFiles>31)throw Error('--limit must be 1..31');
 const target=resolve(project,arg('--out','.private/benchmarks/waivops-pilot'));
 const repoCommit='fc8c78939c4cc1ceec664d0ed5feda6b8f44960d';
 const base='https://raw.githubusercontent.com/WaivOps/WaivOps-EDM-TECH/'+repoCommit+'/examples/';
 const filenames=[
  '128bpm_edm_tech_drm_id_01_003006.mp3',
+ '128bpm_edm_tech_drm_id_01_005911.mp3',
+ '128bpm_edm_tech_drm_id_01_007859.mp3',
+ '128bpm_edm_tech_drm_id_01_008613.mp3',
  '132bpm_edm_tech_drm_id_01_001464.mp3',
+ '132bpm_edm_tech_drm_id_01_003230.mp3',
+ '132bpm_edm_tech_drm_id_01_004572.mp3',
+ '132bpm_edm_tech_drm_id_01_009400.mp3',
  '134bpm_edm_tech_drm_id_01_003606.mp3',
  '135bpm_edm_tech_drm_id_01_000277.mp3',
+ '135bpm_edm_tech_drm_id_01_000441.mp3',
+ '135bpm_edm_tech_drm_id_01_007580.mp3',
+ '135bpm_edm_tech_drm_id_01_009367.mp3',
  '136bpm_edm_tech_drm_id_01_007185.mp3',
+ '136bpm_edm_tech_drm_id_01_007391.mp3',
  '137bpm_edm_tech_drm_id_01_002435.mp3',
+ '137bpm_edm_tech_drm_id_01_006554.mp3',
+ '137bpm_edm_tech_drm_id_01_006791.mp3',
+ '137bpm_edm_tech_drm_id_01_009204.mp3',
+ '137bpm_edm_tech_drm_id_01_010182.mp3',
  '138bpm_edm_tech_drm_id_01_007090.mp3',
  '139bpm_edm_tech_drm_id_01_003019.mp3',
+ '139bpm_edm_tech_drm_id_01_007884.mp3',
  '140bpm_edm_tech_drm_id_01_007923.mp3',
+ '140bpm_edm_tech_drm_id_01_008429.mp3',
  '142bpm_edm_tech_drm_id_01_000974.mp3',
+ '142bpm_edm_tech_drm_id_01_003541.mp3',
+ '142bpm_edm_tech_drm_id_01_010242.mp3',
  '145bpm_edm_tech_drm_id_01_006859.mp3',
- '148bpm_edm_tech_drm_id_01_000161.mp3'
+ '148bpm_edm_tech_drm_id_01_000161.mp3',
+ '148bpm_edm_tech_drm_id_01_005851.mp3'
 ];
 const targets=filenames.slice(0,maxFiles);
 function labelOf(filename){
