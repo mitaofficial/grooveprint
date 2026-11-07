@@ -93,8 +93,17 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  // Sparse kick / backbeat signals may have a stronger half-tempo maximum
  // despite an entirely plausible double-tempo alternative. Do not auto-accept
  // this case merely because the two scores are not within an arbitrary 81%.
- const octaveTopAlternatives=distinct.slice(1,3).some(p=>
-  Math.abs(p.tempo/top.tempo-2)<.045||Math.abs(p.tempo/top.tempo-.5)<.035);
+ // A strong candidate at twice the selected tempo is common when a sparse
+ // kick is incorrectly interpreted as the fundamental pulse. Require review
+ // when it carries at least a quarter of the normalized autocorrelation.
+ // Apply a stricter threshold to a half-tempo alternative to avoid flagging
+ // every stable four-on-the-floor pattern. These are experimental, not calibrated.
+ const octaveTopAlternatives=distinct.slice(1,3).some(p=>{
+  const ratio=p.tempo/top.tempo;
+  if(Math.abs(ratio-2)<.045)return p.score>=top.score*.25;
+  if(Math.abs(ratio-.5)<.035)return p.score>=top.score*.65;
+  return false;
+ });
  const closeCompetition=distinct.slice(1,4).some(p=>
   Math.abs(p.tempo/top.tempo-1)>.06&&p.score>=top.score*.96);
  const ambiguous=octaveCompetition||octaveTopAlternatives||closeCompetition;
