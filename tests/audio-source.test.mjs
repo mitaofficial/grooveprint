@@ -13,6 +13,8 @@ test('approved live-source contract searches then checks exact identity, rights 
 test('incomplete recording identities send no requests and cannot supply an arbitrary audio URL',async()=>{
  const f=fixture();for(const x of [{releaseId:'0'},{artist:'Various'},{album:''}])assert.equal((await f.source.resolve({...input,...x,url:'http://169.254.169.254/'})).status,'unavailable');assert.equal(f.calls.length,0);
  await assert.rejects(f.source.resolve({...input,title:42}),/invalid-track/);
+ for(const bad of [{search:'injection'},'X'.repeat(501),'Album\nAnother'])await assert.rejects(f.source.resolve({...input,albumArtist:bad}),/invalid-track/);
+ assert.equal(f.calls.length,0,'malformed album credits must fail before any search request');
 });
 test('ambiguous or changed rights/recording provenance abstain before audio download',async()=>{
  const f=fixture(d=>d.files.push({...d.files[0],name:'another.mp3'}));assert.equal((await f.source.resolve(input)).status,'review');
