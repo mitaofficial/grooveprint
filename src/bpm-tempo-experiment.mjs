@@ -90,11 +90,16 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  const related=peaks.filter(p=>p.lag!==top.lag &&
   (Math.abs(p.tempo/top.tempo-2)<.045||Math.abs(p.tempo/top.tempo-.5)<.035));
  const octaveCompetition=related.some(p=>p.score>=top.score*.81);
+ // Sparse kick / backbeat signals may have a stronger half-tempo maximum
+ // despite an entirely plausible double-tempo alternative. Do not auto-accept
+ // this case merely because the two scores are not within an arbitrary 81%.
+ const octaveTopAlternatives=distinct.slice(1,3).some(p=>
+  Math.abs(p.tempo/top.tempo-2)<.045||Math.abs(p.tempo/top.tempo-.5)<.035);
  const closeCompetition=distinct.slice(1,4).some(p=>
   Math.abs(p.tempo/top.tempo-1)>.06&&p.score>=top.score*.96);
- const ambiguous=octaveCompetition||closeCompetition;
+ const ambiguous=octaveCompetition||octaveTopAlternatives||closeCompetition;
  return {status:'estimated',bpm,source:'local-dsp',confidence:null,
   bpmCandidates:alternatives,requiresReview:ambiguous,
-  reason:octaveCompetition?'octave-tempo-ambiguity':closeCompetition?'competing-tempo-peaks':'experimental-onset-acf-v2',
+  reason:(octaveCompetition||octaveTopAlternatives)?'octave-tempo-ambiguity':closeCompetition?'competing-tempo-peaks':'experimental-onset-acf-v2',
   audioAnalyzed:true,analysisSeconds:Number((N/hz).toFixed(1)),algorithm:'grooveprint-onset-acf-v2-experimental'};
 }
