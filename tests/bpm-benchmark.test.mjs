@@ -72,3 +72,16 @@ test('experimental detector abstains rather than inferring BPM from steady, nonr
   assert.equal(cells[headers.indexOf('status')],'unavailable','steady nonrhythmic waveform is not music BPM evidence');
  }finally{await rm(tmp,{recursive:true,force:true})}
 });
+test('a failed real input remains in both engine denominators, with independent identities and no false validation',async()=>{
+ const {writeFile}=await import('node:fs/promises');
+ const tmp=await mkdtemp(join(tmpdir(),'gp-failed-input-'));
+ try{
+  const manifest=join(tmp,'manifest.json');
+  await writeFile(manifest,JSON.stringify({tracks:[{id:'missing_fixture',file:'missing.wav',category:'test-fixture',groundTruthStatus:'verified',groundTruthBpm:140,verificationMethod:'controlled test fixture (no actual recording)'}]}));
+  const run=spawnSync(process.execPath,[resolve('scripts/bpm-benchmark.mjs'),'--real','--manifest',manifest,'--compare','src/bpm-tempo-experiment.mjs','--out',tmp],{encoding:'utf8'});
+  assert.equal(run.status,0,run.stderr);
+  const report=JSON.parse(await readFile(join(tmp,'summary.json'),'utf8'));
+  for(const engine of ['baseline','challenger']){assert.equal(report.data[engine].overall.groundTruthN,1);assert.equal(report.data[engine].overall.decodeFailuresN,1);assert.equal(report.data[engine].overall.top1Within1Pct,0);assert.match(report.engines[engine].sha256,/^[a-f0-9]{64}$/)}
+  assert.notEqual(report.engines.baseline.sha256,report.engines.challenger.sha256);assert.equal(report.realAudioValidation,'NO VERIFIED AUDIO ANALYZED');
+ }finally{await rm(tmp,{recursive:true,force:true})}
+});

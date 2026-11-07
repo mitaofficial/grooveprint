@@ -8,7 +8,10 @@ import {resolve,dirname,relative,isAbsolute,sep} from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {performance} from 'node:perf_hooks';
+import {scoreRows as stats,evaluateCase} from './tempo-evaluation.mjs';
+import {execFileSync} from 'node:child_process';
+import {cpus,platform,arch} from 'node:os';
+import {synthesize,noBeat} from './tempo-synthetic.mjs';
 import {estimateLocalTempo as baseline} from '../src/bpm-tempo.mjs';
 
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
@@ -25,86 +28,6 @@ const out=resolve(root,arg('--out','.private/benchmarks/'+mode));
 const quick=includes('--quick');
 const tempoSet=[60,69,70,100,120,128,136,138,140,145,150,160,174,200];
 const patterns=['four','backbeat','hats-dominant','swing','tribal','breaks','triplets','sparse','distorted','vinyl-noise','intro','antiphase'];
-function seeded(seed){let v=seed>>>0;return ()=>{v^=v<<13;v^=v>>>17;v^=v<<5;return (v>>>0)/4294967296}}
-function hashSeed(text){let n=2166136261;for(const ch of text){n=Math.imul(n^ch.charCodeAt(0),16777619)}return n>>>0}
-function synthesize(id,bpm,pattern){
- const sampleRate=12000,duration=quick?12:24,numberOfChannels=pattern==='antiphase'?2:1;
- const n=Math.floor(duration*sampleRate),data=Array.from({length:numberOfChannels},()=>new Float32Array(n));
- const rng=seeded(hashSeed(id)),secondsPerBeat=60/bpm;
- function pulse(time,type,amp){
-  if(time<0||time>=duration)return;
-  const pos=Math.round(time*sampleRate),length=Math.round(sampleRate*(type==='kick'?.11:.045));
-  for(let j=0;j<length&&pos+j<n;j++){
-   const t=j/sampleRate;
-   const env=Math.exp(-t*(type==='kick'?36:91));
-   let v=0;
-   if(type==='kick')v=Math.sin(2*Math.PI*(54*t+135*(1-Math.exp(-t*27))/27))*env;
-   else if(type==='snare')v=(rng()*2-1)*env*.82+Math.sin(2*Math.PI*175*t)*env*.18;
-   else v=(rng()*2-1)*env;
-   data[0][pos+j]+=v*amp;
-   if(numberOfChannels===2)data[1][pos+j]-=v*amp;
-  }
- }
- for(let beat=0;beat<Math.ceil(duration/secondsPerBeat);beat++){
-  const time=beat*secondsPerBeat;
-  if(pattern==='intro'&&time<7)continue;
-  const bar=beat%4;
-  const shouldKick=pattern==='sparse'?bar===0||bar===2:pattern==='breaks'?bar===0||bar===2||bar===3:true;
-  const kickAmp=pattern==='hats-dominant'?.18:pattern==='tribal'?.62:.95;
-  if(shouldKick)pulse(time,'kick',kickAmp);
-  if(bar===1||bar===3)pulse(time,'snare',pattern==='breaks'?.8:.46);
-  if(pattern==='breaks'&&bar===3)pulse(time+secondsPerBeat*.74,'kick',.55);
-  if(pattern==='tribal'){
-   pulse(time+secondsPerBeat*.25,'snare',.6);
-   pulse(time+secondsPerBeat*.75,'snare',.4);
-  }
-  if(pattern==='triplets')for(let k=1;k<3;k++)pulse(time+secondsPerBeat*k/3,'hat',.6);
-  else if(pattern!=='sparse'){
-   const shifted=pattern==='swing'&&beat%2===0?.66:.5;
-   pulse(time+secondsPerBeat*shifted,'hat',pattern==='hats-dominant'?1:.32);
-  }
-  if(pattern==='hats-dominant')pulse(time+secondsPerBeat*.25,'hat',.7);
- }
- for(let j=0;j<n;j++){
-  const noise=pattern==='vinyl-noise'?(rng()*2-1)*.065:0;
-  if(pattern==='intro'&&j<7*sampleRate)data[0][j]+=.015*Math.sin(2*Math.PI*83*j/sampleRate);
-  if(pattern==='vinyl-noise')data[0][j]+=noise;
-  if(pattern==='distorted')data[0][j]=Math.tanh(data[0][j]*4)*.9;
- }
- return {sampleRate,duration,numberOfChannels,getChannelData:i=>data[i]};
-}
-function noBeat(id){
- const sampleRate=12000,duration=12,rng=seeded(hashSeed(id)),array=new Float32Array(sampleRate*duration);
- for(let i=0;i<array.length;i++)array[i]=.025*Math.sin(2*Math.PI*92*i/sampleRate)+.002*(rng()*2-1);
- return {sampleRate,duration,numberOfChannels:1,getChannelData:()=>array};
-}
-function stats(rows){
- const hasTruth=r=>r.groundTruthStatus==='verified'&&Number.isFinite(r.groundTruthBpm);
- const all=rows.filter(hasTruth),predicted=all.filter(r=>r.status==='estimated'&&Number.isFinite(r.bpm));
- const accepted=predicted.filter(r=>!r.requiresReview),review=all.filter(r=>r.requiresReview||r.status==='review');
- const good=(r,tol)=>Math.abs(r.bpm-r.groundTruthBpm)<=tol;
- const rate=(a,b)=>b?Number((100*a/b).toFixed(2)):null;
- const mean=arr=>arr.length?Number((arr.reduce((a,b)=>a+b,0)/arr.length).toFixed(4)):null;
- const median=arr=>arr.length?arr.slice().sort((a,b)=>a-b)[Math.floor(arr.length/2)]:null;
- const errors=predicted.map(r=>Math.abs(r.bpm-r.groundTruthBpm));
- const octave=r=>Math.abs(r.bpm-r.groundTruthBpm/2)<=2||Math.abs(r.bpm-r.groundTruthBpm*2)<=2;
- const errorsUnaccepted=accepted.filter(r=>Math.abs(r.bpm-r.groundTruthBpm)>5);
- return {n:rows.length,groundTruthN:all.length,predictedN:predicted.length,acceptedN:accepted.length,
-  coveragePct:rate(predicted.length,all.length),autoAcceptedPct:rate(accepted.length,all.length),
-  reviewPct:rate(review.length,all.length),
-  top1Within1Pct:rate(predicted.filter(r=>good(r,1)).length,predicted.length),
-  top1Within2Pct:rate(predicted.filter(r=>good(r,2)).length,predicted.length),
-  acceptedWithin1Pct:rate(accepted.filter(r=>good(r,1)).length,accepted.length),
-  acceptedWithin2Pct:rate(accepted.filter(r=>good(r,2)).length,accepted.length),
-  candidateWithin1Pct:rate(predicted.filter(r=>r.candidateBpm.some(x=>Math.abs(x-r.groundTruthBpm)<=1)).length,predicted.length),
-  octaveErrorPct:rate(predicted.filter(octave).length,predicted.length),
-  unflaggedOctavePct:rate(accepted.filter(octave).length,accepted.length),
-  catastrophicPct:rate(predicted.filter(r=>Math.abs(r.bpm-r.groundTruthBpm)>5&&!octave(r)).length,predicted.length),
-  unflaggedOver5N:errorsUnaccepted.length,
-  mae:mean(errors),medianAe:median(errors),meanProcessingMs:mean(rows.map(r=>r.processingMs)),meanSampledRssMb:mean(rows.filter(r=>Number.isFinite(r.sampledRssMb)).map(r=>r.sampledRssMb)),
-  unavailableN:rows.filter(r=>r.status==='unavailable').length,
-  decodeFailuresN:rows.filter(r=>r.status==='decode-error').length};
-}
 function validateEntry(t){
  if(!t||typeof t!=='object'||typeof t.id!=='string'||!/^[a-z0-9_-]{1,64}$/i.test(t.id))throw Error('Each track requires an opaque id [a-z0-9_-] (1-64 chars)');
  if(typeof t.file!=='string'||isAbsolute(t.file)||t.file.includes('\0'))throw Error('Each file path must be relative');
@@ -155,32 +78,25 @@ async function decodeLocal(file,decoder){
  for(let i=0;i<samples;i++)for(let c=0;c<channels;c++)output[c][i]=floats[i*channels+c];
  return {sampleRate:rate,duration:samples/rate,numberOfChannels:channels,getChannelData:i=>output[i]};
 }
+const compareOptions=JSON.parse(arg('--compare-options','{}'));
+if(!compareOptions||typeof compareOptions!=='object'||Array.isArray(compareOptions))throw Error('--compare-options must be a JSON object');
 const comparePath=arg('--compare');
-let challenger=null;
+let challenger=null,challengerDefaults={};
 if(comparePath){
  const full=resolve(root,comparePath);
  if(relative(root,full).startsWith('..'+sep)||relative(root,full)==='..')throw Error('Comparison module must be within project');
  const module=await import(pathToFileURL(full).href);
  if(typeof module.estimateLocalTempo!=='function')throw Error('Comparison module must export estimateLocalTempo()');
- challenger=module.estimateLocalTempo;
-}
-function analyze(id,category,groundTruthBpm,groundTruthStatus,buffer,detector,engine){
- const start=performance.now();
- const output=detector(buffer);
- const elapsed=performance.now()-start;
- const sampledRssMb=Number((process.memoryUsage().rss/1048576).toFixed(2));
- const candidates=Array.isArray(output.bpmCandidates)?output.bpmCandidates.map(c=>Number(c.bpm)).filter(Number.isFinite):[];
- return {id,category,groundTruthBpm,groundTruthStatus,engine,status:output.status||'unavailable',
-  bpm:Number.isFinite(output.bpm)?output.bpm:null,requiresReview:output.requiresReview===true,
-  reason:String(output.reason||''),candidateBpm:candidates,candidateScores:Array.isArray(output.bpmCandidates)?output.bpmCandidates.slice(0,8).map(x=>Number(x.relative)||0):[],processingMs:Number(elapsed.toFixed(3)),sampledRssMb};
+ challenger=module.estimateLocalTempo;challengerDefaults=module.TEMPO_PARAMETERS||{};
 }
 let inputs=[],realAvailability='NOT TESTED';
 if(mode==='synthetic'){
- const tempos=quick?[70,138,174]:tempoSet;
+ const tempos=arg('--tempos')?arg('--tempos').split(',').map(Number):quick?[70,138,174]:tempoSet;
+ if(tempos.some(t=>!Number.isFinite(t)||t<20||t>300))throw Error('Synthetic --tempos must be comma-separated 20..300');
  const modes=quick?['four','sparse','antiphase']:patterns;
  for(const bpm of tempos)for(const pattern of modes){
   const id='synth_'+bpm+'_'+pattern;
-  inputs.push({id,category:pattern,groundTruthBpm:bpm,groundTruthStatus:'verified',getBuffer:async()=>synthesize(id,bpm,pattern)});
+  inputs.push({id,category:pattern,groundTruthBpm:bpm,groundTruthStatus:'verified',getBuffer:async()=>synthesize(arg('--seed')?id+'|'+arg('--seed'):id,bpm,pattern,{quick})});
  }
  inputs.push({id:'synth_no_beat',category:'nonrhythmic',groundTruthBpm:null,groundTruthStatus:'unavailable',getBuffer:async()=>noBeat('synth_no_beat')});
 }else{
@@ -199,51 +115,51 @@ if(mode==='synthetic'){
  }
  realAvailability=inputs.length?'TESTED':'NOT TESTED';
 }
+const repetitions=Number(arg('--repetitions','3'));
+if(!Number.isInteger(repetitions)||repetitions<1||repetitions>20)throw Error('--repetitions must be 1..20');
+const engines=[{name:'baseline',detector:baseline},...(challenger?[{name:'challenger',detector:challenger,options:{...challengerDefaults,...compareOptions}}]:[])];
 const results=[];
-for(const entry of inputs){
- let buffer;
- try{buffer=await entry.getBuffer()}
- catch(error){
-  // Don't leak local paths, codec stderr or audio metadata to reports.
-  results.push({id:entry.id,category:entry.category,groundTruthBpm:entry.groundTruthBpm,groundTruthStatus:entry.groundTruthStatus,
-   engine:'baseline',status:'decode-error',bpm:null,requiresReview:false,reason:'decode-failed',candidateBpm:[],processingMs:0});
-  continue;
- }
- results.push(analyze(entry.id,entry.category,entry.groundTruthBpm,entry.groundTruthStatus,buffer,baseline,'baseline'));
- if(challenger)results.push(analyze(entry.id,entry.category,entry.groundTruthBpm,entry.groundTruthStatus,buffer,challenger,'challenger'));
-}
-const grouped=Object.fromEntries([...new Set(results.map(r=>r.engine))].map(engine=>{
+for(const [caseIndex,entry] of inputs.entries())results.push(...await evaluateCase(entry,engines,{repetitions,caseIndex}));
+if(mode==='real')realAvailability=results.some(r=>r.status!=='decode-error'&&r.groundTruthStatus==='verified')?'TESTED ON SUPPLIED VERIFIED REFERENCES':'NO VERIFIED AUDIO ANALYZED';
+const grouped=Object.fromEntries(engines.map(e=>e.name).map(engine=>{
  const subset=results.filter(r=>r.engine===engine);
  const byCategory=Object.fromEntries([...new Set(subset.map(r=>r.category))].map(c=>[c,stats(subset.filter(r=>r.category===c))]));
  return [engine,{overall:stats(subset),byCategory}];
 }));
 const source=await readFile(resolve(root,'src/bpm-tempo.mjs'));
-const report={schemaVersion:1,mode,realAudioValidation:realAvailability,algorithmSha256:createHash('sha256').update(source).digest('hex'),
+const engineMetadata={};
+for(const engine of engines){const path=engine.name==='baseline'?'src/bpm-tempo.mjs':relative(root,resolve(root,comparePath));engineMetadata[engine.name]={module:path,sha256:createHash('sha256').update(await readFile(resolve(root,path))).digest('hex'),options:{minTempo:55,maxTempo:210,maxSeconds:180,...(engine.options||{})}}}
+let gitHead=null;try{gitHead=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim()}catch{}
+const report={schemaVersion:2,metricDefinitions:{eligible:'verified scalar references, fixed before execution',top1:'correct / all eligible, including failures',conditional:'correct / valid predictions',candidateK:8,toleranceBpm:[1,2],octaveToleranceBpm:2,catastrophicAbsoluteErrorBpm:5,acceptance:'estimated, finite BPM, requiresReview === false',referenceLevel:mode==='synthetic'?'SYNTHETIC_GENERATED':'SUPPLIED_INDEPENDENT_REFERENCE'},engines:engineMetadata,environment:{node:process.version,platform:platform(),arch:arch(),cpu:cpus()[0]?.model,gitHead},generatorSha256:createHash('sha256').update(await readFile(resolve(root,'scripts/tempo-synthetic.mjs'))).digest('hex'),repetitions,syntheticSeed:arg('--seed','original'),syntheticTempos:arg('--tempos',quick?'70,138,174':tempoSet.join(',')),timingMethod:'Independent PCM copies, alternating engine order per case and repetition; raw timings retained. No warmup excluded.',cases:results,mode,realAudioValidation:realAvailability,algorithmSha256:createHash('sha256').update(source).digest('hex'),
  generatedAt:new Date().toISOString(),groundTruthPolicy:'synthetic generator, or independent manually verified real BPM',
  data:grouped,notes:['First candidate and auto-accepted accuracy are scored separately.',
+  'Top-1/candidate/octave rates use every eligible case, including failures. Conditional accuracy is named separately.',
+  'No accepted predictions => precision and Wilson interval are null, coverage is zero.',
+  'PCM input copies isolate detectors; their cost is measured separately.',
+  'Wilson 95% intervals assume independent cases; related synthetic patterns are not independent music recordings.',
   'A non-null score is not a calibrated confidence value.',
   'A synthetic PASS never establishes musical accuracy on released recordings.',
   'Sampled process RSS is not peak heap usage, and timing varies with CI hardware.',
   'No music or audio bytes are included in report output.']};
 await mkdir(out,{recursive:true});
 await writeFile(resolve(out,'summary.json'),JSON.stringify(report,null,2)+'\n');
-const fields=['id','category','groundTruthStatus','groundTruthBpm','engine','status','bpm','requiresReview','reason','candidateBpm','processingMs','sampledRssMb'];
+const fields=['id','category','groundTruthStatus','groundTruthBpm','engine','status','bpm','requiresReview','reason','candidateBpm','processingMs','sampledRssMb','decodeMs','inputCopyMs','copiedPcmBytes','processingSamplesMs'];
 const csvCell=v=>{let s=Array.isArray(v)?v.join(';'):v==null?'':String(v);return '"'+s.replaceAll('"','""')+'"'};
 await writeFile(resolve(out,'results.csv'),fields.join(',')+'\n'+results.map(r=>fields.map(k=>csvCell(r[k])).join(',')).join('\n')+'\n');
 const markdown=['# GROOVEPRINT BPM benchmark','', 'Dataset: '+mode,'Real recording validation: '+realAvailability,
- 'Algorithm SHA-256: '+report.algorithmSha256,'',
- '| Engine | Ground truth N | Coverage % | Top-1 ±1 BPM % | Accepted ±1 BPM % | Candidate ±1 BPM % | Octave error % | Unflagged octave % | MAE |',
+ ...Object.entries(engineMetadata).map(([engine,m])=>engine+' SHA-256: '+m.sha256),'',
+ '| Engine | Ground truth N | Coverage % | Top-1 ±1 BPM % (all eligible) | Accepted ±1 BPM % | Candidate ±1 BPM % | Octave error % | Unflagged octave % | MAE |',
  '|---|---:|---:|---:|---:|---:|---:|---:|---:|'];
 for(const [engine,value] of Object.entries(grouped)){
  const s=value.overall;
  markdown.push('| '+engine+' | '+s.groundTruthN+' | '+s.coveragePct+' | '+s.top1Within1Pct+' | '+s.acceptedWithin1Pct+' | '+s.candidateWithin1Pct+' | '+s.octaveErrorPct+' | '+s.unflaggedOctavePct+' | '+s.mae+' |');
 }
 markdown.push('','**Warning:** synthetic results cannot establish production music accuracy. All values refer to this run only.','',
- '## Most significant errors (non-octave errors >5 BPM excluded from this ranking only after listing)',
+ '## Largest absolute errors, both engines (all error types included)',
  '');
-const worst=results.filter(r=>r.engine==='baseline'&&r.groundTruthStatus==='verified'&&Number.isFinite(r.bpm))
+const worst=results.filter(r=>r.groundTruthStatus==='verified'&&Number.isFinite(r.bpm))
  .map(r=>({...r,error:Math.abs(r.bpm-r.groundTruthBpm)})).sort((a,b)=>b.error-a.error).slice(0,12);
-for(const r of worst)markdown.push('- '+r.id+': expected '+r.groundTruthBpm+', got '+r.bpm+', absolute error '+r.error.toFixed(2)+', review='+r.requiresReview);
+for(const r of worst)markdown.push('- '+r.engine+' / '+r.id+': expected '+r.groundTruthBpm+', got '+r.bpm+', absolute error '+r.error.toFixed(2)+', review='+r.requiresReview);
 await writeFile(resolve(out,'report.md'),markdown.join('\n')+'\n');
 console.log(JSON.stringify({mode,realAudioValidation:realAvailability,reportDir:relative(root,out),summary:grouped.baseline.overall,comparison:challenger?grouped.challenger.overall:null}));
 if(mode==='synthetic'&&challenger){

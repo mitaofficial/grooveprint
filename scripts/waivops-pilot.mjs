@@ -11,12 +11,13 @@
  */
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import {resolve,dirname,relative} from 'node:path';
-import {fileURLToPath} from 'node:url';
+import {fileURLToPath,pathToFileURL} from 'node:url';
+import {evaluateCase,scoreRows} from './tempo-evaluation.mjs';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
 import {performance} from 'node:perf_hooks';
 import {estimateLocalTempo as original} from '../src/bpm-tempo.mjs';
-import {estimateLocalTempo as experimental} from '../src/bpm-tempo-experiment.mjs';
+import {estimateLocalTempo as experimental,TEMPO_PARAMETERS} from '../src/bpm-tempo-experiment.mjs';
 
 const project=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2);
@@ -122,28 +123,14 @@ function repeatLoop(decoded,minSeconds=20){
  return {duration:newLength/rate,sampleRate:rate,numberOfChannels:channels,
   getChannelData:ch=>repeated[ch],originalDuration:length/rate,repeats};
 }
-function evaluate(model,buffer){
- const t=performance.now();
- const answer=model==='v1'?original(buffer):experimental(buffer);
- const ms=Number((performance.now()-t).toFixed(3));
- return {status:answer.status,bpm:Number.isFinite(answer.bpm)?answer.bpm:null,
-  requiresReview:answer.requiresReview===true,reason:String(answer.reason||''),
-  candidates:Array.isArray(answer.bpmCandidates)?answer.bpmCandidates.map(x=>x.bpm):[],ms};
-}
 function metrics(rows,model){
- const matching=rows.map(r=>({label:r.publisherBpm,output:r[model]}));
- const predicted=matching.filter(r=>r.output.status==='estimated'&&Number.isFinite(r.output.bpm));
- const auto=predicted.filter(r=>!r.output.requiresReview);
- const near=(r,n)=>Math.abs(r.output.bpm-r.label)<=n;
- const octave=r=>Math.abs(r.output.bpm-r.label*.5)<=2||Math.abs(r.output.bpm-r.label*2)<=2;
- const fraction=(n,d)=>d?Number((n*100/d).toFixed(2)):null;
- return {sourceLabelCount:rows.length,coveragePct:fraction(predicted.length,rows.length),
-  primaryWithin1Pct:fraction(predicted.filter(r=>near(r,1)).length,predicted.length),
-  publisherLabelAmongCandidatesPct:fraction(predicted.filter(r=>r.output.candidates.some(c=>Math.abs(c-r.label)<=1)).length,predicted.length),
-  octaveErrorPct:fraction(predicted.filter(octave).length,predicted.length),
-  unflaggedOctaveCount:auto.filter(octave).length,
-  autoAcceptedCount:auto.length,autoAcceptedCoveragePct:fraction(auto.length,rows.length),
-  acceptedWithin1Pct:fraction(auto.filter(r=>near(r,1)).length,auto.length)};
+ const evaluated=rows.map(r=>({id:r.id,category:'techno-loop',groundTruthBpm:r.publisherBpm,groundTruthStatus:'publisher-labelled',...r[model],candidateBpm:r[model].candidateBpm||r[model].candidates||[]}));
+ const scored=scoreRows(evaluated,{referenceStatus:'publisher-labelled'});
+ return {sourceLabelCount:rows.length,coveragePct:scored.coveragePct,primaryWithin1Pct:scored.top1Within1Pct,
+  primaryConditionalWithin1Pct:scored.top1ConditionalWithin1Pct,publisherLabelAmongCandidatesPct:scored.candidateWithin1Pct,
+  octaveErrorPct:scored.octaveErrorPct,unflaggedOctaveCount:scored.unflaggedOctaveN,autoAcceptedCount:scored.acceptedN,
+  autoAcceptedCoveragePct:scored.autoAcceptedPct,acceptedWithin1Pct:scored.acceptedWithin1Pct,
+  usefulCorrectCoveragePct:scored.usefulCorrectCoveragePct,autoPrecisionWilson95Pct:scored.autoPrecisionWilson95Pct,allMetrics:scored};
 }
 if(dryRun){
  console.log(JSON.stringify({mode:'DRY_RUN',publisher:'WaivOps/Patchbanks EDM-TECH',license:'CC-BY-4.0',
@@ -151,26 +138,36 @@ if(dryRun){
  process.exit(0);
 }
 await mkdir(target,{recursive:true});
+const comparePath=arg('--compare','src/bpm-tempo-experiment.mjs');
+const fullCompare=resolve(project,comparePath);
+if(relative(project,fullCompare).startsWith('..'))throw Error('Comparison module must stay within project');
+const challenger=comparePath==='src/bpm-tempo-experiment.mjs'?experimental:(await import(pathToFileURL(fullCompare).href)).estimateLocalTempo;
+if(typeof challenger!=='function')throw Error('Comparison module must export estimateLocalTempo');
+const selection=arg('--selection','default');
+if(!['default','baseline','band-agreement'].includes(selection))throw Error('Invalid selection mode');
+const defaults=comparePath==='src/bpm-tempo-experiment.mjs'?TEMPO_PARAMETERS:{};
+const options={...defaults,...(selection==='default'?{}:{selectionMode:selection}),...(args.includes('--harmonic-refinement')?{harmonicRefinement:true}:{})};
+const engines=[{name:'v1',detector:original},{name:'v2',detector:challenger,options}];
 const rows=[],errors=[];
 for(let i=0;i<targets.length;i++){
- const name=targets[i],label=labelOf(name);
- try{
-  const file=await getExample(name);
-  const loop=repeatLoop(decodeMp3(file.file));
-  rows.push({id:'waivops_'+String(i+1).padStart(2,'0'),publisherBpm:label,
-   audioSha256:file.sha256,sourceName:name,originalDuration:Number(loop.originalDuration.toFixed(3)),
-   analysisDuration:Number(loop.duration.toFixed(3)),loopRepetitions:loop.repeats,
-   v1:evaluate('v1',loop),v2:evaluate('v2',loop)});
- }catch(error){
-  errors.push({id:'waivops_'+String(i+1).padStart(2,'0'),
-   error:String(error.message||error).slice(0,160)});
- }
+ const name=targets[i],label=labelOf(name),id='waivops_'+String(i+1).padStart(2,'0');
+ let file,loop;
+ const results=await evaluateCase({id,category:'techno-loop',groundTruthBpm:label,groundTruthStatus:'publisher-labelled',getBuffer:async()=>{
+  file=await getExample(name);loop=repeatLoop(decodeMp3(file.file));return loop;
+ }},engines,{repetitions:3,caseIndex:i});
+ if(results.some(r=>['decode-error','detector-error','invalid-output'].includes(r.status)))errors.push({id,error:'input-or-detector-failed'});
+ rows.push({id,publisherBpm:label,audioSha256:file?.sha256||null,sourceName:name,originalDuration:loop?Number(loop.originalDuration.toFixed(3)):null,
+  analysisDuration:loop?Number(loop.duration.toFixed(3)):null,loopRepetitions:loop?.repeats||0,
+  ...Object.fromEntries(results.map(r=>[r.engine,{...r,candidates:r.candidateBpm,ms:r.processingMs}]))});
 }
-const report={schemaVersion:1,validationType:'PUBLISHER_LABEL_ONLY',independentBpmGroundTruth:false,
+const analyzed=rows.filter(r=>r.v1.status!=='decode-error').length;
+const algorithmMetadata={};
+for(const [name,path] of [['v1','src/bpm-tempo.mjs'],['v2',comparePath]])algorithmMetadata[name]={module:path,sha256:createHash('sha256').update(await readFile(resolve(project,path))).digest('hex'),options:name==='v2'?options:{}};
+const report={schemaVersion:2,engines:algorithmMetadata,repetitions:3,node:process.version,timingMethod:'Independent PCM copies, alternating order per case/repetition',validationType:'PUBLISHER_LABEL_ONLY',independentBpmGroundTruth:false,
  audioType:'CC-BY 4.0 real produced four-bar techno loops, repeated as PCM for >8s detector compatibility',
  copyright:'WaivOps / Patchbanks, EDM-TECH Dataset (2025), https://doi.org/10.5281/zenodo.17584890',
  copyrightLicense:'CC BY 4.0',sourceCommit:repoCommit,generatedAt:new Date().toISOString(),
- attempted:targets.length,analyzed:rows.length,errors,
+ attempted:targets.length,analyzed,errors,
  v1:metrics(rows,'v1'),v2:metrics(rows,'v2'),cases:rows};
 await writeFile(resolve(target,'report.json'),JSON.stringify(report,null,2)+'\n');
 const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
@@ -181,11 +178,11 @@ const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
  '| Metric | V1 | V2 |','|---|---:|---:|',
  ...['coveragePct','primaryWithin1Pct','publisherLabelAmongCandidatesPct','octaveErrorPct','unflaggedOctaveCount','autoAcceptedCoveragePct','acceptedWithin1Pct']
  .map(k=>'| '+k+' | '+(report.v1[k]??'N/A')+' | '+(report.v2[k]??'N/A')+' |'),
- '','Analyzed: '+rows.length+'/'+targets.length+'; download/decode errors: '+errors.length,
+ '','Analyzed: '+analyzed+'/'+targets.length+'; download/decode errors: '+errors.length,
  '','**Real independent BPM verification: NOT TESTED**. Do not merge the experimental DSP based on this pilot.'];
 await writeFile(resolve(target,'report.md'),table.join('\n')+'\n');
 console.log(JSON.stringify({kind:'licensed-edm-tech-publisher-label-pilot',independentGroundTruth:false,
- out:relative(project,target),analyzed:rows.length,downloadDecodeErrors:errors.length,v1:report.v1,v2:report.v2}));
+ out:relative(project,target),analyzed,downloadDecodeErrors:errors.length,v1:report.v1,v2:report.v2}));
 // Diagnoses on publisher labels only. No audio or private file metadata in logs.
 const sourceLabelMisses=rows.filter(r=>r.v2.status!=='estimated'||Math.abs(r.v2.bpm-r.publisherBpm)>1)
  .map(r=>({id:r.id,publisherBpm:r.publisherBpm,primaryBpm:r.v2.bpm,

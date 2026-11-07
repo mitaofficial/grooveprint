@@ -78,3 +78,27 @@ The objective is honest uncertainty, not arbitrary 130–150 BPM genre bias. Bot
 4. Benchmark sequential 10/100/500/1500-file workflows on actual end-user hardware and browsers, including cancellation, RAM usage, file identity and Discogs source expiry during analysis.
 5. Calibrate any confidence/auto-accept policy on separate ground-truth data. Do not fabricate confidence percentages.
 6. Preserve unchanged baseline and ensure `npm test`, syntax and Chromium smoke stay green throughout.
+
+## Updated development profile (continuation after CI #90)
+
+The earlier numbers and 11-error taxonomy above are historical. The corrected
+benchmark includes failures for every engine, full-input denominators alongside
+conditional accuracy, both code hashes, independent PCM copies and three
+alternating-order repetitions. Rates whose denominator changed must not be
+compared directly with old prediction-only rates.
+
+Selected V2: 158/168 original synthetic top-1 within ±1 BPM, with 28/168 automatically
+accepted and 28/28 accepted correct; 137/144 follow-up synthetic top-1, with 38/144
+automatically accepted and 38/38 accepted correct. All remaining 10 and 7 primary
+mistakes are octave-related and require review in these runs. Synthetic acceptance
+is uncalibrated and these correlated, inspected cases are development material.
+
+On the 31 publisher-labelled repeated real loops: original V2 23/31; band-ranking
+ablation 30/31; harmonic anchoring 31/31. All remain review-required, so automatic
+coverage is zero and accepted precision is N/A. This does not establish full-track
+music accuracy or a production-ready BPM engine.
+
+The default experimental profile and per-case results are documented in
+[WORK-CHECKPOINT.md](WORK-CHECKPOINT.md) and [evidence/](evidence/). The baseline
+production detector remains unchanged. Independent musical validation remains
+INCOMPLETE; no engine was promoted, merged or deployed.

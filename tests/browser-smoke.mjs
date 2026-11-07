@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
-import {spawn} from 'node:child_process';
-import {mkdtemp,rm} from 'node:fs/promises';
+import {spawn,execFileSync} from 'node:child_process';
+import {mkdtemp,rm,writeFile,readFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {createServer} from 'node:net';
 import {setTimeout as delay} from 'node:timers/promises';
-import {chromium} from 'playwright';
+import {chromium,firefox,webkit} from 'playwright';
+const browserName=process.env.GROOVEPRINT_BROWSER||'chromium';
+const browserType={chromium,firefox,webkit}[browserName];
+if(!browserType)throw Error('Unsupported browser '+browserName);
 
 const port=await new Promise((resolve,reject)=>{
  const server=createServer();server.once('error',reject);server.listen(0,'127.0.0.1',()=>{const n=server.address().port;server.close(()=>resolve(n))});
@@ -25,9 +28,12 @@ async function ready(){
 let browser;
 try{
  await ready();
- browser=await chromium.launch({headless:true,args:['--no-sandbox']});
- const page=await browser.newPage();
- let discogsCalls=0,bpmCalls=0,tracklistCalls=0;
+ browser=await browserType.launch({executablePath:browserName==='chromium'?process.env.GROOVEPRINT_CHROMIUM_PATH||undefined:undefined,headless:true,args:browserName==='chromium'?['--no-sandbox']:[]});
+ const page=await browser.newPage(process.env.GROOVEPRINT_MOBILE==='1'?{viewport:{width:390,height:844},hasTouch:true}:{});
+ console.log('BROWSER ENVIRONMENT',JSON.stringify({browser:browserName,version:browser.version(),node:process.version,mobileViewport:process.env.GROOVEPRINT_MOBILE==='1'}));
+ let discogsCalls=0,bpmCalls=0,tracklistCalls=0,localAnalysisActive=false;
+ const audioNetwork=[];
+ page.on('request',request=>{if(localAnalysisActive)audioNetwork.push({method:request.method(),url:request.url(),bytes:request.postDataBuffer()?.length||0})});
  page.on('pageerror',error=>{throw error});
  const json=body=>({status:200,contentType:'application/json',body:JSON.stringify(body)});
  await page.route('**/api/discogs/status',route=>route.fulfill(json({configured:true,connected:true,username:'TEST_ACCOUNT',csrf:'test-csrf',policy:{displayMaxAgeMs:900000},bpmProviderConfigured:true})));
@@ -109,6 +115,7 @@ try{
  assert.ok(await page.locator('[data-gp-library-pick]').count()>0,'Bulk audio folder control should appear');
  // Test real Chromium Web Audio decoding from a synthetic 138 BPM WAV.
  // This waveform is generated within the test and is not third-party audio.
+ localAnalysisActive=true;
  const localResult=await page.evaluate(async()=>{
   const sampleRate=12000,seconds=22,frames=sampleRate*seconds,tempo=138;
   const bytes=new ArrayBuffer(44+frames*2),view=new DataView(bytes);
@@ -124,6 +131,7 @@ try{
    const v=Math.max(-1,Math.min(1,Math.exp(-near/(sampleRate*0.003))*0.9));
    view.setInt16(44+i*2,Math.round(v*32767),true);
   }
+  window.gpTestAudioBytes=bytes;
   const record=state.releases.find(r=>r.releaseId==='123456'),track=record.tracks[0];
   track.bpm=null;track.bpmStatus='';
   const file=new File([bytes],'The Advent - Original Groove (Original Mix).wav',{type:'audio/wav'});
@@ -131,11 +139,62 @@ try{
   return {job:{...window.GrooveprintAudioLibrary.job},bpm:track.bpm,status:track.bpmStatus,
     candidates:track.bpmCandidates||[]};
  });
+ localAnalysisActive=false;
+ assert.ok(audioNetwork.every(r=>r.method==='GET'&&r.bytes===0&&r.url.startsWith(base+'/assets/')),'Local analysis may only load same-origin script assets');
  assert.equal(localResult.job.matched,1,'Audio should match the exact Discogs track');
  assert.equal(localResult.job.errors,0,'Browser should decode and analyze the local WAV');
  assert.ok(['estimated','review'].includes(localResult.status),JSON.stringify(localResult));
  assert.ok(localResult.candidates.some(x=>Math.abs(x.bpm-138)<=3),JSON.stringify(localResult));
  assert.equal(bpmCalls,2,'Local audio analysis must not call the remote BPM provider');
+ // Exercise real browser decoding and worker ownership over repeated synthetic content.
+ const lifecycle=await page.evaluate(async()=>{
+  const original=state.releases,active=state.active,selected=state.selected;
+  const NativeContext=window.AudioContext||window.webkitAudioContext,NativeWorker=window.Worker;
+  let contexts=0,workers=0,maxContexts=0,maxWorkers=0,terminated=0,posts=0;
+  const resources=[];
+  window.AudioContext=class extends NativeContext{
+   constructor(...args){super(...args);contexts++;maxContexts=Math.max(maxContexts,contexts)}
+   async close(){try{return await super.close()}finally{contexts--}}
+  };
+  window.Worker=class extends NativeWorker{
+   constructor(...args){super(...args);workers++;maxWorkers=Math.max(maxWorkers,workers)}
+   postMessage(...args){posts++;super.postMessage(...args);if(window.gpStopDuringWorker)window.GrooveprintAudioLibrary.stop()}
+   terminate(){if(!this.gpTerminated){this.gpTerminated=true;workers--;terminated++}return super.terminate()}
+  };
+  const record={id:'audio_fixture',artist:'Synthetic DJ',tracks:Array.from({length:10},(_,i)=>({title:'Audio '+i,position:'A'+i,bpm:null}))};
+  try{
+   state.releases=[record];state.active=record.id;state.selected=[record.id];state.step=1;renderApp();
+   const search=document.getElementById('searchInput');search.focus();search.value='';
+   const files=record.tracks.map(t=>new File([window.gpTestAudioBytes],'Synthetic DJ - '+t.title+'.wav',{type:'audio/wav'}));
+   for(let cycle=0;cycle<3;cycle++){
+    for(const t of record.tracks){t.bpm=null;t.bpmStatus='';t.source='';t.bpmUserEdited=false}
+    await window.GrooveprintAudioLibrary.analyzeFiles(files);
+    const job=window.GrooveprintAudioLibrary.job;
+    if(job.errors||job.completed!==10||contexts||workers)throw Error('Unreleased browser audio resources');
+    if(document.activeElement!==search)throw Error('Progress replaced active search input');
+    resources.push({cycle,completed:job.completed,contexts,workers,maxDecodedPcmBytes:job.maxDecodedBytesObserved,jsHeapBytes:performance.memory?.usedJSHeapSize||null});
+   }
+   for(const t of record.tracks){t.bpm=null;t.bpmStatus='';t.source='';t.bpmUserEdited=false}
+   window.gpStopDuringWorker=true;await window.GrooveprintAudioLibrary.analyzeFiles(files);window.gpStopDuringWorker=false;
+   const stopped={...window.GrooveprintAudioLibrary.job};
+   if(stopped.phase!=='cancelled'||stopped.completed!==0||record.tracks.some(t=>t.bpm!==null))throw Error('Worker stop applied a late result');
+   return {resources,maxContexts,maxWorkers,contexts,workers,terminated,posts,stop:{phase:stopped.phase,cancelled:stopped.cancelled},content:'One original 22-second WAV reused; 30 decodes, not 30 musical recordings'};
+  }finally{window.gpStopDuringWorker=false;window.AudioContext=NativeContext;window.Worker=NativeWorker;state.releases=original;state.active=active;state.selected=selected;renderApp()}
+ });
+ assert.equal(lifecycle.maxContexts,1);assert.equal(lifecycle.maxWorkers,1);assert.equal(lifecycle.contexts,0);assert.equal(lifecycle.workers,0);assert.equal(lifecycle.stop.cancelled,10);
+ console.log('BROWSER AUDIO LIFECYCLE',JSON.stringify(lifecycle));
+ // Codec capability is measured, not inferred from a filename extension.
+ const generatedWav=Buffer.from(await page.evaluate(()=>Array.from(new Uint8Array(window.gpTestAudioBytes))));
+ const wavPath=join(temp,'synthetic.wav');await writeFile(wavPath,generatedWav);
+ const codecResults=[];
+ for(const [extension,encoder] of [['mp3','libmp3lame'],['flac','flac'],['aiff','pcm_s16be'],['m4a','aac'],['ogg','libvorbis'],['opus','libopus']]){
+  const target=join(temp,'synthetic.'+extension);
+  execFileSync('ffmpeg',['-nostdin','-v','error','-y','-i',wavPath,'-t','12','-c:a',encoder,target],{timeout:20000});
+  const bytes=await readFile(target);
+  const result=await page.evaluate(async bytes=>{const ctx=new (window.AudioContext||window.webkitAudioContext)({sampleRate:12000});try{const decoded=await ctx.decodeAudioData(new Uint8Array(bytes).buffer);return {decoded:true,seconds:Number(decoded.duration.toFixed(2)),pcmBytes:decoded.length*decoded.numberOfChannels*4}}catch(error){return {decoded:false,error:error.name}}finally{await ctx.close()}},Array.from(bytes));
+  codecResults.push({extension,...result});
+ }
+ console.log('BROWSER CODEC CAPABILITIES',JSON.stringify(codecResults));
  // Local user-created correction must survive expiry without storing private
  // Discogs collection data or silently replacing it with provider BPM.
  // Force a short busy window at the instant of the second expiry; the old
@@ -229,11 +288,25 @@ try{
    const measures=[];
    for(const size of [50,250,500,1000,3000]){
     state.releases=records.slice(0,size);state.active=state.releases[0].id;
-    const start=performance.now();renderApp();
-    measures.push({size,renderMs:Number((performance.now()-start).toFixed(2)),
-     rows:document.querySelectorAll('.rel-item').length});
+    const renderSamplesMs=[],nextFrameSamplesMs=[],parseSamplesMs=[];
+    const csv='Artist,Title,Release ID\n'+records.slice(0,size).map((r,i)=>r.artist+','+r.title+','+(400000+i)).join('\n');
+    for(let repeat=0;repeat<5;repeat++){
+     let start=performance.now();const parsed=parseDelimited(csv,',');const mapped=convertRows(parsed,getMapped(parsed.rows[0]));
+     if(mapped.mapped.length!==size)throw Error('CSV lost records');parseSamplesMs.push(Number((performance.now()-start).toFixed(2)));
+     start=performance.now();renderApp();renderSamplesMs.push(Number((performance.now()-start).toFixed(2)));
+     await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));nextFrameSamplesMs.push(Number((performance.now()-start).toFixed(2)));
+    }
+    measures.push({size,renderSamplesMs,nextFrameSamplesMs,parseSamplesMs,rows:document.querySelectorAll('.rel-item').length});
    }
-   state.releases=records;state.selected=[];state.active=records[0].id;renderApp();
+   state.releases=records;state.selected=[];state.active=records[0].id;reviewPage=0;renderApp();
+   document.querySelector('[data-act="review-next"]').click();
+   if(!document.querySelector('[data-open-rel="perf_2999"]'))throw Error('Second page unreachable');
+   document.querySelector('[data-open-rel="perf_2999"]').click();
+   const last=state.releases.find(r=>r.id==='perf_2999');last.title='Beyond DOM limit';
+   state.selected=[last.id];
+   const exported=new TextDecoder('latin1').decode(await buildPdf().arrayBuffer());
+   if(!exported.includes(pdfEscHex('Beyond DOM limit')))throw Error('Selected record beyond DOM limit missing from PDF');
+   last.title='Synthetic Release 2999';reviewPage=0;state.selected=[];renderApp();
    const fn=window.renderApp;
    if(typeof fn!=='function')throw Error('renderApp instrumentation unavailable');
    let renderCalls=0;
@@ -253,7 +326,7 @@ try{
      resultTitle:document.querySelector('.rel-item h4')?.textContent||''};
    }finally{window.renderApp=fn}
   }finally{
-   Object.assign(state,original);renderApp();
+   Object.assign(state,original);reviewPage=0;renderApp();
   }
   return result;
  });
@@ -299,6 +372,52 @@ try{
  console.log('BROWSER PDF GEOMETRY',JSON.stringify({pages:1,labels:pdfGeometry.boxes.length,
   mediaPt:pdfGeometry.media,labelMm:[105,74.25],pdfBytes:pdfGeometry.bytes}));
 
+ const pdfAsync=await page.evaluate(async()=>{
+  const old={releases:state.releases,selected:state.selected,active:state.active,sheet:state.sheet,design:state.design,calibration:state.calibration,printGuides:state.printGuides};
+  const r=state.releases[0],result=[];
+  try{
+   state.releases=Array.from({length:9},(_,i)=>({...r,id:'pdf_'+i,discogsInstanceId:'',discogsFetchedAt:'',title:'Print '+i,tracks:[{position:'A1',title:'Água',bpm:138,bpmStatus:'manual'},{position:'B1',title:'Dub',bpm:null,bpmStatus:'unavailable'}]}));
+   state.selected=state.releases.map(r=>r.id);state.printGuides=true;
+   for(const format of [2,4,6,8,10,12,'letter']){
+    const n=format==='letter'?8:format;
+    state.sheet=format==='letter'?{...defaultTemplate(),pageW:215.9,pageH:279.4,labelW:107.95,labelH:69.85}:templatePreset(n);
+    const expected=new Uint8Array(await buildPdf().arrayBuffer());
+    const actual=new Uint8Array(await (await buildPdfAsync()).arrayBuffer());
+    if(expected.length!==actual.length||!expected.every((v,i)=>v===actual[i]))throw Error('Async PDF changed vector bytes');
+    const raw=new TextDecoder('latin1').decode(actual),pages=Number(raw.match(/\/Type \/Pages \/Count (\d+)/)?.[1]);
+    const boxes=[...raw.matchAll(/([0-9.]+) ([0-9.]+) ([0-9.]+) ([0-9.]+) re S Q/g)].map(m=>m.slice(1).map(Number));
+    if(pages!==Math.ceil(9/n)||boxes.length!==pages*n)throw Error('Wrong PDF pagination or boundaries');
+    const sh=state.sheet;
+    for(const [x,y,w,h] of boxes)if(Math.abs(w-sh.labelW*72/25.4)>.02||Math.abs(h-sh.labelH*72/25.4)>.02||x<0||y<0||x+w>sh.pageW*72/25.4+.02||y+h>sh.pageH*72/25.4+.02)throw Error('PDF cell outside sheet');
+    if(!raw.includes(pdfEscHex('Água')))throw Error('Accented text lost');
+    result.push({format,labelsPerPage:n,pages,bytes:actual.length,byteIdentical:true});
+   }
+   state.sheet=defaultTemplate();state.selected=Array.from({length:400},(_,i)=>'long_'+i);state.releases=state.selected.map((id,i)=>({...state.releases[i%9],id,title:'Snapshot '+i}));
+   const frozen=pdfSnapshot(),expected=new Uint8Array(await buildPdf({input:frozen}).arrayBuffer());let progress=0;
+   const bytes=new Uint8Array(await (await buildPdfAsync({input:frozen,onProgress(){progress++;state.design={...state.design,font:'serif',rotation:0};state.releases[0].title='Changed during export'}})).arrayBuffer());
+   if(!progress||expected.length!==bytes.length||!expected.every((v,i)=>v===bytes[i]))throw Error('PDF did not yield or snapshot was changed');
+   const controller=new AbortController();let cancelled=false;
+   try{await buildPdfAsync({input:frozen,signal:controller.signal,onProgress(){controller.abort()}})}catch(error){cancelled=error.name==='AbortError'}
+   if(!cancelled)throw Error('PDF cancellation did not settle');
+   return {templates:result,progressCallbacks:progress,snapshotPreserved:true,cancelled};
+  }finally{Object.assign(state,old);renderApp()}
+ });
+ console.log('BROWSER ASYNC PDF',JSON.stringify(pdfAsync));
+ const beforeCsv=await page.evaluate(()=>state.releases.map(r=>r.id));
+ for(const [name,contents,message] of [['malformed.csv','Artist,Title\nDJ,"Unclosed title','CSV non valido'],['empty.csv','Artist,Title\n','CSV vuoto']]){
+  await page.locator('#fileChooser').setInputFiles({name,mimeType:'text/csv',buffer:Buffer.from(contents)});
+  await page.waitForFunction(message=>document.getElementById('toast').textContent.includes(message),message);
+  assert.deepEqual(await page.evaluate(()=>state.releases.map(r=>r.id)),beforeCsv,'Invalid CSV must preserve the current project');
+  assert.equal(await page.evaluate(()=>pendingCSV),null);
+ }
+ await page.evaluate(()=>{gpBpmProviderReady=false});
+ await page.locator('#fileChooser').setInputFiles({name:'copies.csv',mimeType:'text/csv',buffer:Buffer.from('Artist,Title,Release ID,Format,Tracklist\nExample DJ,Test EP,99999,Vinyl,A1 Groove\nExample DJ,Test EP,99999,Vinyl,A1 Groove')});
+ await page.waitForFunction(()=>pendingCSV?.filename==='copies.csv');
+ await page.locator('#autoEnrich').uncheck();await page.locator('[data-act="apply-csv"]').click();
+ try{await page.waitForFunction(()=>state.releases.length===2&&!window.GrooveprintAutoBPM.job.running)}catch(error){console.log('CSV FIXTURE DIAGNOSTIC',JSON.stringify(await page.evaluate(()=>({count:state.releases.length,job:window.GrooveprintAutoBPM.job.phase,running:window.GrooveprintAutoBPM.job.running,sync:discogsSync.running,pending:pendingCSV&&{mapping:pendingCSV.mapping,rows:pendingCSV.parsed.rows},toast:document.getElementById('toast').textContent}))));throw error}
+ const imported=await page.evaluate(()=>({count:state.releases.length,uniqueIds:new Set(state.releases.map(r=>r.id)).size,tracks:state.releases.map(r=>r.tracks.length),flagged:state.releases.filter(r=>r.duplicate).length}));
+ assert.deepEqual(imported,{count:2,uniqueIds:2,tracks:[1,1],flagged:1});
+ console.log('BROWSER CSV',JSON.stringify({malformedPreserved:true,emptyPreserved:true,legitimateCopies:imported}));
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
 }finally{

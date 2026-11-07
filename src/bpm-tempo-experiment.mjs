@@ -3,7 +3,8 @@
  * Independent-channel low-band onsets, 200 Hz envelope, sub-frame lag refinement.
  * Never marks audio as VERIFIED or emits fabricated probability/confidence.
  */
-export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=180}={}){
+export const TEMPO_PARAMETERS=Object.freeze({minTempo:55,maxTempo:210,maxSeconds:180,selectionMode:'band-agreement',harmonicRefinement:true,octaveReviewRatio:.20,bandSupportRatio:.70,minCombinedBandScore:.5,harmonicFactors:Object.freeze([2,3])});
+export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=180,selectionMode=TEMPO_PARAMETERS.selectionMode,harmonicRefinement=TEMPO_PARAMETERS.harmonicRefinement,octaveReviewRatio=TEMPO_PARAMETERS.octaveReviewRatio,diagnostics=false}={}){
  const sr=Number(buffer?.sampleRate),duration=Number(buffer?.duration);
  if(!Number.isFinite(sr)||sr<8000||!Number.isFinite(duration)||duration<8)
   return {status:'unavailable',bpm:null,reason:'invalid-or-short-audio'};
@@ -57,7 +58,7 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  const hz=sr/frame;
  const lo=Math.max(2,Math.ceil(60*hz/maxTempo)),hi=Math.min(N-5,Math.floor(60*hz/minTempo));
  const weightLow=lowStrength>1e-5?.76:0, weightFull=1-weightLow;
- const scores=new Float64Array(hi+1);
+ const scores=new Float64Array(hi+1),lowScores=new Float64Array(hi+1),fullScores=new Float64Array(hi+1);
  function corr(x,lag){
   let dot=0,aa=0,bb=0;
   for(let i=lag;i<N;i++){
@@ -67,7 +68,8 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
   return dot/(Math.sqrt(aa*bb)+1e-12);
  }
  for(let lag=lo;lag<=hi;lag++){
-  scores[lag]=weightLow*corr(low,lag)+weightFull*corr(full,lag);
+  lowScores[lag]=corr(low,lag);fullScores[lag]=corr(full,lag);
+  scores[lag]=weightLow*lowScores[lag]+weightFull*fullScores[lag];
  }
  function refined(lag){
   if(lag<=lo||lag>=hi)return lag;
@@ -84,10 +86,24 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
   const score=scores[lag];
   // Weak tie preference for a higher pulse rate; a 70 BPM kick will still win
   // when its 140 BPM candidate is not independently supported by bass onsets.
-  peaks.push({lag,score,rank:score*Math.pow(tempo/120,.05),tempo});
+  peaks.push({lag,score,rank:score*Math.pow(tempo/120,.05),tempo,lowSupport:lowScores[lag],fullSupport:fullScores[lag]});
  }
  peaks.sort((a,b)=>b.rank-a.rank);
- const top=peaks[0];
+ let top=peaks[0],selectedFromHarmonic=false,harmonicFactor=null;
+ if(top&&selectionMode==='band-agreement'){
+  // Alternating accents can make the slower repetition win ACF, while bass
+  // AND broadband onsets support the faster integer-related pulse.
+  // A true slow kick with only fast hats lacks the required bass support.
+  const parent=top;
+  const doubled=peaks.find(p=>TEMPO_PARAMETERS.harmonicFactors.some(factor=>Math.abs(p.tempo/parent.tempo-factor)<.06)&&p.score>=TEMPO_PARAMETERS.minCombinedBandScore&&
+   p.lowSupport>=parent.lowSupport*TEMPO_PARAMETERS.bandSupportRatio&&p.fullSupport>=parent.fullSupport*TEMPO_PARAMETERS.bandSupportRatio);
+  if(doubled){
+   harmonicFactor=Math.round(doubled.tempo/parent.tempo);
+   const anchored=parent.tempo*harmonicFactor;
+   top={...doubled,tempo:harmonicRefinement&&anchored>=minTempo&&anchored<=maxTempo?anchored:doubled.tempo};
+   peaks.splice(peaks.indexOf(doubled),1);peaks.unshift(top);selectedFromHarmonic=true;
+  }
+ }
  if(!top||top.score<.11)return {status:'unavailable',bpm:null,reason:'no-stable-beat'};
  const distinct=[];
  for(const p of peaks){
@@ -104,19 +120,19 @@ export function estimateLocalTempo(buffer,{minTempo=55,maxTempo=210,maxSeconds=1
  // this case merely because the two scores are not within an arbitrary 81%.
  // A strong candidate at twice the selected tempo is common when a sparse
  // kick is incorrectly interpreted as the fundamental pulse. Require review
- // when it carries at least a quarter of the normalized autocorrelation.
+ // when it carries at least the configured fraction of the normalized autocorrelation (0.20 in this development profile).
  // Apply a stricter threshold to a half-tempo alternative to avoid flagging
  // every stable four-on-the-floor pattern. These are experimental, not calibrated.
  const octaveTopAlternatives=distinct.slice(1,3).some(p=>{
   const ratio=p.tempo/top.tempo;
-  if(Math.abs(ratio-2)<.045)return p.score>=top.score*.25;
+  if(Math.abs(ratio-2)<.045)return p.score>=top.score*octaveReviewRatio;
   if(Math.abs(ratio-.5)<.035)return p.score>=top.score*.65;
   return false;
  });
  const closeCompetition=distinct.slice(1,4).some(p=>
   Math.abs(p.tempo/top.tempo-1)>.06&&p.score>=top.score*.96);
  const ambiguous=octaveCompetition||octaveTopAlternatives||closeCompetition;
- return {status:'estimated',bpm,source:'local-dsp',confidence:null,
+ return {status:'estimated',bpm,...(diagnostics?{candidateEvidence:distinct}:{}),selectionMode,harmonicRefinement,octaveReviewRatio,selectedFromHarmonic,harmonicFactor,source:'local-dsp',confidence:null,
   bpmCandidates:alternatives,requiresReview:ambiguous,
   reason:(octaveCompetition||octaveTopAlternatives)?'octave-tempo-ambiguity':closeCompetition?'competing-tempo-peaks':'experimental-onset-acf-v2',
   audioAnalyzed:true,analysisSeconds:Number((N/hz).toFixed(1)),algorithm:'grooveprint-onset-acf-v2-experimental'};

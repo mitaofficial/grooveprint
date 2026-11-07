@@ -22,18 +22,45 @@ jobs:
       - run: npm run validate
       - run: npm run benchmark:compare
 
-  browser:
+  browser_matrix:
     needs: test
     runs-on: ubuntu-latest
     timeout-minutes: 12
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      GROOVEPRINT_BROWSER: ${{ matrix.browser }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
       - run: npm install --no-save playwright@1.57.0
-      - run: npx playwright install --with-deps chromium
-      - run: node tests/browser-smoke.mjs
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Verify local codec fixture encoder
+        run: |
+          if ! command -v ffmpeg >/dev/null; then
+            sudo apt-get update -qq
+            sudo apt-get install -y ffmpeg
+          fi
+      - run: npm run test:browser
+      - name: Mobile viewport smoke (390 x 844, simulated touch)
+        run: npm run test:browser
+        env:
+          GROOVEPRINT_MOBILE: 1
+
+  # Preserve the existing required-check name while broadening browser coverage.
+  browser:
+    needs: browser_matrix
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every browser and viewport to pass
+        run: test "$BROWSER_RESULT" = success
+        env:
+          BROWSER_RESULT: ${{ needs.browser_matrix.result }}
 
   provider_probe:
     needs: test

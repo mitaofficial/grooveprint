@@ -6,7 +6,9 @@ const script=readFileSync(new URL('../src/bpm-library.js',import.meta.url),'utf8
 function setup(){
  const win={},events={};
  const document={addEventListener:(n,cb)=>events[n]=cb};
- runInNewContext(script,{window:win,document,setTimeout,clearTimeout});
+ const context={window:win,document,setTimeout,clearTimeout};
+ runInNewContext(readFileSync(new URL('../src/bpm-evidence.js',import.meta.url),'utf8'),context);
+ runInNewContext(script,context);
  return win.GrooveprintAudioLibrary;
 }
 test('matches exact artist-title in a batch',()=>{
@@ -30,4 +32,12 @@ test('title-only filenames are rejected when multiple releases share the title',
 test('no invented audio or duplicate artist title allows empty match',()=>{
  const api=setup();
  assert.equal(api.matchFile({name:'unknown.wav'},api.trackList([{artist:'DJ',tracks:[{title:'Pressure'}]}])).status,'unmatched');
+});
+test('local audio exposes a real stop control and filters supported files before the cap',()=>{
+ const api=setup();
+ assert.equal(typeof api.stop,'function');
+ const list=[...Array.from({length:1500},()=>({name:'cover.jpg',size:123})),{name:'DJ - Groove.wav',size:123}];
+ const plan=api.planFiles(list);
+ assert.equal(plan.files.length,1);
+ assert.equal(plan.unsupported,1500);
 });

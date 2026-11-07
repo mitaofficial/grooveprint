@@ -28,3 +28,13 @@ Run `npm run validate` in a normal Git checkout before committing. Browser smoke
 
 ## Targeted UI performance fix
 Code inspection confirmed `searchInput` was invoking `renderApp()` on each input event, replacing the whole DOM after every typed character. Search now coalesces bursts within 120 ms and preserves field focus and caret selection. Review-list checkboxes use an indexed `Set` rather than repeated linear selection scans. The Chromium smoke test exercises 50, 250, 500, 1000 and 3000 fictional releases, logs single-render durations, checks the 1500-row cap, and verifies exact search results with <=2 full renders after six rapid updates. These CI timing samples are **diagnostics, not an independent browser performance SLA**.
+
+## Continuation: local execution after CI #90
+
+The preliminary audit above is historical. The new operating prompt authorizes
+isolated DSP experiments after integrity work. A real local checkout was tested
+and repaired; the former API-only limitations no longer describe this execution.
+See [WORK-CHECKPOINT.md](WORK-CHECKPOINT.md) for reproduced bugs, cancellation,
+manual evidence, progressive PDF, per-case BPM evidence and remaining gates.
+CI concurrency and `npm run validate` were retained, not reinvented. Browser CI
+now executes Chromium/Firefox/WebKit at desktop and mobile viewport sizes.
