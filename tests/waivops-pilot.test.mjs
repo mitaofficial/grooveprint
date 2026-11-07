@@ -21,7 +21,7 @@ test('licensed pilot rejects invalid batch sizes before downloading audio',()=>{
  for(const invalid of ['0','32','1000','abc']){
   const p=spawnSync(process.execPath,[script,'--dry-run','--limit',invalid],{encoding:'utf8',timeout:20000});
   assert.notEqual(p.status,0);
-  assert.match(p.stderr,/--limit must be 1\.\.12/);
+  assert.match(p.stderr,/--limit must be 1\.\.31/);
  }
 });
 
