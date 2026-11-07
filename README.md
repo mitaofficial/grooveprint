@@ -46,7 +46,7 @@ OAuth-backed Discogs collection membership and Discogs-sourced tracklists are **
 
 User-entered/confirmed BPMs are stored separately in browser-local evidence keyed by Discogs release ID, position, artist, and track title. They can be restored when the *same* track is fetched again, without persisting the private Discogs collection. A different track/version must not inherit a prior manual value. Local evidence may be lost if the user clears browser storage; export user-owned projects separately as appropriate.
 
-The internal on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. No audio data is sent to GROOVEPRINT by the local analyzer. The isolated AcousticBrainz research adapter needs an exact recording MBID and covers only archived recordings; it is not called by the default UI. A successful archive availability probe does not prove that a usable BPM was obtained.
+The internal on-device DSP produces estimates, **not verified BPMs**, and some audio codecs/tempo subdivisions can be ambiguous. Locally selected audio remains on-device. In the **development-only** automatic research flow, the browser directly downloads a rights-checked open recording from the curated source for local decoding; no audio is uploaded to GROOVEPRINT. Source coverage and independent BPM accuracy are not established. The isolated AcousticBrainz research adapter needs an exact recording MBID and covers only archived recordings; it is not called by the default UI. A successful archive availability probe does not prove that a usable BPM was obtained.
 
 ## Musical BPM benchmarking (experimental)
 
@@ -75,4 +75,10 @@ Before pushing to the feature branch run `npm run validate` (offline: tracked-fi
 
 ## Internal BPM analysis
 
-GROOVEPRINT BPM Engine is experimental, processes authorized local audio in a browser worker and needs no external BPM API key. CSV/Discogs tracklists alone leave missing BPMs empty. Connect local audio, inspect candidates and confirm explicitly. Historical imported values keep their source; metadata recovery and the optional archive research adapter are separate from local signal analysis. See docs/WORK-CHECKPOINT.md.
+GROOVEPRINT BPM Engine is experimental and needs **audio of the correct recording**, not a third-party BPM number or external BPM API key.
+
+- **Development server (`npm run dev`):** imported/recovered Discogs tracklists automatically trigger a rights-checked search in the curated Free Music Archive collection. Matched original audio is fetched by the browser and passed to the internal DSP; no per-track file chooser is needed. Coverage of commercial techno/hardgroove is not established, and all automatic candidates require explicit review.
+- **Public Railway production (`main`) and standalone HTML:** the development-only source resolver is unavailable; CSV/Discogs metadata alone cannot supply BPM. Authorized local audio remains the working analysis path. The branch has **not** been deployed.
+- **All modes:** never invent BPM; retain manual/verified values and prior evidence, and treat unverified estimates as candidates rather than authoritative tempo.
+
+See [automatic-import evidence](docs/BPM-AUTOMATIC-IMPORT.md) and [current checkpoint](docs/WORK-CHECKPOINT.md).
