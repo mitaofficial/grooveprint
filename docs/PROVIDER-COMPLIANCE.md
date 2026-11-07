@@ -1,5 +1,13 @@
 # Current data-source boundaries
 
+The automatic-import research mandate adds development-only discovery in the
+curated Internet Archive / Free Music Archive collection, restricted to declared
+CC0/CC BY licenses at item and file level. A live control album was verified. Metadata-ready events
+can resolve it and download audio directly to the browser for the shared DSP.
+All results require review; UI declares the limited catalog and permits stopping
+or disabling the flow. This is not a new commercial permission or production
+provider. See BPM-AUTOMATIC-IMPORT.md for source conditions and evidence.
+
 Discogs metadata and user collection information retain their existing attribution,
 expiry, privacy and access controls. This change does not extend retention periods,
 alter source permissions or authorize production use beyond existing approvals.

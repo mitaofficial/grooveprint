@@ -1,6 +1,16 @@
 # GROOVEPRINT
 Vinyl workstation with Discogs OAuth backend.
 
+**Automatic Discogs BPM: partial research implementation.** `npm run dev` now
+starts source resolution and shared DSP after tracklist import, without audio
+file selection, searching the curated Free Music Archive collection for declared
+CC0/CC BY recordings with exact metadata. A live control album was tested. All results
+require review. General techno/hardgroove catalog access and automatic acceptance
+remain unresolved; production does not enable this resolver. Read the
+[live-source evidence and precise limits](docs/BPM-AUTOMATIC-IMPORT.md).
+`npm run proof:auto-bpm` explicitly runs the real public-source/FFmpeg research
+proof; it is separate from offline tests. The standalone HTML has no such backend.
+
 For a downloadable local BPM trial, run `npm run preview:local`, then open
 `.private/local-preview/GROOVEPRINT-BPM.html` on your PC. The generated file needs
 no Node installation to open. It includes CSV/editor/audio/PDF and opt-in V1/V2

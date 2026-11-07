@@ -1,5 +1,10 @@
 # GROOVEPRINT — internal BPM product status
 
+**Latest development exception:** BPM-AUTOMATIC-IMPORT.md documents the partial
+automatic import pipeline, FMA CC0/BY catalog discovery and its real-source proof
+on one open-license control album. It reuses V1 and forces review; no general commercial catalog or validated
+automatic assignment is claimed. Production denies the research resolver/example.
+
 GetSongBPM integration was removed from active code on the development branch
 `feature/bpm-intelligence-3-open-data`, PR #3. No main update, merge, deployment,
 production secret change or Railway operation was performed. A live site left

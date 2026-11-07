@@ -1,4 +1,82 @@
-# GROOVEPRINT — current checkpoint: internal BPM and downloadable trial
+# GROOVEPRINT — current checkpoint: automatic import, partial source coverage
+
+7 November 2026. The attached BPM_AUTOMATICO_IMPORT_DISCOGS(1).md was read in
+full and applied. This section supersedes earlier next-action instructions.
+Base verified clean: `fa00c353cdba31eb8ca02b57715dca51ac3627ae`, feature branch
+`feature/bpm-intelligence-3-open-data`, PR #3 open/draft/mergeable, CI #94 success.
+Protected main `28f9fd9ed699ec13c4ab4108ca2266159715e73c` unchanged. No merge,
+Railway operation, deploy, secret change, account registration or purchase.
+
+## Outcome and unresolved priority
+
+**PARTIAL.** Automatic import → approved source lookup → audio → internal DSP now
+works without per-track audio selection for matching FMA CC0/BY recordings.
+The live control proof covers one album; the resolver is not pinned to that ID.
+General commercial techno/hardgroove catalog coverage and musically validated
+automatic acceptance remain unresolved. The prerequisite is version-identifiable
+audio/preview access with explicit automated-analysis rights, not a generic key.
+MassiveMusic/7digital documents authenticated preview delivery but no permission
+for this specific analysis has been established. No service was contracted.
+
+## Implemented
+
+- Add bpm-auto.js: metadata-ready hooks from CSV, incremental tracklist recovery,
+  sync/enrichment, project import and restore; fresh/eligible tracks only.
+- Development-only audio-source resolver searches and validates an explicitly
+  curated FMA collection with item/file CC0 or CC BY license checks. Searches use
+  imported artist/album identity, not hardcoded recording IDs. No arbitrary URL proxy or retired provider is introduced. Query/item/file/cache
+  limits and a persisted opt-out apply; outages pause the batch.
+- Direct browser MP3 acquisition, MIME/byte/time limits, same library decoder and
+  original V1 worker. All automatic results stay review, with no numeric assignment.
+- Positive/negative resolution and DSP reuse for identical copies; manual values,
+  explicit clears, ticket revisions, Stop, expiry, project change and decode
+  ownership stay protected. Shared Stop cancels the automatic queue completely.
+- Preserve API metadata origin separately as trackSource=discogs: a DSP result
+  must not accidentally exempt a tracklist from TTL, backup or import filtering.
+- Persist only bounded analysis provenance, never audio, PCM, download URL or signed
+  reference. Production resolver/example stay 404 and source CSP stays unchanged.
+
+## Evidence and verification
+
+Read `docs/BPM-AUTOMATIC-IMPORT.md` and
+`docs/evidence/auto-discogs-2026-11-07.json`. Private logs/audio remain ignored in
+`.private/checkpoints/auto-discogs/`; no audio or raw uploader data is committed.
+
+Real runner `npm run proof:auto-bpm`: live Discogs/IA search/metadata and original
+MP3, first 180 seconds decoded to 12 kHz mono, no repetition. 14 track identities:
+11 pass source criteria, 2 duration conflicts, 1 artist mismatch. Runner analyzes
+ONE recording; V1 100 / V2 66.7, no independent reference, accuracy NOT VALIDATED.
+Separate live Chrome UI: one click imports the real release and automatically
+performs 11 analyses; final 14/14, 13 review (11 tempo + 2 identity), 1 unavailable,
+zero errors, zero automatic numeric assignments; no audio chooser/mocks.
+
+Offline suite: 87 tests, syntax/config/privacy and synthetic smoke. Browser tests
+add automatic CSV/tracklist → source → actual generated MP3/worker → PDF with
+explicit API mocks: six tracks, three resolver requests, one audio download/decode,
+all review; duplicate/expiry/backup provenance checks retained. Final-head CI must
+confirm all six Chromium/Firefox/WebKit desktop/mobile flows; #94 is historical.
+DSP hashes and synthetic outcomes remain unchanged. A viewport is not a phone.
+
+The managed preview was observed working in the session; its loopback is not a
+public user-device URL. Run `npm run dev` from the repository on the user's PC and
+open the printed Local URL, then PROVA UNA RELEASE APERTA. The earlier standalone
+HTML cannot run this backend pipeline and is not presented as a new solution.
+No new hosting was created to bypass the no-deploy constraint.
+
+## Resume here
+
+Finish the final-head checks/PR checkpoint and report the partial scope plainly.
+The next product dependency is an approved target-catalog audio source; extend
+the adapter only after its identity/access/analysis permissions are concrete,
+then validate the precision-versus-coverage policy with independent references.
+Do not lower review thresholds, substitute provider BPM, or claim the pilot
+solves arbitrary Discogs imports. Preserve main and Railway.
+
+---
+
+## Previous internal-BPM checkpoint (historical)
+
+# GROOVEPRINT — internal BPM and downloadable trial
 
 7 November 2026. This section supersedes earlier next-action instructions to
 restart a general audit or leave V2 benchmark-only in all environments. The

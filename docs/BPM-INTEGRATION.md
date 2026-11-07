@@ -1,5 +1,10 @@
 # Motore BPM interno — integrazione e prova locale, 7 novembre 2026
 
+Successivo incarico automatico: vedere BPM-AUTOMATIC-IMPORT.md. La nuova pipeline
+di sviluppo riusa questa coda per le fonti FMA CC0/BY corrispondenti; il file HTML
+autonomo descritto qui non include il backend di ricerca. Il catalogo commerciale
+generale rimane irrisolto e nessun BPM viene assegnato automaticamente dal pilot.
+
 Base dell'incarico: `aeb0b7854f44a05c1def9e1afe2227bc4e29555e`, PR #3 draft,
 main `28f9fd9ed699ec13c4ab4108ca2266159715e73c`. Il documento allegato
 GROOVEPRINT_PROMPT_FOCUS_BPM_INTERNO(1).md è stato letto integralmente. Il nuovo

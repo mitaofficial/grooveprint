@@ -1,5 +1,11 @@
 # Internal BPM architecture
 
+Development now also has an automatic import path: metadata-ready hook →
+bpm-auto.js → development-only approved audio-source resolver → browser download
+→ the same bpm-library.js queue/worker → review candidates. Discovery is restricted to FMA items declaring CC0/CC BY, not a pinned release ID.
+One album supplies the live control proof. See BPM-AUTOMATIC-IMPORT.md; this is not general
+commercial catalog coverage or a production rollout.
+
 The primary path is GROOVEPRINT BPM Engine (experimental), using authorized local
 signal. Discogs supplies track metadata, not an implied tempo or audio file.
 

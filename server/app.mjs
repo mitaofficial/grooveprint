@@ -6,8 +6,12 @@ import {randomBytes,timingSafeEqual} from 'node:crypto';
 import {oauthAuthorization,parseTokenBody} from './oauth.mjs';
 import {SessionStore} from './store.mjs';
 import {validRecordingMbid,lookupAcousticBrainz} from './bpm-open.mjs';
+import {createAudioSource,RESEARCH_RELEASE} from './audio-source.mjs';
 
 const folder=dirname(fileURLToPath(import.meta.url));
+const audioSource=createAudioSource();
+const audioResearch=process.env.NODE_ENV==='development';
+let activeAudioResolves=0;
 const origin=process.env.PUBLIC_ORIGIN || 'http://127.0.0.1:4173';
 const publicOrigin=new URL(origin).origin;
 const configured=Boolean(process.env.DISCOGS_CONSUMER_KEY && process.env.DISCOGS_CONSUMER_SECRET);
@@ -61,9 +65,9 @@ function sanitRelease(data){
  fetchedAt:new Date().toISOString(),category:'CC0_CATALOG'};
 }
 const server=http.createServer(async(req,res)=>{res.setHeader('Referrer-Policy','strict-origin-when-cross-origin');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('X-Frame-Options','DENY');res.setHeader('Permissions-Policy','camera=(),microphone=(),geolocation=()');try{const path=new URL(req.url||'/',publicOrigin).pathname;
-if(req.method==='GET'&&(path==='/'||path==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.discogs.com https://www.youtube.com; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'"});const html=await readFile(join(folder,'../index.html'),'utf8');res.end(process.env.NODE_ENV==='development'?html.replace('<script>', '<script>window.GrooveprintBPMDevelopment=true;</script><script>'):html);return;}
+if(req.method==='GET'&&(path==='/'||path==='/index.html')){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'no-store','Content-Security-Policy':"default-src 'self'; img-src 'self' data: blob:; script-src 'self' 'unsafe-inline' https://www.youtube.com https://www.youtube-nocookie.com https://s.ytimg.com https://www.gstatic.com; style-src 'self' 'unsafe-inline'; connect-src 'self' https://api.discogs.com https://www.youtube.com"+(audioResearch?" https://archive.org https://*.us.archive.org https://*.eu.archive.org https://*.ca.archive.org":"")+"; frame-src https://www.youtube.com https://www.youtube-nocookie.com; media-src 'self' blob: https:; object-src 'none'; base-uri 'self'; form-action 'self'"});const html=await readFile(join(folder,'../index.html'),'utf8');res.end(process.env.NODE_ENV==='development'?html.replace('<script>', '<script>window.GrooveprintBPMDevelopment=true;</script><script>'):html);return;}
 if(req.method==='GET'&&path==='/credits'){res.writeHead(200,{'Content-Type':'text/html; charset=utf-8','Cache-Control':'public, max-age=300','X-Content-Type-Options':'nosniff'});res.end('<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="index,follow"><meta name="viewport" content="width=device-width, initial-scale=1"><title>GROOVEPRINT — Credits</title><style>body{background:#111;color:#eee;font:16px/1.6 system-ui,sans-serif;max-width:700px;margin:50px auto;padding:0 24px}a{color:#c5d36a}</style></head><body><h1>GROOVEPRINT — Credits</h1><p>GROOVEPRINT is an independent record collection and printable label app.</p><p>Audio tempo estimates are calculated locally by the experimental GROOVEPRINT BPM Engine. Audio is not uploaded.</p><p>Record catalog information is provided by <a href="https://www.discogs.com/">Discogs</a> and is subject to their API terms. GROOVEPRINT is not affiliated with Discogs.</p><p><a href="/">Back to GROOVEPRINT</a></p></body></html>');return;}
-if(req.method==='GET'&&['/assets/bpm-tempo.mjs','/assets/bpm-library.js','/assets/bpm-evidence.js','/assets/bpm-worker.mjs','/assets/collection-enrichment.js','/assets/bpm-engine.mjs'].includes(path)){
+if(req.method==='GET'&&['/assets/bpm-tempo.mjs','/assets/bpm-library.js','/assets/bpm-evidence.js','/assets/bpm-worker.mjs','/assets/collection-enrichment.js','/assets/bpm-engine.mjs','/assets/bpm-auto.js'].includes(path)){
  const target=path.slice('/assets/'.length);
  res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
  res.end(await readFile(join(folder,'../src',target)));return;
@@ -75,12 +79,33 @@ if(req.method==='GET'&&path==='/examples/grooveprint-demo.csv'){
  res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="GROOVEPRINT_esempio_fittizio.csv"','Cache-Control':'no-store'});
  res.end(csv);return;
 }
-if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')){res.writeHead(404);res.end('Not Found');return;}
+if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')&&!path.startsWith('/api/audio/')){res.writeHead(404);res.end('Not Found');return;}
 if(!['GET','POST'].includes(req.method))return send(res,405,{error:'Method not allowed'});
 if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wrong origin');
 let sess=store.get(cookies(req.headers.cookie).gp_session);if(!sess){const newSession=store.create();res.setHeader('Set-Cookie','gp_session='+newSession.id+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800'+(origin.startsWith('https:')?'; Secure':''));sess=store.get(newSession.id);}
 const csrf=()=>{if(!same(req.headers['x-grooveprint-csrf'],sess.csrf))throw httpError(403,'Invalid CSRF token');};
 const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not connected to Discogs');};
+if(path==='/api/audio/status'&&req.method==='GET')return send(res,200,{enabled:audioResearch,reviewOnly:true,approvedCollection:audioResearch?'freemusicarchive':null,approvedReleaseIds:null,minRequestIntervalMs:1500,
+ scope:'research-only FMA CC0/BY audio; general commercial catalog coverage not established',csrf:sess.csrf});
+if(path.startsWith('/api/audio/')){
+ if(!audioResearch)throw httpError(404,'Automatic audio research is unavailable in this environment');
+ if(path==='/api/audio/resolve'&&req.method==='POST'){
+  csrf();throttle('audio:'+sess.dbid);throttle('audio-global');
+  if(activeAudioResolves>=2){res.setHeader('Retry-After','5');return send(res,429,{error:'Audio research busy; retry later'})}
+  const input=await body(req),ctrl=new AbortController(),cancel=()=>ctrl.abort();activeAudioResolves++;res.once('close',cancel);
+  try{return send(res,200,await audioSource.resolve(input,{signal:ctrl.signal}))}
+  catch(e){if(ctrl.signal.aborted)return;return send(res,/invalid-track/.test(e.message)?400:503,{error:'Audio source unavailable',reason:e.message==='source-rate-limited'?'rate-limited':'source-error'})}
+  finally{activeAudioResolves--;res.removeListener('close',cancel)}
+ }
+ if(path==='/api/audio/example'&&req.method==='GET'){
+  throttle('audio-example:'+sess.dbid);const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),20000);
+  try{const r=await fetch('https://api.discogs.com/releases/'+RESEARCH_RELEASE.releaseId,{signal:ctrl.signal,headers:{Accept:'application/json','User-Agent':ua}});
+   if(!r.ok)throw httpError(503,'Public Discogs example unavailable');const d=await r.json();
+   return send(res,200,{...sanitRelease(d),artist:(d.artists||[]).map(a=>a.name).join(', '),title:String(d.title||''),label:(d.labels||[]).map(x=>x.name).join(', '),format:'File',exampleScope:'open-audio integration control, not techno/hardgroove accuracy'});
+  }finally{clearTimeout(timer)}
+ }
+ throw httpError(404,'Unknown audio endpoint');
+}
 if(path==='/api/discogs/status'&&req.method==='GET')return send(res,200,{configured,connected:!!sess.credentials,username:sess.username||null,csrf:sess.csrf,policy:sitePolicy});
 if(path==='/api/bpm/status'&&req.method==='GET')return send(res,200,{
  engine:'GROOVEPRINT BPM Engine',mode:'local-audio',experimental:true,requiresAudio:true,

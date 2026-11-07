@@ -470,6 +470,34 @@ try{
   assert.deepEqual(guestBpmCalls,[]);
   console.log('BROWSER GUEST JOURNEY',JSON.stringify({...sample,keyboardOpen:true,identifierAttributesSafe:true,guideAndBackupReachable:true,manualBpm:141,pdfPages:2,pdfBytes:pdfBytes.length,jsonRoundtrip:true,reloadRestored:true,bpmApiRequests:0}));
  }finally{await guest.close()}
+ // Source APIs are explicitly mocked here; the MP3 decode and V1 worker are real.
+ // The separate proof:auto-bpm runner records the live licensed-source evidence.
+ const autoPort=await new Promise((yes,no)=>{const s=createServer();s.once('error',no);s.listen(0,'127.0.0.1',()=>{const p=s.address().port;s.close(()=>yes(p))})});
+ const autoBase='http://127.0.0.1:'+autoPort;
+ const autoServer=spawn(process.execPath,['scripts/dev.mjs'],{env:{...process.env,NODE_ENV:'development',PORT:String(autoPort),PUBLIC_ORIGIN:autoBase,DISCOGS_CONSUMER_KEY:'',DISCOGS_CONSUMER_SECRET:''},stdio:'ignore'});const autoClosed=new Promise(r=>autoServer.once('close',r));
+ const automatic=await browser.newPage(process.env.GROOVEPRINT_MOBILE==='1'?{viewport:{width:390,height:844},hasTouch:true}:{});
+ const resolvedTracks=[],audioDownloads=[];const autoErrors=[];automatic.on('pageerror',e=>autoErrors.push(e.message));
+ const sourceMp3=await readFile(join(temp,'synthetic.mp3'));
+ await automatic.route('https://api.discogs.com/releases/3759149',r=>r.fulfill({headers:{'Access-Control-Allow-Origin':'*'},json:{id:3759149,tracklist:[
+  {position:'1',title:'Signal (Original Mix)',duration:'0:12',type_:'track'},
+  {position:'2',title:'Signal (Remix)',duration:'0:12',type_:'track'},
+  {position:'3',title:'No Audio',duration:'0:12',type_:'track'}]}}));
+ await automatic.route('**/api/audio/resolve',r=>{const t=r.request().postDataJSON();resolvedTracks.push(t.title);return r.fulfill({json:t.title==='Signal (Original Mix)'?{status:'matched',asset:{name:'synthetic.mp3',size:sourceMp3.length,url:'https://archive.org/download/Crawford_Street-17897/synthetic.mp3'},evidence:{provider:'Synthetic source fixture',recordingId:'generated-12-second-control',sourcePage:'https://archive.org/details/Crawford_Street-17897',scope:'API mocked; generated MP3 integration only',requiresReview:true}}:{status:t.title==='Signal (Remix)'?'review':'unavailable',reason:'source-fixture-abstention'}})});
+ await automatic.route('https://archive.org/download/Crawford_Street-17897/synthetic.mp3',r=>{audioDownloads.push(1);return r.fulfill({body:sourceMp3,contentType:'audio/mpeg',headers:{'Access-Control-Allow-Origin':'*'}})});
+ try{
+  let autoReady=false;for(let n=0;n<80;n++){if(autoServer.exitCode!==null)throw Error('Automatic BPM development server exited');try{if((await fetch(autoBase+'/health')).ok){autoReady=true;break}}catch{}await delay(75)}assert.ok(autoReady);
+  await automatic.goto(autoBase);await automatic.locator('.gp-auto-audio').waitFor();
+  await automatic.locator('#fileChooser').setInputFiles({name:'synthetic-source-import.csv',mimeType:'text/csv',buffer:Buffer.from('Artist,Title,Release ID\nSynthetic DJ,Test Album,3759149\nSynthetic DJ,Test Album,3759149\n')});
+  await automatic.locator('[data-act="apply-csv"]').click();
+  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.total===6&&window.GrooveprintAutomaticBPM.job.done===6&&!window.GrooveprintAutomaticBPM.job.running);
+  const checked=await automatic.evaluate(()=>({tracks:state.releases.flatMap(r=>r.tracks.map(t=>({title:t.title,bpm:t.bpm,status:t.bpmStatus,origin:t.trackSource,algorithm:t.bpmAlgorithm,provenance:t.bpmAudioEvidence?.provider}))),job:{...window.GrooveprintAutomaticBPM.job},resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers},persisted:snapshot().releases.map(r=>r.tracks.length)}));
+  assert.equal(resolvedTracks.length,3,'duplicate copies reuse positive and negative resolution');assert.equal(audioDownloads.length,1,'one decode per identical recording');
+  assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-onset-acf-v1');assert.equal(t.provenance,'Synthetic source fixture')}}
+  assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
+  await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);
+  await automatic.locator('[data-act="step-3"]').click();const autoPdfPromise=automatic.waitForEvent('download');await automatic.locator('[data-act="pdf"]').click();const autoPdf=await readFile(await(await autoPdfPromise).path());assert.ok(autoPdf.toString('latin1').startsWith('%PDF-'));
+  assert.deepEqual(autoErrors,[]);console.log('BROWSER AUTOMATIC BPM',JSON.stringify({source:'mocked API + generated real MP3, not live catalog',import:'CSV -> mocked live-shaped Discogs tracklist -> automatic source resolution',tracks:6,resolverRequests:resolvedTracks.length,audioDownloads:audioDownloads.length,forcedReview:true,metadataRetention:true,resources:checked.resources,pdfBytes:autoPdf.length}));
+ }finally{await automatic.close();autoServer.kill('SIGTERM');await autoClosed}
  // The deliverable must work as a downloaded file, with real classic Blob workers.
  const portablePath=join(temp,'GROOVEPRINT-BPM.html');
  execFileSync(process.execPath,['scripts/build-local-preview.mjs','--out',portablePath]);

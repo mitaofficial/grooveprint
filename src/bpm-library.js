@@ -43,15 +43,15 @@ function planFiles(files){
 function localReviews(){return trackList(state.releases).filter(item=>(item.track.bpmComparisonCandidates?.length||item.track.bpmStatus==='review'&&['local-dsp','audio-estimate'].includes(item.track.source)))}
 function openReview(){const first=localReviews()[0];if(first){state.active=first.record.id;state.step=1;if(typeof renderApp==='function')renderApp()}}
 function panel(){
- const label=job.running?(job.phase==='cancelling'?'INTERRUZIONE IN CORSO':'ANALISI LOCALE'):job.phase==='complete'?'SCANSIONE COMPLETATA':job.phase==='cancelled'?'SCANSIONE INTERROTTA':'LIBRERIA AUDIO LOCALE';
+ const label=job.automatic?'FONTE AUDIO AUTORIZZATA · FLUSSO AUTOMATICO':job.running?(job.phase==='cancelling'?'INTERRUZIONE IN CORSO':'ANALISI LOCALE'):job.phase==='complete'?'SCANSIONE COMPLETATA':job.phase==='cancelled'?'SCANSIONE INTERROTTA':'LIBRERIA AUDIO LOCALE';
  return '<section class="gp-local-audio" role="status" style="margin:12px 0;border-top:1px solid #465239;padding-top:12px">'+
  '<div class="flex between" style="flex-wrap:wrap;gap:8px"><div><b>GROOVEPRINT BPM Engine · sperimentale</b><div class="footnote">'+esc(label)+'</div></div><div class="flex">'+
  (window.GrooveprintBPMDevelopment===true?'<label>Confronto locale <select data-gp-engine aria-label="Motore BPM locale" '+(job.running?'disabled':'')+'><option value="v1" '+(mode==='v1'?'selected':'')+'>V1 originale</option><option value="compare" '+(mode==='compare'?'selected':'')+'>V1 / V2 sperimentale · scelta manuale</option></select></label>':'')+
  '<button type="button" class="small quiet" data-gp-library-pick="1" '+(job.running?'disabled':'')+'>♫ CONNECT AUDIO LIBRARY</button>'+
  (localReviews().length?'<button type="button" class="small quiet" data-gp-library-review="1">VEDI CANDIDATI</button>':'')+
  (job.running?'<button type="button" class="small quiet" data-gp-library-stop="1" '+(job.phase==='cancelling'?'disabled':'')+'>INTERROMPI AUDIO</button>':'')+'</div></div>'+
- '<p class="footnote">Cartella audio locale: abbinamento esatto di artista e versione, stime sul dispositivo. Nessun audio viene caricato. Usa soltanto file autorizzati; mantieni aperta la scheda.</p>'+
- (job.phase!=='idle'?'<p class="footnote">'+job.processed+'/'+job.total+' elaborati · '+job.estimated+' stime · '+job.review+' da verificare · '+job.unavailable+' senza stima · '+job.skipped+' saltati · '+job.errors+' errori · '+job.cancelled+' annullati</p><p class="footnote">'+job.found+' file trovati · '+job.total+' accettati · '+job.unsupported+' non audio/supportati · '+job.empty+' vuoti · '+job.oversize+' oltre 160 MB · '+job.beyondLimit+' oltre il limite di '+MAX_FILES+'</p>':'')+
+ (job.automatic?'<p class="footnote">Audio dalla fonte autorizzata; avanzamento nel pannello BPM automatici. Nessun audio locale viene caricato.</p>':'<p class="footnote">Cartella audio locale: abbinamento esatto di artista e versione, stime sul dispositivo. Nessun audio viene caricato. Usa soltanto file autorizzati; mantieni aperta la scheda.</p>')+
+ (!job.automatic&&job.phase!=='idle'?'<p class="footnote">'+job.processed+'/'+job.total+' elaborati · '+job.estimated+' stime · '+job.review+' da verificare · '+job.unavailable+' senza stima · '+job.skipped+' saltati · '+job.errors+' errori · '+job.cancelled+' annullati</p><p class="footnote">'+job.found+' file trovati · '+job.total+' accettati · '+job.unsupported+' non audio/supportati · '+job.empty+' vuoti · '+job.oversize+' oltre 160 MB · '+job.beyondLimit+' oltre il limite di '+MAX_FILES+'</p>':'')+
  (job.lastResult?'<p class="footnote">Ultimo calcolo: '+esc(job.lastResult.algorithm)+' · finestra 0–'+esc(job.lastResult.seconds)+' s · '+esc(job.lastResult.reason)+'</p>':'')+
  (job.message?'<p class="footnote">'+esc(job.message)+'</p>':'')+'</section>';
 }
@@ -63,6 +63,7 @@ const abortError=()=>Object.assign(new Error('Analisi interrotta'),{name:'AbortE
 function stop(){
  if(!current||!job.running||current.cancelled)return;
  current.cancelled=true;job.phase='cancelling';
+ current.onCancel?.();
  job.message='Interruzione richiesta. Attendo il rilascio della lettura/decodifica in corso; nessun nuovo file verrà avviato.';
  current.rejectAnalysis?.(abortError());
  if(current.worker){current.worker.terminate();current.worker=null;job.workers=0}
@@ -91,12 +92,26 @@ function runWorker(token,audio){
   try{token.worker.postMessage({id,sampleRate:audio.sampleRate,channels},channels.map(c=>c.buffer))}catch{failed()}
  });
 }
-async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
+function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
+ if(!valid()||!evidence.canApply(ticket,state.releases))return false;
+ const t=ticket.track;
+ if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
+  t.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
+  t.bpm=null;t.bpmStatus='review';t.source='local-dsp';t.bpmReason='automatic-acceptance-not-validated';
+ }else if(result?.status==='unavailable'){t.bpmStatus='unavailable';t.bpmReason=String(result.reason||'no-beat-detected')}
+ else return false;
+ t.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');t.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
+ t.bpmCheckedAt=new Date().toISOString();t.bpmAudioEvidence={...provenance,analyzedAt:t.bpmCheckedAt};storeLater();return true;
+}
+async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,signal,valid=()=>true,onCancel}={}){
  if(job.running)return;
- const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
+ const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:!automaticEvidence&&window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
+ const cancel=()=>{if(current===token)stop()};signal?.addEventListener('abort',cancel,{once:true});token.onCancel=onCancel;
+ if(signal?.aborted)token.cancelled=true;
+ let delivery=null;
  const generation=job.generation+1;
  for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;
- Object.assign(job,{...plan,files:undefined,running:true,generation,total:list.length,pending:list.length,phase:'preparing',message:'',lastResult:null});delete job.files;
+ Object.assign(job,{...plan,files:undefined,running:true,generation,total:list.length,pending:list.length,phase:'preparing',message:'',lastResult:null,automatic:Boolean(automaticEvidence)});delete job.files;
  redraw();
  let ctx=null;
  try{
@@ -124,7 +139,8 @@ async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
     if(occurrences.get(match.track)>1){job.ambiguous++;continue}
     job.matched++;
     if(!replaceExisting&&(!evidence.missing(match.track)||evidence.protectedValue(match.track))){job.alreadyBpm++;continue}
-    const ticket=evidence.capture(match.record,match.track);
+    const ticket=writeTicket||evidence.capture(match.record,match.track);
+    if(!valid()||!evidence.canApply(ticket,state.releases,{replaceExisting})){job.stale++;continue}
     const encoded=await file.arrayBuffer();
     if(token.cancelled)break;
     audio=await ctx.decodeAudioData(encoded);
@@ -135,8 +151,12 @@ async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
     const pending=runWorker(token,audio);audio=null;
     const result=await pending;
     if(token.cancelled)break;
-    if(!evidence.canApply(ticket,state.releases,{replaceExisting})){job.stale++;continue}
+    if(!valid()||!evidence.canApply(ticket,state.releases,{replaceExisting})){job.stale++;continue}
     job.lastResult={algorithm:result.algorithm||'grooveprint-onset-acf-v1',status:result.status,reason:result.reason||'',seconds:result.analysisSeconds||0};
+    if(automaticEvidence){
+     if(!applyAutomaticResult(ticket,result,automaticEvidence,valid)){job.stale++;continue}
+     job[result.status==='estimated'?'review':'unavailable']++;delivery={result};outcome='completed';continue;
+    }
     if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
      if(token.mode==='compare'){
       // Comparison is diagnostic: preserve the current BPM, status and provenance.
@@ -144,7 +164,7 @@ async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
       match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];
       job.review++;
      }else{
-      delete match.track.bpmComparisonCandidates;match.track.bpmComparisons=[];
+      delete match.track.bpmAudioEvidence;delete match.track.bpmComparisonCandidates;match.track.bpmComparisons=[];
       match.track.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
       match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
       match.track.bpmCheckedAt=new Date().toISOString();match.track.bpmReason=String(result.reason||'local-estimate');
@@ -174,10 +194,12 @@ async function analyzeFiles(files,{target=null,replaceExisting=false}={}){
   job.cancelled+=job.pending;job.pending=0;
   token.rejectAnalysis?.(abortError());token.worker?.terminate();token.worker=null;job.workers=0;
   if(ctx)await ctx.close().catch(()=>{});ctx=null;job.contexts=0;
+  signal?.removeEventListener('abort',cancel);
   if(current===token)current=null;
   if(token.cancelled){job.phase='cancelled';job.message='Analisi interrotta: risultati precedenti conservati, risultati tardivi scartati.'}
   job.running=false;redraw(true);
  }
+ return delivery;
 }
 async function analyzeTrack(releaseId,index){
  if(job.running)return toast('Attendi o interrompi l’analisi audio in corso.',true);
@@ -202,5 +224,5 @@ function chooseFolder(){
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-engine]')&&!job.running&&window.GrooveprintBPMDevelopment===true){mode=e.target.value==='compare'?'compare':'v1'}});
 document.addEventListener('click',e=>{const single=e.target.closest('[data-gp-track-analyze]');if(single)void analyzeTrack(single.dataset.releaseId,Number(single.dataset.gpTrackAnalyze));if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
-window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop};
+window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop,applyAutomaticResult};
 })();

@@ -8,6 +8,9 @@ Historical designs are retained in Git history and explicitly marked reports.
 | `index.html` | Collection state, Discogs metadata lifecycle, explicit BPM edits, editor and progressive vector PDF |
 | `src/collection-enrichment.js` | Owned metadata/tracklist recovery only; cancellation and restart epochs; never calculates or looks up tempo |
 | `src/bpm-library.js` | Shared library/single-track queue, authorized file association, exact library matching, stop and PCM/worker ownership; development-only opt-in comparison |
+| `src/bpm-auto.js` | Automatic metadata-ready scheduling, deduplicated approved source acquisition, shared queue/tickets, review-only results; development research catalog |
+| `server/audio-source.mjs` | Curated FMA CC0/BY catalog discovery, bounded live search/metadata and recording checks; no arbitrary URL proxy or general commercial catalog |
+| `scripts/auto-bpm-live-proof.mjs` | Explicit real-network source/decode/DSP proof, separate from synthetic tests and musical accuracy |
 | `src/bpm-worker.mjs` | Browser module worker using the unchanged original `src/bpm-tempo.mjs` baseline |
 | `src/bpm-engine.mjs` | Common bounded PCM validation and result contract; unchanged baseline detector |
 | `src/bpm-worker-dev.mjs` | Development/local-file comparison of V1/V2 on independent PCM; diagnostic results require user selection |

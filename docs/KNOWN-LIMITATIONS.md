@@ -1,5 +1,13 @@
 # Remaining limits — 7 November 2026
 
+The automatic Discogs import mandate is **PARTIAL**: development can find and
+analyze matching CC0/BY recordings in the curated FMA collection without file selection.
+One control album has live source/decode evidence. It does
+not cover the user's commercial techno/hardgroove catalog and assigns no numeric
+BPM automatically. The next prerequisite is an audio catalog with version IDs and
+explicit permission for automated BPM analysis. See BPM-AUTOMATIC-IMPORT.md for
+real/live versus mocked tests, proxy/DNS limits and the lack of a public preview.
+
 1. BPM V2 is available only as explicit development/standalone local comparison;
    V1 remains default and production does not serve V2. See BPM-INTEGRATION.md.
    All 31 repeated publisher-labelled pilot loops

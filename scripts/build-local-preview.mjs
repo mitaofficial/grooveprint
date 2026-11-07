@@ -18,7 +18,7 @@ const literal=value=>JSON.stringify(value).replace(/</g,'\\u003c');
 const boot="if(location.protocol==='file:'){window.GrooveprintBPMDevelopment=true;window.GrooveprintPortableWorkers=Object.freeze(Object.fromEntries(Object.entries("+literal(workers)+").map(([k,v])=>[k,URL.createObjectURL(new Blob([v],{type:'text/javascript'}))])));window.GrooveprintExampleCSV="+literal(await read('examples/grooveprint-demo.csv'))+";}";
 let html=await read('index.html');
 html=html.replace('<script>',`<!-- Local build from ${source} -->\n<script>${boot}</script>\n<script>`);
-for(const file of ['bpm-evidence.js','collection-enrichment.js','bpm-library.js']){
+for(const file of ['bpm-evidence.js','collection-enrichment.js','bpm-library.js','bpm-auto.js']){
  const tag=`<script src="/assets/${file}"></script>`;if(!html.includes(tag))throw Error('Missing source asset '+file);
  const code=(await read('src/'+file)).replace(/<\/script/gi,'<\\/script');html=html.replace(tag,()=>'<script>\n'+code+'\n</script>');
 }

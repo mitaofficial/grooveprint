@@ -24,6 +24,10 @@ test('development launcher serves the real app with isolated in-memory sessions 
   const response=await fetch(url+'/');assert.equal(response.status,200);assert.match(await response.text(),/\/assets\/bpm-library.js/);
   for(const asset of ['bpm-worker-dev.mjs','bpm-tempo-experiment.mjs'])assert.equal((await fetch(url+'/assets/'+asset)).status,200);
   assert.match(await(await fetch(url+'/')).text(),/window.GrooveprintBPMDevelopment=true/);
+  const sr=await fetch(url+'/api/audio/status'),audio=await sr.json(),cookie=sr.headers.get('set-cookie').split(';')[0];assert.equal(audio.enabled,true);assert.equal(audio.approvedCollection,'freemusicarchive');assert.equal(audio.approvedReleaseIds,null);
+  const outside={releaseId:'0',artist:'DJ',album:'Album',position:'A1',title:'Tool',duration:'3:00'};
+  assert.equal((await fetch(url+'/api/audio/resolve',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json'},body:JSON.stringify(outside)})).status,403);
+  const none=await fetch(url+'/api/audio/resolve',{method:'POST',headers:{Cookie:cookie,'Content-Type':'application/json','X-GROOVEPRINT-CSRF':audio.csrf},body:JSON.stringify(outside)});assert.equal(none.status,200);assert.equal((await none.json()).reason,'incomplete-recording-identity');
   const status=await(await fetch(url+'/api/discogs/status')).json();assert.equal(status.connected,false);assert.equal(status.configured,false);
   const csrf=status.csrf;assert.ok(typeof csrf==='string'&&csrf.length>20,'normal session/CSRF protection must still exist');
   assert.equal(await readFile(sentinel,'utf8'),marker,'configured databases must stay untouched');
@@ -46,5 +50,9 @@ test('production server cannot expose comparison modules or activate the local e
   assert.ok(ready);assert.ok(!(await(await fetch(base+'/')).text()).includes('window.GrooveprintBPMDevelopment=true'));
   for(const file of ['bpm-worker-dev.mjs','bpm-tempo-experiment.mjs'])assert.equal((await fetch(base+'/assets/'+file+'?compare=1')).status,404);
   assert.equal((await fetch(base+'/assets/bpm-engine.mjs')).status,200);
+  assert.equal((await(await fetch(base+'/api/audio/status?enable=1')).json()).enabled,false);
+  assert.equal((await fetch(base+'/api/audio/resolve?enable=1',{method:'POST',body:'{}'})).status,404);
+  assert.equal((await fetch(base+'/api/audio/example')).status,404);
+  assert.ok(!(await fetch(base+'/')).headers.get('content-security-policy').includes('archive.org'));
  }finally{child.kill('SIGTERM');await closed}
 });

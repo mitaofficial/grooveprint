@@ -11,7 +11,7 @@ function panel(){
  const st=stats();
  return '<section class="gp-enrich-panel" role="status"><div class="flex between"><b>TRACKLIST DISCOGS</b>'+
  (job.running?'<button type="button" class="small quiet" data-gp-enrich-stop="1">INTERROMPI RECUPERO</button>':'')+'</div>'+
- '<p class="footnote">'+st.withTracks+' / '+st.releases+' release con tracklist · '+st.tracks+' tracce. '+esc(job.message||'Il recupero aggiunge i metadati. Per stimare i BPM collega i file audio al motore interno.')+'</p></section>';
+ '<p class="footnote">'+st.withTracks+' / '+st.releases+' release con tracklist · '+st.tracks+' tracce. '+esc(job.message||'Il recupero aggiunge i metadati. Le fonti audio disponibili possono essere analizzate dal motore interno.')+'</p></section>';
 }
 function refresh(){const el=document.querySelector?.('.gp-enrich-panel');if(el)el.outerHTML=panel();}
 function stop(){
@@ -35,10 +35,10 @@ async function run({fetchTracklists=true}={}){
   if(stopped()||(fetchTracklists&&discogsSync.cancelled)){job.phase='interrupted';job.message='Recupero interrotto. I dati già ottenuti restano disponibili.';return}
   job.done=missing.filter(r=>state.releases.includes(r)&&r.tracks?.length).length;
   job.phase='complete';
-  job.message='Metadati disponibili. I BPM mancanti restano vuoti fino all’analisi audio o all’inserimento manuale.';
+  job.message=window.GrooveprintAutomaticBPM?.panel?.()?'Metadati disponibili. Avvio la ricerca audio sul catalogo autorizzato.':'Metadati disponibili. I BPM mancanti restano vuoti fino all’analisi audio o all’inserimento manuale.';
  }catch(error){job.phase=stopped()?'interrupted':'error';job.message=stopped()?'Recupero interrotto.':'Recupero tracklist non riuscito: '+String(error?.message||error)}
  finally{
-  job.running=false;job.controller=null;refresh();
+  job.running=false;job.controller=null;refresh();if(!stopped())window.GrooveprintAutomaticBPM?.schedule();
   const next=pendingRun;pendingRun=null;job.restartRequested=false;
   if(next&&next.epoch===restartEpoch)restartTimer=setTimeout(()=>{restartTimer=null;if(next.epoch===restartEpoch&&generation===runGeneration)void run({fetchTracklists:next.fetchTracklists})},0);
  }
