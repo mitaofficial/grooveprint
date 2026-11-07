@@ -15,7 +15,7 @@
     "benchmark:real": "node scripts/bpm-benchmark.mjs --real --manifest .private/tempo-dataset/manifest.json --decoder ffmpeg",
     "benchmark:compare": "node scripts/bpm-benchmark.mjs --synthetic --compare src/bpm-tempo-experiment.mjs --out .private/benchmarks/compare",
     "benchmark:browser": "node scripts/bpm-browser-benchmark.mjs --manifest .private/tempo-dataset/manifest.json",
-    "benchmark:licensed-techno": "node scripts/waivops-pilot.mjs --limit 12",
+    "benchmark:licensed-techno": "node scripts/waivops-pilot.mjs --limit 31",
     "benchmark:licensed-techno:dry": "node scripts/waivops-pilot.mjs --dry-run --limit 12",
     "benchmark:init-local": "node scripts/tempo-manifest-init.mjs"
   }
