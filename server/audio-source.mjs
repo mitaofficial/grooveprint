@@ -70,12 +70,13 @@ export function createAudioSource({fetchImpl=fetch,lookupImpl,timeoutMs=25000,no
   if(memo.size>16){const oldest=memo.keys().next().value;clearTimeout(memo.get(oldest).timer);memo.delete(oldest)}return data;
  }
  async function album(input,signal){
-  const compilation=/^(?:various|various artists)$/i.test(input.albumArtist||input.artist);
-  const key=JSON.stringify([compilation?'various':artist(input.artist),norm(input.album)]);
+  const albumArtist=String(input.albumArtist||input.artist);
+  const compilation=/^(?:various|various artists)$/i.test(albumArtist);
+  const key=JSON.stringify([compilation?'various':artist(albumArtist),norm(input.album)]);
   if(memo.has(key))return memo.get(key).data;
   if(pending.has(key)){await pending.get(key).catch(()=>{});signal?.throwIfAborted();if(memo.has(key))return memo.get(key).data}
   const task=(async()=>{
-   const query='mediatype:audio AND collection:freemusicarchive AND title:'+quoted(input.album)+(compilation?'':' AND creator:'+quoted(String(input.artist).replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'')));
+   const query='mediatype:audio AND collection:freemusicarchive AND title:'+quoted(input.album)+(compilation?'':' AND creator:'+quoted(albumArtist.replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'')));
    const url=new URL('https://archive.org/advancedsearch.php');url.search=new URLSearchParams({q:query,output:'json',rows:'3','fl[]':'identifier,title,creator,licenseurl'});
    const search=await json(url.href,signal),found=search?.response?.docs||[];
    if(Number(search?.response?.numFound||found.length)>3)return remember(key,{items:[],reason:'too-many-source-candidates',review:true});
@@ -83,7 +84,7 @@ export function createAudioSource({fetchImpl=fetch,lookupImpl,timeoutMs=25000,no
    for(const row of found.slice(0,3)){
     if(!safeItem(row.identifier))continue;
     const data=await json('https://archive.org/metadata/'+encodeURIComponent(row.identifier),signal),m=data.metadata||{};
-    if(norm(m.title)!==norm(input.album)||(!compilation&&!(Array.isArray(m.creator)?m.creator:[m.creator]).some(v=>artist(v)===artist(input.artist))))continue;
+    if(norm(m.title)!==norm(input.album)||(!compilation&&!(Array.isArray(m.creator)?m.creator:[m.creator]).some(v=>artist(v)===artist(albumArtist))))continue;
     if(!license(m.licenseurl)||!(Array.isArray(m.collection)?m.collection:[m.collection]).includes('freemusicarchive')){excluded=true;continue}
     if(!Array.isArray(data.files)||data.files.length>600){excluded=true;continue}
     items.push({id:row.identifier,metadata:{title:m.title,creator:m.creator,licenseurl:m.licenseurl},files:data.files.filter(f=>f.source==='original'&&/\.mp3$/i.test(f.name||'')).map(f=>Object.fromEntries(['name','title','artist','creator','album','source','length','size','md5','licenseurl'].map(k=>[k,f[k]])))});
