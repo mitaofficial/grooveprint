@@ -25,3 +25,6 @@
 
 ## Operator workflow
 Run `npm run validate` in a normal Git checkout before committing. Browser smoke requires Playwright and Chromium; hosted API probes require network and may fail independently of code. The CI uses `npm run validate` as its fast source gate. Do not interpret cancelled superseded PR runs as product failures.
+
+## Targeted UI performance fix
+Code inspection confirmed `searchInput` was invoking `renderApp()` on each input event, replacing the whole DOM after every typed character. Search now coalesces bursts within 120 ms and preserves field focus and caret selection. Review-list checkboxes use an indexed `Set` rather than repeated linear selection scans. The Chromium smoke test exercises 50, 250, 500, 1000 and 3000 fictional releases, logs single-render durations, checks the 1500-row cap, and verifies exact search results with <=2 full renders after six rapid updates. These CI timing samples are **diagnostics, not an independent browser performance SLA**.

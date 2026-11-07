@@ -210,6 +210,62 @@ try{
  assert.deepEqual(timerGuard,{singleTimer:true,cancelled:true,stoppedAfterLimit:true});
  assert.equal(discogsCalls,3,'cooldown and retry guard must not issue extra requests');
 
+ // Collection rendering benchmark and search regression use synthetic, anonymous records.
+ const perf=await page.evaluate(async()=>{
+  const original={releases:state.releases,selected:state.selected,active:state.active,
+   step:state.step,search:state.search,formatFilter:state.formatFilter,
+   statusFilter:state.statusFilter,folderFilter:state.folderFilter};
+  const seed=original.releases[0];if(!seed)throw Error('Missing mock record');
+  const records=Array.from({length:3000},(_,i)=>({
+   ...seed,id:'perf_'+i,releaseId:String(400000+i),discogsInstanceId:'',
+   discogsFetchedAt:'',discogsSource:null,artist:'Fixture Artist '+i,
+   title:'Synthetic Release '+i,catalog:'GP-FIX-'+i,
+   tracks:(seed.tracks||[]).map(t=>({...t}))
+  }));
+  let result;
+  try{
+   state.step=1;state.search='';state.formatFilter='All';state.statusFilter='All';
+   state.folderFilter='All';state.selected=records.map(x=>x.id);
+   const measures=[];
+   for(const size of [50,250,500,1000,3000]){
+    state.releases=records.slice(0,size);state.active=state.releases[0].id;
+    const start=performance.now();renderApp();
+    measures.push({size,renderMs:Number((performance.now()-start).toFixed(2)),
+     rows:document.querySelectorAll('.rel-item').length});
+   }
+   state.releases=records;state.selected=[];state.active=records[0].id;renderApp();
+   const fn=window.renderApp;
+   if(typeof fn!=='function')throw Error('renderApp instrumentation unavailable');
+   let renderCalls=0;
+   window.renderApp=function(...args){renderCalls++;return fn(...args)};
+   try{
+    for(const query of ['S','Sy','Syn','Synt','Synthetic','Synthetic Release 2999']){
+     const input=document.getElementById('searchInput');
+     if(!input)throw Error('Search input missing');
+     input.focus();input.value=query;input.setSelectionRange(query.length,query.length);
+     input.dispatchEvent(new Event('input',{bubbles:true}));
+    }
+    await new Promise(resolve=>setTimeout(resolve,280));
+    result={measures,renderCalls,query:state.search,
+     value:document.getElementById('searchInput')?.value,
+     focused:document.activeElement?.id==='searchInput',
+     rows:document.querySelectorAll('.rel-item').length,
+     resultTitle:document.querySelector('.rel-item h4')?.textContent||''};
+   }finally{window.renderApp=fn}
+  }finally{
+   Object.assign(state,original);renderApp();
+  }
+  return result;
+ });
+ assert.deepEqual(perf.measures.map(x=>x.rows),[50,250,500,1000,1500]);
+ assert.ok(perf.renderCalls<=2,'Rapid typing must not cause per-character full page renders');
+ assert.equal(perf.query,'Synthetic Release 2999');
+ assert.equal(perf.value,'Synthetic Release 2999');
+ assert.equal(perf.rows,1);
+ assert.match(perf.resultTitle,/Synthetic Release 2999/);
+ assert.ok(perf.focused,'Caret focus must survive delayed search updates');
+ console.log('BROWSER COLLECTION PERFORMANCE',JSON.stringify(perf));
+
  console.log('BROWSER PASS: Discogs import → expiry re-sync → WAV local folder BPM estimate with no audio upload');
 
 }finally{
