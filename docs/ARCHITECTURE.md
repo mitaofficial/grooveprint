@@ -13,6 +13,8 @@ Historical designs are retained in Git history and explicitly marked reports.
 | `src/bpm-tempo-experiment.mjs` | Isolated benchmark challenger; not served or loaded in the application |
 | `server/app.mjs` | Discogs OAuth/metadata, static assets, sessions, capability status and explicitly requested archive research adapter |
 | `scripts/tempo-evaluation.mjs` | Shared denominators, detector isolation, per-case failures and honest metrics |
+| `scripts/dev.mjs` | Local-only full-server launcher with random in-memory key/session database; production start unchanged |
+| `examples/grooveprint-demo.csv` | Downloadable fictional metadata fixture, no real release IDs or invented tempo assignments |
 
 The default workflow has no external BPM lookup or provider-configuration step.
 Import/sync recovers metadata; missing tempo remains missing until authorized

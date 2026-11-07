@@ -1,3 +1,67 @@
+# GROOVEPRINT — current checkpoint: product audit and usable trial
+
+7 November 2026. This section supersedes earlier next-action instructions about
+restarting the general audit. The attached product-trial mandate was read in
+full. Baseline: `25bba4fa464065c5ec6afb628201b50fd64df925`, clean checkout, PR #3
+open/draft/mergeable, CI #92 passed; main
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. Main and Railway remain protected.
+
+## Implemented in this audit
+
+- `npm run dev` starts the complete server without manual secret setup, with a
+  random in-memory key/SQLite session store and production-mode refusal. It
+  never opens an inherited database path. Existing production start is unchanged.
+- Escape imported IDs in review row/checkbox HTML and preserve the raw identifier.
+  Native title buttons allow keyboard activation without changing the row workflow.
+- Correct stale automatic-provider BPM copy and the 2.0 document title. Local
+  estimates, historical values, manual edits and the original detector are intact.
+- Separate missing-tracklist warnings from physical layout overflow in preflight.
+- Keep Save/Guide directly reachable on narrow viewports.
+- Add fictional downloadable CSV (5 releases, 12 tracks, accents/quotes, duplicate
+  copy; no real release IDs or BPM), an explicit server allowlist and Docker copy.
+
+## Evidence and use
+
+Read `docs/PRODUCT-AUDIT.md` for reproduced problems, exact scope/limits and seven
+ranked proposals. `docs/USER-TEST-GUIDE.md` gives access instructions, local commands,
+ten user steps, sample expectations, print calibration and a feedback format.
+Sanitized results/hashes: `docs/evidence/product-audit-2026-11-07.json`.
+Raw intermediate logs are ignored under `.private/checkpoints/product-audit/`.
+
+Offline suite: 63 tests (59 prior + 4 meaningful launcher/output/preflight cases),
+syntax/config/privacy and synthetic smoke. Firefox 144.0.2 desktop + 390x844 touch
+full flows passed. The new separate guest context uses real, unauthenticated
+server routes without API mocks: CSV download/import, keyboard opening, manual
+BPM, design, 2-page PDF, adversarial JSON IDs, backup/reimport and reload. It makes
+zero BPM API requests. Existing seven PDF presets remain byte-identical between
+sync/progressive paths; audio stop/expiry/legacy guards remain in the browser suite.
+Latest PR CI, not #92, must certify this audit's final HEAD; retain the seven jobs
+and required aggregate `browser`. No source DSP files changed or were promoted.
+
+The managed preview serves the whole app at internal `http://127.0.0.1:4173/`.
+The user needs the session browser control/handoff; that loopback address is not
+a public link on their PC. Preview lifetime is not guaranteed and maintenance
+may stop it. For private data/audio, run `npm run dev` on the user's own device.
+Use fictional data for this remote trial. Do not register another public hosting
+service or deploy to Railway to work around this boundary.
+
+Docker CLI/image build, live OAuth, physical phones/print, native-memory endurance
+and independently verified complete-recording BPM holdout remain unverified.
+All three detector/worker hashes remain those in the preceding removal report.
+
+## Next action
+
+Have the owner complete the ten-step CSV/editor/PDF trial and report the first
+specific friction. The first implementation proposal is a clearer primary CSV
+entry with progressive optional Discogs/audio panels, based on the dense initial
+screen. Keep musical accuracy work on the independent-authorized-full-recording
+protocol; do not rebuild a provider or infer accuracy from integration tests.
+No merge, deploy, secret change or Railway operation was performed or authorized.
+
+---
+
+## Historical checkpoint: catalog removal (still applicable where not superseded)
+
 # GROOVEPRINT — current checkpoint: internal engine, catalog removal
 
 Date: 7 November 2026. This section supersedes the historical stabilization record below.

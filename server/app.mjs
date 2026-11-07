@@ -69,6 +69,11 @@ if(req.method==='GET'&&['/assets/bpm-tempo.mjs','/assets/bpm-library.js','/asset
  res.end(await readFile(join(folder,'../src',target)));return;
 }
 if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1'});
+if(req.method==='GET'&&path==='/examples/grooveprint-demo.csv'){
+ const csv=await readFile(join(folder,'../examples/grooveprint-demo.csv'));
+ res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="GROOVEPRINT_esempio_fittizio.csv"','Cache-Control':'no-store'});
+ res.end(csv);return;
+}
 if(!path.startsWith('/api/discogs/')&&!path.startsWith('/api/bpm/')){res.writeHead(404);res.end('Not Found');return;}
 if(!['GET','POST'].includes(req.method))return send(res,405,{error:'Method not allowed'});
 if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wrong origin');

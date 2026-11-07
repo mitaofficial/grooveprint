@@ -424,6 +424,51 @@ try{
  const imported=await page.evaluate(()=>({count:state.releases.length,uniqueIds:new Set(state.releases.map(r=>r.id)).size,tracks:state.releases.map(r=>r.tracks.length),flagged:state.releases.filter(r=>r.duplicate).length}));
  assert.deepEqual(imported,{count:2,uniqueIds:2,tracks:[1,1],flagged:1});
  console.log('BROWSER CSV',JSON.stringify({malformedPreserved:true,emptyPreserved:true,legitimateCopies:imported}));
+ // A separate, unmocked guest context exercises the actual file/download UI.
+ const guest=await browser.newPage(process.env.GROOVEPRINT_MOBILE==='1'?{viewport:{width:390,height:844},hasTouch:true}:{});
+ const guestBpmCalls=[];guest.on('request',r=>{const u=new URL(r.url());if(u.pathname.startsWith('/api/bpm/')||/(^|\.)(getsongbpm\.com|getsong\.co)$/i.test(u.hostname))guestBpmCalls.push(r.url())});
+ try{
+  await guest.goto(base,{waitUntil:'domcontentloaded'});await guest.waitForFunction(()=>restoreReady&&!discogsConnect.loading);
+  assert.equal(await guest.evaluate(()=>discogsConnect.connected),false,'guest journey uses the real, unauthenticated status route');
+  assert.equal(await guest.getByRole('button',{name:'SAVE PROJECT',exact:true}).count(),1,'backup must be reachable on this viewport');
+  await guest.getByRole('button',{name:'GUIDE / FAQ',exact:true}).click();assert.ok(await guest.locator('.faq').isVisible());
+  await guest.getByRole('button',{name:'CLOSE ✕',exact:true}).click();
+  const csvDownloadPromise=guest.waitForEvent('download');await guest.getByRole('button',{name:'DOWNLOAD EXAMPLE CSV',exact:true}).click();
+  const exampleBytes=await readFile(await(await csvDownloadPromise).path());assert.equal(exampleBytes.toString(),await readFile('examples/grooveprint-demo.csv','utf8'));
+  await guest.locator('#fileChooser').setInputFiles({name:'example.csv',mimeType:'text/csv',buffer:exampleBytes});
+  await guest.waitForFunction(()=>pendingCSV?.filename==='example.csv');await guest.locator('#autoEnrich').uncheck();
+  await guest.locator('[data-act="apply-csv"]').click();await guest.waitForFunction(()=>state.releases.length===5&&!window.GrooveprintCollectionEnrichment.job.running);
+  const sample=await guest.evaluate(()=>({count:state.releases.length,tracks:state.releases.reduce((n,r)=>n+r.tracks.length,0),duplicates:state.releases.filter(r=>r.duplicate).length,blankBpms:state.releases.every(r=>r.tracks.every(t=>t.bpm===null)),blankReleaseIds:state.releases.every(r=>!r.releaseId)}));
+  assert.deepEqual(sample,{count:5,tracks:12,duplicates:1,blankBpms:true,blankReleaseIds:true});
+  assert.ok(!/BPM vengono cercati automaticamente|provider autorizzato/.test(await guest.locator('#rightSide').innerText()));
+  await guest.getByRole('button',{name:'Modifica Analog District / Floor Studies EP',exact:true}).press('Enter');
+  await guest.locator('[data-rel-field="title"]').fill('Floor Studies - prova');await guest.locator('[data-rel-field="title"]').press('Tab');
+  await guest.getByRole('spinbutton',{name:'BPM',exact:true}).first().fill('141');await guest.getByRole('spinbutton',{name:'BPM',exact:true}).first().press('Tab');
+  await guest.waitForFunction(()=>rel()?.title==='Floor Studies - prova'&&rel().tracks[0].bpm===141&&rel().tracks[0].bpmStatus==='manual');
+  await guest.locator('[data-act="go-design"]').click();await guest.locator('[data-design="preset"]').selectOption({label:'MINIMAL'});
+  await guest.locator('[data-act="step-3"]').click();await guest.locator('#sheetPreset').selectOption('4');
+  const pdfDownloadPromise=guest.waitForEvent('download');await guest.locator('[data-act="pdf"]').click();
+  const pdfBytes=await readFile(await(await pdfDownloadPromise).path()),pdfRaw=pdfBytes.toString('latin1');
+  assert.ok(pdfRaw.startsWith('%PDF-'));assert.match(pdfRaw,/\/Type \/Pages \/Count 2/);
+  const backupPromise=guest.waitForEvent('download');await guest.getByRole('button',{name:'SAVE PROJECT',exact:true}).click();
+  const backupBytes=await readFile(await(await backupPromise).path()),backup=JSON.parse(backupBytes.toString());
+  assert.equal(backup.releases.length,5);assert.equal(backup.releases.find(r=>r.artist==='Analog District').tracks[0].bpm,141);
+  // Import adversarial identifiers through the same JSON path, then activate by keyboard.
+  const trap='copy" onclick="document.body.dataset.injected=1" data-forged="yes';
+  const unsafe={app:'GROOVEPRINT',releases:[{id:'safe',artist:'Safe DJ',title:'First',tracks:[]},{id:trap,artist:'Synthetic DJ',title:'Literal ID',tracks:[]}],selected:['safe',trap],active:'safe'};
+  await guest.locator('#fileChooser').setInputFiles({name:'identifier-safety.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(unsafe))});
+  await guest.waitForFunction(()=>state.releases.length===2&&state.releases[1].title==='Literal ID');
+  const row=guest.locator('.rel-item').last();assert.equal(await row.getAttribute('onclick'),null);assert.equal(await row.getAttribute('data-forged'),null);
+  assert.equal(await row.getAttribute('data-open-rel'),trap,'the identifier must survive as literal data');
+  await guest.getByRole('button',{name:'Modifica Synthetic DJ / Literal ID',exact:true}).press('Enter');
+  assert.equal(await guest.evaluate(()=>state.active),trap);assert.equal(await guest.locator('body').getAttribute('data-injected'),null);
+  await guest.locator('#fileChooser').setInputFiles({name:'roundtrip.json',mimeType:'application/json',buffer:backupBytes});
+  await guest.waitForFunction(()=>state.releases.length===5&&state.releases.some(r=>r.title==='Floor Studies - prova'&&r.tracks[0].bpm===141));
+  await guest.waitForTimeout(600);await guest.reload();
+  await guest.waitForFunction(()=>restoreReady&&state.releases.length===5&&state.releases.some(r=>r.title==='Floor Studies - prova'&&r.tracks[0].bpm===141));
+  assert.deepEqual(guestBpmCalls,[]);
+  console.log('BROWSER GUEST JOURNEY',JSON.stringify({...sample,keyboardOpen:true,identifierAttributesSafe:true,guideAndBackupReachable:true,manualBpm:141,pdfPages:2,pdfBytes:pdfBytes.length,jsonRoundtrip:true,reloadRestored:true,bpmApiRequests:0}));
+ }finally{await guest.close()}
  // Import historic external evidence without dropping, relabelling or re-querying it.
  const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
   {position:'A1',title:'Stored catalog',bpm:138,bpmStatus:'catalog',source:'GetSongBPM',bpmReferenceUrl:'https://getsongbpm.com/song/saved/X'},

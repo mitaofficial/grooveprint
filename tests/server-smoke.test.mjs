@@ -24,6 +24,8 @@ for(const legacyKey of ['', 'dummy-retired-key-must-have-no-effect'])test('inter
   assert.ok(text.includes('/assets/collection-enrichment.js'));
   for(const asset of ['collection-enrichment.js','bpm-library.js','bpm-worker.mjs','bpm-evidence.js','bpm-tempo.mjs'])assert.equal((await fetch(url+'/assets/'+asset)).status,200,asset);
   assert.equal((await fetch(url+'/assets/auto-bpm.js')).status,404);
+  const example=await fetch(url+'/examples/grooveprint-demo.csv');assert.equal(example.status,200);assert.match(example.headers.get('content-type'),/text\/csv/);assert.match(example.headers.get('content-disposition'),/attachment/);assert.equal(await example.text(),await readFile('examples/grooveprint-demo.csv','utf8'));
+  assert.equal((await fetch(url+'/examples/not-an-allowlisted-file.csv')).status,404);
   const status=await (await fetch(url+'/api/bpm/status')).json();
   assert.deepEqual(status,{engine:'GROOVEPRINT BPM Engine',mode:'local-audio',experimental:true,requiresAudio:true,audioUpload:false,catalogLookup:false,algorithm:'grooveprint-onset-acf-v1'});
   const cookie='gp_session='+session.id,headers={Cookie:cookie,'Content-Type':'application/json','X-GROOVEPRINT-CSRF':session.csrf};

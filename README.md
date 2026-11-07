@@ -1,6 +1,19 @@
 # GROOVEPRINT
 Vinyl workstation with Discogs OAuth backend.
 
+For a local product trial with Node >=22.13, run `npm run dev` and open the
+printed Local URL. No external BPM key or account is needed. Development uses
+an ephemeral encryption key and in-memory backend sessions; browser projects
+remain local and can be exported as JSON. The launcher never opens a configured
+database and refuses NODE_ENV=production. Production still uses `npm start` with
+the existing explicit configuration below.
+
+Use IMPORT → DOWNLOAD EXAMPLE CSV for five fictional releases / 12 tracks and
+no real release IDs or BPM. See [the ten-step trial](docs/USER-TEST-GUIDE.md) and
+[product audit / prioritized next work](docs/PRODUCT-AUDIT.md). A session preview
+runs in a remote browser; use fictional data there and run on your own device
+for private collections or audio.
+
 Deploy to Railway with a persistent volume at `/data`. Configure `NODE_ENV=production`, `PUBLIC_ORIGIN=https://grooveprint-web-production.up.railway.app`, `SQLITE_PATH=/data/sessions.db`, `SESSION_ENCRYPTION_KEY` (64 random hex digits), `DISCOGS_CONSUMER_KEY`, `DISCOGS_CONSUMER_SECRET` and `DISCOGS_USER_AGENT` in Railway variables. Never commit secrets.
 
 Discogs OAuth callback: `https://grooveprint-web-production.up.railway.app/api/discogs/callback`.
