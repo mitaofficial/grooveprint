@@ -25,6 +25,7 @@ for(const bpm of tempos)for(const pattern of patterns){
 }
 const noBeatSignal=noBeat('v3-development-no-beat');
 const silence=analyzeTempoComparison(noBeatSignal.sampleRate,[noBeatSignal.getChannelData(0).slice()]);
+if(silence.decision.status!=='undetermined'||silence.decision.suggestedBpm!==null)throw Error('No-beat stimulus must abstain as undetermined');
 cases.push({id:'v3-development-no-beat',kind:'generated-synthetic-no-beat',referenceBpm:null,
   v1Bpm:silence.comparisons[0].bpm,v2Bpm:silence.comparisons[1].bpm,
   v3Bpm:silence.decision.suggestedBpm,v3Status:silence.decision.status,v3Reason:silence.decision.reason,
