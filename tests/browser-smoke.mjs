@@ -524,6 +524,16 @@ try{
   assert.deepEqual(exampleCheck,{liveTracks:2,tracklistFresh:true,retainedWithoutExample:true,backupCount:originalCount,totalReleases:originalCount+1});
   await automatic.locator('[data-gp-auto-example]').click();
   assert.equal(await automatic.evaluate(()=>state.releases.length),originalCount+1,'repeat example click must not create duplicate demos');
+  // Recover a legacy local shell produced before research examples were transient.
+  // It has the exact public control identity, no user notes and no tracklist.
+  await automatic.evaluate(()=>{const d=state.releases.find(x=>x.gpResearchExample);
+   d.gpResearchExample=false;d.tracks=[];d.tracklistFetchedAt='';});
+  await automatic.locator('[data-gp-auto-example]').click();
+  const legacyRecovered=await automatic.evaluate(()=>{const d=state.releases.find(x=>x.releaseId==='3759149'&&x.artist==='Josh Woodward');return {
+   count:state.releases.filter(x=>x.releaseId==='3759149'&&x.artist==='Josh Woodward').length,
+   tracks:d.tracks.length,transient:d.gpResearchExample===true,backupCount:snapshot().releases.length
+  }});
+  assert.deepEqual(legacyRecovered,{count:1,tracks:2,transient:true,backupCount:originalCount},'replaying a legacy zero-track example should rehydrate rather than duplicate it');
   assert.deepEqual(autoErrors,[]);console.log('BROWSER AUTOMATIC BPM',JSON.stringify({source:'mocked API + generated real MP3, not live catalog',import:'CSV -> mocked live-shaped Discogs tracklist -> automatic source resolution',tracks:6,resolverRequests:resolvedTracks.length,audioDownloads:audioDownloads.length,forcedReview:true,metadataRetention:true,resources:checked.resources,pdfBytes:autoPdf.length}));
  }finally{await automatic.close();autoServer.kill('SIGTERM');await autoClosed}
  // The deliverable must work as a downloaded file, with real classic Blob workers.
