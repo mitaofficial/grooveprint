@@ -496,6 +496,34 @@ try{
   assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
   await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);
   await automatic.locator('[data-act="step-3"]').click();const autoPdfPromise=automatic.waitForEvent('download');await automatic.locator('[data-act="pdf"]').click();const autoPdf=await readFile(await(await autoPdfPromise).path());assert.ok(autoPdf.toString('latin1').startsWith('%PDF-'));
+
+  // Regression for the user-visible zero-track open-release example: never add an
+  // empty demo, never persist stripped Discogs tracks as an empty local release.
+  let exampleTracklist=[];
+  await automatic.route('**/api/audio/example',route=>route.fulfill({json:{
+   releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',
+   format:'File',fetchedAt:new Date().toISOString(),tracklist:exampleTracklist
+  }}));
+  const originalCount=await automatic.evaluate(()=>state.releases.length);
+  await automatic.locator('[data-gp-auto-example]').click();
+  await automatic.waitForFunction(()=>document.querySelector('#toast')?.textContent?.includes('tracklist utilizzabile'));
+  assert.equal(await automatic.evaluate(()=>state.releases.length),originalCount,'an empty public example must not insert a ghost release');
+  exampleTracklist=[
+   {position:'1',title:'Signal (Original Mix)',duration:'0:12',type_:'track'},
+   {position:'2',title:'No Audio',duration:'0:12',type_:'track'}
+  ];
+  await automatic.locator('[data-gp-auto-example]').click();
+  await automatic.waitForFunction(()=>state.releases.some(r=>r.gpResearchExample===true&&r.tracks.length===2));
+  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===8&&!window.GrooveprintAutomaticBPM.job.running);
+  const exampleCheck=await automatic.evaluate(()=>{
+   const demo=state.releases.find(r=>r.gpResearchExample===true);
+   return {liveTracks:demo.tracks.length,tracklistFresh:gpIsFresh(demo.tracklistFetchedAt),
+    retainedWithoutExample:snapshot().releases.every(r=>!r.gpResearchExample),backupCount:snapshot().releases.length,
+    totalReleases:state.releases.length};
+  });
+  assert.deepEqual(exampleCheck,{liveTracks:2,tracklistFresh:true,retainedWithoutExample:true,backupCount:originalCount,totalReleases:originalCount+1});
+  await automatic.locator('[data-gp-auto-example]').click();
+  assert.equal(await automatic.evaluate(()=>state.releases.length),originalCount+1,'repeat example click must not create duplicate demos');
   assert.deepEqual(autoErrors,[]);console.log('BROWSER AUTOMATIC BPM',JSON.stringify({source:'mocked API + generated real MP3, not live catalog',import:'CSV -> mocked live-shaped Discogs tracklist -> automatic source resolution',tracks:6,resolverRequests:resolvedTracks.length,audioDownloads:audioDownloads.length,forcedReview:true,metadataRetention:true,resources:checked.resources,pdfBytes:autoPdf.length}));
  }finally{await automatic.close();autoServer.kill('SIGTERM');await autoClosed}
  // The deliverable must work as a downloaded file, with real classic Blob workers.
