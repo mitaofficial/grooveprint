@@ -20,14 +20,16 @@ function refresh(){const el=document.querySelector?.('.gp-auto-audio');if(el)el.
 function stop({reset=false,pause=true}={}){
  generation++;paused=pause;current?.controller.abort();if(current?.item&&['searching','analyzing'].includes(current.item.phase)){current.item.phase='cancelled';job.cancelled++}
  for(const item of queue){if(seen.get(item.track)===item)item.phase='cancelled';job.cancelled++}queue=[];
- if(reset){seen=new WeakMap();memo.clear();for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;paused=false;}
- job.phase='cancelled';job.message='Interrotto: i valori precedenti restano disponibili.';refresh();
+ if(reset){seen=new WeakMap();memo.clear();for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;paused=false;job.phase='idle';job.message='';}
+ else{job.phase='cancelled';job.message='Interrotto: i valori precedenti restano disponibili.';}
+ refresh();
 }
 function valid(item){return !current?.controller.signal.aborted&&item.generation===generation&&fresh(item.record)&&evidence.canApply(item.ticket,state.releases)}
 async function getAudio(asset,signal){
  const u=new URL(asset.url);
  if(u.protocol!=='https:'||u.hostname!=='archive.org'||!/^\/download\/[a-zA-Z0-9][a-zA-Z0-9_.-]{0,160}\/.+/.test(u.pathname)||u.username||u.password||u.search||u.hash||u.port)throw Error('Fonte audio non consentita');
- const controller=new AbortController(),cancel=()=>controller.abort(),timer=setTimeout(cancel,45000);
+ const controller=new AbortController(),cancel=()=>controller.abort(new DOMException('Download audio interrotto','AbortError')),
+  timer=setTimeout(()=>controller.abort(new DOMException('Download audio non completato entro 45 secondi: riprova.','TimeoutError')),45000);
  signal.addEventListener('abort',cancel,{once:true});if(signal.aborted)cancel();
  try{
   const r=await fetch(u.href,{mode:'cors',credentials:'omit',signal:controller.signal});
