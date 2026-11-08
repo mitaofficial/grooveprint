@@ -3,7 +3,7 @@
 'use strict';
 const evidence=window.GrooveprintBPMEvidence,library=window.GrooveprintAudioLibrary;
 const job={running:false,total:0,done:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
-let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,comparisonController=null,comparisonRecord=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
+let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',buildSha='',comparisonPreparing=false,comparisonController=null,comparisonRecord=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
 try{if(typeof localStorage!=='undefined')enabled=localStorage.getItem('grooveprint-auto-bpm-enabled')!=='off'}catch{}
 const identity=(r,t)=>JSON.stringify([r.releaseId,r.title,r.artist,t.artist,t.position,t.title,t.duration]);
 const fresh=r=>(!r.discogsInstanceId||discogsConnect.connected&&gpIsFresh(r.discogsFetchedAt))&&(!r.tracklistFetchedAt||gpIsFresh(r.tracklistFetchedAt));
@@ -17,7 +17,7 @@ function panel(){
  if(!available)return '';
  return '<section class="gp-auto-audio" role="status" style="margin:12px 0;padding:12px;border:1px solid #566447"><b>BPM AUTOMATICI ALL’IMPORTAZIONE · RICERCA</b>'+
  '<label style="display:block;margin:8px 0"><input type="checkbox" data-gp-auto-enable '+(enabled?'checked':'')+'> Cerca e analizza automaticamente l’audio autorizzato dopo Discogs</label>'+
- '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; nessuna copertura commerciale generale garantita. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Risultati da verificare.</p>'+
+ '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; nessuna copertura commerciale generale garantita. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Risultati da verificare.</p>'+ (buildSha?'<p class="footnote" data-gp-build>Preview commit: <code>'+esc(buildSha.slice(0,12))+'</code></p>':'')+
  '<p class="footnote gp-auto-progress" data-gp-auto-phase="'+esc(job.phase)+'" aria-live="polite"><strong>'+esc(job.phase==='idle'?'Pronto':job.phase.toUpperCase())+'</strong> · '+job.done+'/'+job.total+' elaborate · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
  '<div class="flex" style="flex-wrap:wrap;gap:8px">'+(job.running||comparisonPreparing?'<button class="small quiet" data-gp-auto-stop>INTERROMPI BPM AUTOMATICI</button>':'<button class="small quiet" data-gp-auto-retry>RIPROVA ERRORI / RIPRENDI</button>')+
  '<button class="small quiet" data-gp-auto-review>VEDI RISULTATI BPM</button>'+(window.GrooveprintBPMDevelopment===true?'<button class="small quiet" data-gp-auto-compare '+(job.running||comparisonPreparing||discogsSync.running?'disabled':'')+'>CONFRONTA V1/V2 CON AUDIO AUTORIZZATO</button>':'')+'<button class="small quiet" data-gp-auto-example '+(discogsSync.running||discogsConnect.running||comparisonPreparing?'disabled':'')+'>PROVA UNA RELEASE APERTA</button></div></section>';
@@ -102,6 +102,10 @@ function schedule(){
  void pump();refresh();
 }
 function retry(){
+ if(job.phase==='error'&&job.total===0&&state.releases.some(r=>r.id===state.active)){
+  void compareEngines().catch(error=>transition('error','Riprova V1/V2 non riuscita: '+String(error?.message||error)));
+  return;
+ }
  paused=false;
  for(const {track} of library.trackList(state.releases)){const item=seen.get(track);if(item&&['error','cancelled','stale'].includes(item.phase))seen.delete(track)}
  schedule();
@@ -237,7 +241,7 @@ window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,co
 async function init(){
  if(!/^https?:$/.test(location.protocol))return;
  while(discogsConnect.loading)await new Promise(resolve=>setTimeout(resolve,50));
- try{const s=await gpRequest('/api/audio/status');available=s.enabled===true;csrf=s.csrf||'';exampleReleaseId=String(s.researchExampleReleaseId||'');exampleArtist=String(s.researchExampleArtist||'');exampleTitle=String(s.researchExampleTitle||'');approved=Array.isArray(s.approvedReleaseIds)?new Set(s.approvedReleaseIds):null;minInterval=Math.max(0,Number(s.minRequestIntervalMs)||0);ready=true;if(available){renderApp();schedule()}}catch{ready=true;}
+ try{const s=await gpRequest('/api/audio/status');available=s.enabled===true;csrf=s.csrf||'';exampleReleaseId=String(s.researchExampleReleaseId||'');exampleArtist=String(s.researchExampleArtist||'');exampleTitle=String(s.researchExampleTitle||'');buildSha=String(s.devSha||'');approved=Array.isArray(s.approvedReleaseIds)?new Set(s.approvedReleaseIds):null;minInterval=Math.max(0,Number(s.minRequestIntervalMs)||0);ready=true;if(available){renderApp();schedule()}}catch{ready=true;}
 }
 void init();
 })();
