@@ -3,7 +3,7 @@
 'use strict';
 const evidence=window.GrooveprintBPMEvidence,library=window.GrooveprintAudioLibrary;
 const job={running:false,total:0,done:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
-let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,comparisonController=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
+let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,comparisonController=null,comparisonRecord=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
 try{if(typeof localStorage!=='undefined')enabled=localStorage.getItem('grooveprint-auto-bpm-enabled')!=='off'}catch{}
 const identity=(r,t)=>JSON.stringify([r.releaseId,r.title,r.artist,t.artist,t.position,t.title,t.duration]);
 const fresh=r=>(!r.discogsInstanceId||discogsConnect.connected&&gpIsFresh(r.discogsFetchedAt))&&(!r.tracklistFetchedAt||gpIsFresh(r.tracklistFetchedAt));
@@ -24,7 +24,7 @@ function panel(){
 }
 function refresh(){const el=document.querySelector?.('.gp-auto-audio');if(el)el.outerHTML=panel();evidence.refreshFields()}
 function stop({reset=false,pause=true}={}){
- generation++;paused=pause;comparisonController?.abort();comparisonController=null;comparisonPreparing=false;current?.controller.abort();if(current?.item&&['searching','analyzing'].includes(current.item.phase)){current.item.phase='cancelled';job.cancelled++}
+ generation++;paused=pause;comparisonController?.abort();comparisonController=null;comparisonPreparing=false;comparisonRecord=null;current?.controller.abort();if(current?.item&&['searching','analyzing'].includes(current.item.phase)){current.item.phase='cancelled';job.cancelled++}
  for(const item of queue){if(seen.get(item.track)===item)item.phase='cancelled';job.cancelled++}queue=[];
  if(reset){seen=new WeakMap();memo.clear();for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;paused=false;job.phase='idle';job.message='';}
  else{job.phase='cancelled';job.message='Interrotto: i valori precedenti restano disponibili.';}
@@ -91,6 +91,7 @@ async function pump(){
 function schedule(){
  if(!ready||!available||!enabled||paused||!restoreReady||comparisonPreparing)return;
  for(const {record,track,index} of library.trackList(state.releases)){
+  if(comparisonRecord&&record!==comparisonRecord)continue;
   if(!/^[1-9]\d*$/.test(String(record.releaseId||''))||!fresh(record))continue;
   const key=identity(record,track),prior=seen.get(track);
   if(prior?.key===key)continue;
@@ -174,7 +175,7 @@ async function compareEngines(){
   if(!state.releases.includes(record)||!record.tracks.length||!fresh(record))
    throw Error('Tracklist non disponibile o non più valida: riprova il recupero Discogs.');
   // A preceding async import may have installed a queue while recovering: reset before compare.
-  comparisonPreparing=false;comparisonController=null;
+  comparisonPreparing=false;comparisonController=null;comparisonRecord=record;
   transition('resolving-audio','Tracklist: '+record.tracks.length+' tracce. Ricerca fonti autorizzate e confronto V1/V2…');
   schedule();
   if(job.total===0&&!job.running)
@@ -231,7 +232,7 @@ async function example({autoSchedule=true}={}){
  }catch(e){toast('Esempio pubblico non disponibile: '+String(e.message||e),true);return false}
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-auto-enable]')){enabled=e.target.checked;try{localStorage.setItem('grooveprint-auto-bpm-enabled',enabled?'on':'off')}catch{}if(!enabled)stop();else{paused=false;schedule()}refresh()}});
-document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-compare]'))void compareEngines();if(e.target.closest('[data-gp-auto-example]'))void example()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-compare]'))void compareEngines().catch(error=>transition('error','Errore inatteso nel confronto V1/V2: '+String(error?.message||error)+'. Riprova.'));if(e.target.closest('[data-gp-auto-example]'))void example()});
 window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,compareEngines,trace:()=>comparisonTrace.slice(),inspect:track=>{const x=seen.get(track);return x?{phase:x.phase,reason:x.reason}:null}};
 async function init(){
  if(!/^https?:$/.test(location.protocol))return;
