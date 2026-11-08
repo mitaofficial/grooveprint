@@ -957,6 +957,11 @@ function gpBpmHint(t){
   if(t.bpmDecision.status==='ambiguous')return 'TEMPO AMBIGUO · nessun BPM principale; verifica all’ascolto';
   return 'TEMPO NON DETERMINABILE · inserisci il BPM manualmente dopo ascolto';
  }
+ // Prior V1 estimates may survive a restart. Do not invite the user to
+ // interpret raw autocorrelation peaks as validated musical BPM values.
+ if(typeof window!=='undefined'&&window.GrooveprintBPMDevelopment===true&&t.bpmStatus==='review'&&
+    ['local-dsp','audio-estimate'].includes(t.source)&&!t.bpmDecision&&t.bpm==null)
+  return 'STIMA V1 PRECEDENTE · RIANALISI V3 NECESSARIA';
  if(t.bpmStatus==='review')return 'BPM DA VERIFICARE · scegli un candidato o inserisci un valore';
  if(t.bpmStatus==='unavailable')return 'BPM NON DISPONIBILE · puoi inserirlo manualmente';
  if(t.bpmStatus==='error')return 'ANALISI NON RIUSCITA · riprova o inserisci il BPM';
@@ -1134,6 +1139,23 @@ function gpTempoDecisionPanel(record,index){
 function gpLocalBpmCandidates(record,index){
  const track=record.tracks[index];
  if(track?.bpmDecision?.version==='grooveprint-tempo-decision-v3-experimental')return gpTempoDecisionPanel(record,index);
+ // Development-only migration UI for legacy V1/V2 research. Peaks stay in the
+ // diagnostic data but must not appear as six actionable music decisions.
+ // Explicit rescan uses the existing version/rights and protected-value guards.
+ if(typeof window!=='undefined'&&window.GrooveprintBPMDevelopment===true&&
+    track?.bpmStatus==='review'&&track.bpm==null&&
+    ['local-dsp','audio-estimate'].includes(track.source)&&
+    (track.bpmCandidates?.length||track.bpmComparisonCandidates?.length)&&!track.bpmDecision){
+   const canRescan=Boolean(track.bpmAudioEvidence);
+   return '<section class="gp-tempo-decision" data-tempo-decision-status="legacy" role="group" aria-label="Analisi BPM precedente">'+
+    '<div class="gp-tempo-heading">GROOVEPRINT · RISULTATO PRECEDENTE</div>'+
+    '<div class="gp-tempo-label">RIANALISI V3 NECESSARIA</div>'+
+    '<p>Questa analisi '+esc(track.bpmAlgorithm||'V1')+' contiene soltanto picchi ritmici non convalidati. Nessun BPM principale affidabile è stato determinato.</p>'+
+    (canRescan?'<button type="button" class="small quiet" data-gp-auto-compare>RIANALIZZA CON V3 · AUDIO AUTORIZZATO</button>':
+     '<p>Ricollega il file audio autorizzato dalla libreria locale per una nuova analisi V3.</p>')+
+    '<p class="gp-tempo-disclaimer">Le vecchie ipotesi sono conservate per diagnostica, ma non possono essere selezionate come BPM verificati.</p></section>';
+ }
+
  if(!track||(!track.bpmComparisons?.length&&!track.bpmComparisonCandidates?.length&&(!['review','estimated'].includes(track.bpmStatus)||!['local-dsp','audio-estimate'].includes(track.source))))return '';
  const choices=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:(['review','estimated'].includes(track.bpmStatus)&&['local-dsp','audio-estimate'].includes(track.source)?track.bpmCandidates||[]:[])).filter(c=>Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8);
  if(!choices.length&&!track.bpmComparisons?.length)return '';
