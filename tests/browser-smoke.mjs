@@ -554,6 +554,28 @@ try{
    tracks:d.tracks.length,transient:d.gpResearchExample===true,backupCount:snapshot().releases.length
   }});
   assert.deepEqual(legacyRecovered,{count:1,tracks:2,transient:true,backupCount:originalCount},'replaying a legacy zero-track example should rehydrate rather than duplicate it');
+  // The reported user failure: click V1/V2 while a legacy public demo has 0 tracks.
+  // The action must fetch metadata first and then run both DSP engines by itself.
+  await automatic.evaluate(()=>{
+   window.GrooveprintAutomaticBPM.stop({reset:true,pause:false});
+   const demo=state.releases.find(x=>x.gpResearchExample===true);
+   state.releases=[demo];demo.gpResearchExample=false;demo.tracks=[];demo.tracklistFetchedAt='';
+   state.active=demo.id;state.selected=[demo.id];renderApp();
+  });
+  await automatic.locator('[data-gp-auto-compare]').click();
+  await automatic.waitForFunction(()=>state.releases.length===1&&state.releases[0].tracks.length===2&&
+   window.GrooveprintAutomaticBPM.job.total===2&&window.GrooveprintAutomaticBPM.job.done===2&&!window.GrooveprintAutomaticBPM.job.running);
+  const noLongerSilent=await automatic.evaluate(()=>({
+   tracks:state.releases[0].tracks.length,
+   temporary:state.releases[0].gpResearchExample===true,
+   results:state.releases[0].tracks[0].bpmComparisons.map(x=>x.algorithm),
+   candidateOnly:state.releases[0].tracks[0].bpm===null&&state.releases[0].tracks[0].bpmStatus==='review',
+   duplicateCount:state.releases.filter(x=>x.releaseId==='3759149').length
+  }));
+  assert.deepEqual(noLongerSilent,{tracks:2,temporary:true,
+   results:['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental'],
+   candidateOnly:true,duplicateCount:1},'one-click comparison must recover a lost tracklist');
+
   assert.deepEqual(autoErrors,[]);console.log('BROWSER AUTOMATIC BPM',JSON.stringify({source:'mocked API + generated real MP3, not live catalog',import:'CSV -> mocked live-shaped Discogs tracklist -> automatic source resolution',tracks:6,resolverRequests:resolvedTracks.length,audioDownloads:audioDownloads.length,forcedReview:true,metadataRetention:true,resources:checked.resources,pdfBytes:autoPdf.length}));
  }finally{await automatic.close();autoServer.kill('SIGTERM');await autoClosed}
  // The deliverable must work as a downloaded file, with real classic Blob workers.
