@@ -73,7 +73,7 @@ if(req.method==='GET'&&['/assets/bpm-tempo.mjs','/assets/bpm-library.js','/asset
  res.end(await readFile(join(folder,'../src',target)));return;
 }
 if(req.method==='GET'&&process.env.NODE_ENV==='development'&&['/assets/bpm-worker-dev.mjs','/assets/bpm-tempo-experiment.mjs'].includes(path)){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(await readFile(join(folder,'../src',path.slice('/assets/'.length))));return;}
-if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1'});
+if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1',devSha:process.env.NODE_ENV==='development'?process.env.GROOVEPRINT_DEV_SHA||null:undefined});
 if(req.method==='GET'&&path==='/examples/grooveprint-demo.csv'){
  const csv=await readFile(join(folder,'../examples/grooveprint-demo.csv'));
  res.writeHead(200,{'Content-Type':'text/csv; charset=utf-8','Content-Disposition':'attachment; filename="GROOVEPRINT_esempio_fittizio.csv"','Cache-Control':'no-store'});
@@ -85,7 +85,7 @@ if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wr
 let sess=store.get(cookies(req.headers.cookie).gp_session);if(!sess){const newSession=store.create();res.setHeader('Set-Cookie','gp_session='+newSession.id+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800'+(origin.startsWith('https:')?'; Secure':''));sess=store.get(newSession.id);}
 const csrf=()=>{if(!same(req.headers['x-grooveprint-csrf'],sess.csrf))throw httpError(403,'Invalid CSRF token');};
 const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not connected to Discogs');};
-if(path==='/api/audio/status'&&req.method==='GET')return send(res,200,{enabled:audioResearch,reviewOnly:true,approvedCollection:audioResearch?'freemusicarchive':null,approvedReleaseIds:null,researchExampleReleaseId:audioResearch?RESEARCH_RELEASE.releaseId:null,researchExampleArtist:audioResearch?RESEARCH_RELEASE.artist:null,researchExampleTitle:audioResearch?RESEARCH_RELEASE.album:null,minRequestIntervalMs:1500,
+if(path==='/api/audio/status'&&req.method==='GET')return send(res,200,{enabled:audioResearch,reviewOnly:true,approvedCollection:audioResearch?'freemusicarchive':null,approvedReleaseIds:null,researchExampleReleaseId:audioResearch?RESEARCH_RELEASE.releaseId:null,researchExampleArtist:audioResearch?RESEARCH_RELEASE.artist:null,researchExampleTitle:audioResearch?RESEARCH_RELEASE.album:null,devSha:process.env.NODE_ENV==='development'?process.env.GROOVEPRINT_DEV_SHA||null:undefined,minRequestIntervalMs:1500,
  scope:'research-only FMA CC0/BY audio; general commercial catalog coverage not established',csrf:sess.csrf});
 if(path.startsWith('/api/audio/')){
  if(!audioResearch)throw httpError(404,'Automatic audio research is unavailable in this environment');
