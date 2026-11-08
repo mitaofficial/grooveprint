@@ -59,6 +59,15 @@ test('source outage pauses the batch instead of turning every remaining track in
  await until(()=>!f.api.job.running&&f.api.job.errors===1);f.api.schedule();await new Promise(r=>setTimeout(r,10));
  assert.equal(f.resources.sourceCalls,1);assert.equal(f.api.job.cancelled,1);assert.equal(f.resources.decodes,0);
 });
+test('resetting the automatic pipeline leaves a neutral idle panel rather than a false interruption warning',async()=>{
+ const f=setup({preference:'off'});
+ await new Promise(r=>setTimeout(r,15));
+ f.api.stop({reset:true,pause:false});
+ assert.equal(f.api.job.total,0);
+ assert.equal(f.api.job.phase,'idle');
+ assert.equal(f.api.job.message,'');
+});
+
 test('the user opt-out persists across initialization and one explicit setting enables the whole flow',async()=>{
  const f=setup({preference:'off'});await new Promise(r=>setTimeout(r,10));f.api.schedule();assert.equal(f.resources.sourceCalls,0);assert.equal(f.api.job.total,0);
  for(const handler of f.events.change)handler({target:{checked:true,matches:s=>s==='[data-gp-auto-enable]'}});
