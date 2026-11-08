@@ -63,7 +63,7 @@ try{
   });
   if(!live){
    await page.route('**/api/audio/status',route=>route.fulfill({json:{enabled:true,reviewOnly:true,csrf:'fixture-csrf',approvedReleaseIds:null,researchExampleReleaseId:'3759149',
-    researchExampleArtist:demo.artist,researchExampleTitle:demo.title,minRequestIntervalMs:0}}));
+    researchExampleArtist:demo.artist,researchExampleTitle:demo.title,devSha:checkedOutHead,minRequestIntervalMs:0}}));
    await page.route('**/api/audio/example',route=>route.fulfill({json:{...demo,fetchedAt:new Date().toISOString(),tracklist:tracks}}));
    await page.route('**/api/audio/resolve',route=>{
     const input=route.request().postDataJSON();
@@ -101,6 +101,8 @@ try{
   },demo);
   await page.goto(base,{waitUntil:'domcontentloaded'});
   await page.waitForFunction(()=>restoreReady&&window.GrooveprintAutomaticBPM&&document.querySelector('[data-gp-auto-compare]'),null,{timeout:25000});
+  const displayedHead=await page.locator('[data-gp-build]').textContent();
+  assert.ok(displayedHead?.includes(checkedOutHead.slice(0,12)),'browser and running server must display the tested Git checkout');
   if(legacy)await page.waitForFunction(()=>state.releases.length===1&&state.releases[0].tracks.length===0,null,{timeout:15000});
   return {context,page};
  };
