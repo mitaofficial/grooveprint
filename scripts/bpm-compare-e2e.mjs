@@ -19,6 +19,7 @@ if(!engine)throw Error('Unsupported Playwright browser '+name);
 const live=process.argv.includes('--live');
 const runs=live?1:Number(process.env.GROOVEPRINT_REPEATS||10);
 const mode=live?'live':'fixture';
+const checkedOutHead=execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8',timeout:3000}).trim();
 const out=resolve('.private/evidence/one-click-'+name+'-'+mode);
 await mkdir(out,{recursive:true});
 const rows=[],traffic=[],errors=[],serverLog=[];
@@ -182,7 +183,7 @@ try{
  }
 }finally{
  await writeFile(join(out,'report.json'),JSON.stringify({
-  generatedAt:new Date().toISOString(),head:process.env.GITHUB_SHA||'local',browser:name,mode,runs,
+  generatedAt:new Date().toISOString(),head:checkedOutHead,githubEventSha:process.env.GITHUB_SHA||null,browser:name,mode,runs,
   providerSource:live?'LIVE HTTP providers':'MOCKED provider metadata and licensed-source matching; real browser native decoder and V1/V2',
   rows,traffic,errors,serverLog
  },null,2));
