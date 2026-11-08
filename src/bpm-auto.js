@@ -49,7 +49,7 @@ async function getAudio(asset,signal){
 }
 async function pump(){
  if(job.running||!available||!enabled||paused||!queue.length)return;
- const owner={controller:new AbortController(),generation};current=owner;job.running=true;
+ const owner={controller:new AbortController(),generation,firstError:''};current=owner;job.running=true;
  const count=key=>{if(owner.generation===generation)job[key]++};
  try{
   while(queue.length&&!owner.controller.signal.aborted&&owner.generation===generation){
@@ -75,16 +75,24 @@ async function pump(){
      writeTicket:item.ticket,automaticEvidence:resolved.evidence,signal:owner.controller.signal,valid:()=>valid(item),onCancel:()=>{if(!owner.controller.signal.aborted)stop()}});
     if(owner.controller.signal.aborted)throw new DOMException('Aborted','AbortError');
     if(delivery){memo.set(item.key,{result:delivery.result,evidence:resolved.evidence});if(memo.size>1500)memo.delete(memo.keys().next().value);count(delivery.result.status==='estimated'?'review':'unavailable');item.phase='complete'}
-    else if(!valid(item)){count('stale');item.phase='stale'}else{count('errors');item.phase='error';item.reason=library.job.message}
+    else if(!valid(item)){count('stale');item.phase='stale'}else{count('errors');item.phase='error';item.reason=library.job.message;owner.firstError ||=String(item.reason||'Decodifica non riuscita').slice(0,180)}
    }catch(e){
     if(owner.controller.signal.aborted){item.phase='cancelled';count('cancelled');}
-    else{item.phase='error';item.reason=String(e.message||e);count('errors');if([429,503].includes(e.status)){paused=true;owner.pauseMessage='Fonte temporaneamente non disponibile. Riprendi dal pannello dopo il limite o il disservizio.';owner.controller.abort();for(const next of queue){next.phase='cancelled';count('cancelled')}queue=[];}}
+    else{item.phase='error';item.reason=String(e.message||e);owner.firstError ||=item.reason.slice(0,180);count('errors');if([429,503].includes(e.status)){paused=true;owner.pauseMessage='Fonte temporaneamente non disponibile. Riprendi dal pannello dopo il limite o il disservizio.';owner.controller.abort();for(const next of queue){next.phase='cancelled';count('cancelled')}queue=[];}}
    }finally{count('done');refresh();}
    await new Promise(resolve=>setTimeout(resolve,0));
   }
  }finally{
-  if(current===owner)current=null;job.running=false;if(owner.generation===generation){comparisonRecord=null;job.phase=owner.controller.signal.aborted?'cancelled':'complete';
-  job.message=owner.pauseMessage|| (job.phase==='complete'?'Ricerca terminata. I casi fuori dal catalogo autorizzato restano senza BPM.':'Interrotto: nessun risultato tardivo viene applicato.');}refresh();
+  if(current===owner)current=null;job.running=false;if(owner.generation===generation){
+   comparisonRecord=null;
+   job.phase=owner.controller.signal.aborted?'cancelled':job.errors?'complete-with-errors':'complete';
+   job.message=owner.pauseMessage||(
+    job.phase==='complete-with-errors'
+     ?'Analisi completata con '+job.errors+' errore/i su '+job.total+' tracce. '+owner.firstError+' · Premi RIPROVA ERRORI / RIPRENDI per ritentare solo le tracce fallite.'
+     :job.phase==='complete'?'Ricerca terminata. I casi fuori dal catalogo autorizzato restano senza BPM.'
+     :'Interrotto: nessun risultato tardivo viene applicato.'
+   );
+  }refresh();
   if(queue.length&&!paused&&enabled)void pump();
  }
 }
