@@ -106,7 +106,7 @@ function gpBlockExternalImageExport(){
 function gpRetainLocalOnly(obj){
  // Exclude OAuth collection membership/source snapshots from persistent project backups.
  const cleaned=clone(obj);
- cleaned.releases=(cleaned.releases||[]).filter(r=>!r.discogsInstanceId).map(r=>{
+ cleaned.releases=(cleaned.releases||[]).filter(r=>!r.discogsInstanceId&&!r.gpResearchExample).map(r=>{
   r.discogsSource=null;r.discogsConflicts=[];r.discogsUsername='';r.discogsFolderId=null;
   r.tracks=(r.tracks||[]).filter(t=>t.source!=='discogs'&&t.trackSource!=='discogs');r.tracklistFetchedAt=''
   r.videos=[];r.videosFetchedAt='';
