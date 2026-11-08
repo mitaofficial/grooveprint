@@ -101,11 +101,22 @@ function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
  }else if(result?.status==='unavailable'){t.bpmStatus='unavailable';t.bpmReason=String(result.reason||'no-beat-detected')}
  else return false;
  t.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');t.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
+ // Retain both diagnostic outputs when the user explicitly requests V1/V2 comparison.
+ // These are not calibrated probability scores and neither output is auto-confirmed.
+ if(Array.isArray(result.comparisons)&&result.comparisons.length===2){
+  t.bpmComparisonAt=new Date().toISOString();
+  t.bpmComparisonCandidates=t.bpmCandidates.slice();
+  t.bpmComparisons=result.comparisons.slice(0,2).map(x=>({
+   algorithm:String(x.algorithm||''),bpm:Number.isFinite(x.bpm)?x.bpm:null,
+   status:String(x.status||''),reason:String(x.reason||''),requiresReview:true,
+   analysisSeconds:Number(x.analysisSeconds)||0
+  }));
+ }else{t.bpmComparisonAt='';t.bpmComparisonCandidates=[];t.bpmComparisons=[];}
  t.bpmCheckedAt=new Date().toISOString();t.bpmAudioEvidence={...provenance,analyzedAt:t.bpmCheckedAt};storeLater();return true;
 }
 async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,signal,valid=()=>true,onCancel}={}){
  if(job.running)return;
- const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:!automaticEvidence&&window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
+ const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
  const cancel=()=>{if(current===token)stop()};signal?.addEventListener('abort',cancel,{once:true});token.onCancel=onCancel;
  if(signal?.aborted)token.cancelled=true;
  let delivery=null;
@@ -224,5 +235,9 @@ function chooseFolder(){
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-engine]')&&!job.running&&window.GrooveprintBPMDevelopment===true){mode=e.target.value==='compare'?'compare':'v1'}});
 document.addEventListener('click',e=>{const single=e.target.closest('[data-gp-track-analyze]');if(single)void analyzeTrack(single.dataset.releaseId,Number(single.dataset.gpTrackAnalyze));if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
-window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop,applyAutomaticResult};
+function setEngineMode(next){
+ if(window.GrooveprintBPMDevelopment!==true||job.running||!['v1','compare'].includes(next))return false;
+ mode=next;redraw();return true;
+}
+window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop,applyAutomaticResult,setEngineMode};
 })();
