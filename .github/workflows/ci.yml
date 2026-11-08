@@ -25,6 +25,8 @@ jobs:
       - run: npm run benchmark:compare
       - name: V3 original synthetic development-only score (not full-song validation)
         run: npm run benchmark:v3:development
+      - name: V3 full synthetic precision/coverage versus original (development data only)
+        run: npm run benchmark:v3:full-synthetic
 
   browser_matrix:
     needs: test
