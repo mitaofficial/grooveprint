@@ -533,7 +533,7 @@ try{
   ];
   await automatic.locator('[data-gp-auto-example]').click();
   await automatic.waitForFunction(()=>state.releases.some(r=>r.gpResearchExample===true&&r.tracks.length===2));
-  try{await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===5&&!window.GrooveprintAutomaticBPM.job.running,null,{timeout:15000})}
+  try{await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===8&&!window.GrooveprintAutomaticBPM.job.running,null,{timeout:15000})}
   catch(error){console.log('AUTOMATIC DEMO AFTER COMPARE DIAGNOSTIC',JSON.stringify(await automatic.evaluate(()=>({
     job:window.GrooveprintAutomaticBPM.job,
     trace:window.GrooveprintAutomaticBPM.trace(),
