@@ -494,7 +494,7 @@ try{
   assert.equal(resolvedTracks.length,3,'duplicate copies reuse positive and negative resolution');assert.equal(audioDownloads.length,1,'one decode per identical recording');
   assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-onset-acf-v1');assert.equal(t.provenance,'Synthetic source fixture')}}
   assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
-  await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);
+  await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);assert.equal(await automatic.locator('.gp-bpm-lookup-results').first().evaluate(el=>el.open),true,'explicit review must expand the selected automatic estimate');assert.match(await automatic.locator('.gp-bpm-lookup-results').first().innerText(),/correlazione, non probabilità/);
   await automatic.locator('[data-act="step-3"]').click();const autoPdfPromise=automatic.waitForEvent('download');await automatic.locator('[data-act="pdf"]').click();const autoPdf=await readFile(await(await autoPdfPromise).path());assert.ok(autoPdf.toString('latin1').startsWith('%PDF-'));
 
   await automatic.locator('[data-act="step-1"]').click();
