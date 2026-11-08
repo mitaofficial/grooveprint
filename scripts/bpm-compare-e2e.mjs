@@ -163,7 +163,23 @@ try{
      assert.equal(done.resources.workers,0);
     }
    }else if(!live)throw Error('Provider fixture failed: '+done.job.message);
-   const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,firstPassFailure,done};
+   let decisionUi=null;
+   if(done.job.review>0){
+    await page.locator('[data-gp-auto-review]').click();
+    const card=page.locator('.gp-tempo-decision').first();
+    await card.waitFor({timeout:10000});
+    decisionUi={
+     status:await card.getAttribute('data-tempo-decision-status'),
+     suggestedButtons:await card.locator('[data-bpm-choose]').count(),
+     legacyChoiceRows:await page.locator('.gp-bpm-lookup-choice').count()
+    };
+    assert.equal(decisionUi.legacyChoiceRows,0,'V3 must not expose 8 raw candidate actions');
+    assert.ok(decisionUi.suggestedButtons<=1,'a single BPM may be offered only for supported evidence');
+    assert.equal(decisionUi.suggestedButtons,decisionUi.status==='supported'?1:0,
+      'ambiguous or undetermined tempo must not offer a numeric choice');
+    if(n===0)await page.screenshot({path:join(out,variant+'-tempo-decision.png'),fullPage:true});
+   }
+   const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,firstPassFailure,done,decisionUi};
    rows.push(result);
    // A live-provider error must never be counted as a passing real integration.
    // The report and screenshots are written even if the upstream service blocks us.
@@ -235,6 +251,6 @@ console.log('BPM_ONE_CLICK_RESULTS',JSON.stringify(rows.filter(x=>x.done).map(x=
  processed:x.done.job.done,review:x.done.job.review,unavailable:x.done.job.unavailable,
  errors:x.done.job.errors,firstTrackStatus:x.done.candidate?.status,
  firstTrackBpm:x.done.candidate?.bpm,
- firstTrackAlgorithms:x.done.candidate?.algorithms,resources:x.done.resources
+ firstTrackAlgorithms:x.done.candidate?.algorithms,decisionUi:x.decisionUi,resources:x.done.resources
 }))));
 console.log('BPM_ONE_CLICK_E2E',JSON.stringify({browser:name,mode,passed:rows.length,report:join(out,'report.json')}));
