@@ -12,7 +12,9 @@ const strip=s=>s.replace(/^import .*;\r?\n/gm,'').replace(/^export /gm,'');
 const original='const estimateLocalTempo=(()=>{'+strip(await read('src/bpm-tempo.mjs'))+';return estimateLocalTempo})();\n';
 const experiment='const estimateExperiment=(()=>{'+strip(await read('src/bpm-tempo-experiment.mjs'))+';return estimateLocalTempo})();\n';
 const adapter=strip(await read('src/bpm-engine.mjs'));
-const workers={v1:original+adapter+strip(await read('src/bpm-worker.mjs')),compare:original+experiment+adapter+strip(await read('src/bpm-worker-dev.mjs'))};
+const decision=strip(await read('src/bpm-decision.mjs'));
+const v3=strip(await read('src/bpm-compare-v3.mjs'));
+const workers={v1:original+adapter+strip(await read('src/bpm-worker.mjs')),compare:original+experiment+adapter+decision+v3+strip(await read('src/bpm-worker-dev.mjs'))};
 let source='unknown';try{source=execFileSync('git',['rev-parse','HEAD'],{cwd:root,encoding:'utf8'}).trim();if(execFileSync('git',['status','--porcelain','--untracked-files=no'],{cwd:root,encoding:'utf8'}).trim())source+=' (working changes)'}catch{}
 const literal=value=>JSON.stringify(value).replace(/</g,'\\u003c');
 const boot="if(location.protocol==='file:'){window.GrooveprintBPMDevelopment=true;window.GrooveprintPortableWorkers=Object.freeze(Object.fromEntries(Object.entries("+literal(workers)+").map(([k,v])=>[k,URL.createObjectURL(new Blob([v],{type:'text/javascript'}))])));window.GrooveprintExampleCSV="+literal(await read('examples/grooveprint-demo.csv'))+";}";
