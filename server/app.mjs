@@ -100,8 +100,9 @@ if(path.startsWith('/api/audio/')){
  if(path==='/api/audio/example'&&req.method==='GET'){
   throttle('audio-example:'+sess.dbid);const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),20000);
   try{const r=await fetch('https://api.discogs.com/releases/'+RESEARCH_RELEASE.releaseId,{signal:ctrl.signal,headers:{Accept:'application/json','User-Agent':ua}});
-   if(!r.ok)throw httpError(503,'Public Discogs example unavailable');const d=await r.json();
-   return send(res,200,{...sanitRelease(d),artist:(d.artists||[]).map(a=>a.name).join(', '),title:String(d.title||''),label:(d.labels||[]).map(x=>x.name).join(', '),format:'File',exampleScope:'open-audio integration control, not techno/hardgroove accuracy'});
+   if(!r.ok)throw httpError(503,'Public Discogs example unavailable');const d=await r.json(),safe=sanitRelease(d);
+   if(safe.releaseId!==RESEARCH_RELEASE.releaseId||!safe.tracklist.some(x=>x.type_==='track'||x.sub_tracks?.length))throw httpError(503,'Public Discogs example has no usable tracklist');
+   return send(res,200,{...safe,artist:(d.artists||[]).map(a=>a.name).join(', '),title:String(d.title||''),label:(d.labels||[]).map(x=>x.name).join(', '),format:'File',exampleScope:'open-audio integration control, not techno/hardgroove accuracy'});
   }finally{clearTimeout(timer)}
  }
  throw httpError(404,'Unknown audio endpoint');
