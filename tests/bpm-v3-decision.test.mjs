@@ -79,3 +79,17 @@ test('half-time V1 versus V2 is still ambiguous without band-supported harmonic 
  assert.equal(d.status,'ambiguous');assert.equal(d.suggestedBpm,null);
  assert.equal(d.reason,'discordant-half-double');
 });
+
+test('a V1 false pulse cannot turn signal with no V2 rhythmic evidence into a BPM or false ambiguity',()=>{
+ for(const reason of ['insufficient-rhythmic-transient-contrast','no-rhythmic-onsets']){
+  const d=decideTempo({v1:score(120),v2:{status:'unavailable',bpm:null,reason},
+   windows:[{status:'unavailable',bpm:null,reason}]});
+  assert.equal(d.status,'undetermined');
+  assert.equal(d.suggestedBpm,null);
+  assert.equal(d.reason,'no-rhythmic-evidence');
+  assert.equal(d.alternatives.length,0);
+ }
+ const unknown=decideTempo({v1:score(120),v2:{status:'unavailable',bpm:null,reason:'audio-too-short'}});
+ assert.equal(unknown.status,'ambiguous','generic analysis failures are not proof of silence');
+ assert.equal(unknown.reason,'only-one-engine-available');
+});
