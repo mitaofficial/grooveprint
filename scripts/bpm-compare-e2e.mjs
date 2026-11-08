@@ -210,4 +210,11 @@ try{
  await Promise.race([closed,delay(1500)]);
 }
 if(errors.length)throw Error('Browser page errors: '+errors.map(e=>e.message).join(', '));
+console.log('BPM_ONE_CLICK_RESULTS',JSON.stringify(rows.filter(x=>x.done).map(x=>({
+ variant:x.variant,mode,tracks:x.done.tracks,phase:x.done.job.phase,total:x.done.job.total,
+ processed:x.done.job.done,review:x.done.job.review,unavailable:x.done.job.unavailable,
+ errors:x.done.job.errors,firstTrackStatus:x.done.candidate?.status,
+ firstTrackBpm:x.done.candidate?.bpm,
+ firstTrackAlgorithms:x.done.candidate?.algorithms,resources:x.done.resources
+}))));
 console.log('BPM_ONE_CLICK_E2E',JSON.stringify({browser:name,mode,passed:rows.length,report:join(out,'report.json')}));
