@@ -91,7 +91,13 @@ try{
   candidate:state.releases[0]?.tracks?.[0]&&{
    bpm:state.releases[0].tracks[0].bpm,
    status:state.releases[0].tracks[0].bpmStatus,
-   algorithms:(state.releases[0].tracks[0].bpmComparisons||[]).map(x=>x.algorithm)},
+   algorithms:(state.releases[0].tracks[0].bpmComparisons||[]).map(x=>x.algorithm),
+   decision:state.releases[0].tracks[0].bpmDecision?{
+    status:state.releases[0].tracks[0].bpmDecision.status,
+    suggestedBpm:state.releases[0].tracks[0].bpmDecision.suggestedBpm,
+    reason:state.releases[0].tracks[0].bpmDecision.reason,
+    evidence:state.releases[0].tracks[0].bpmDecision.evidence
+   }:null},
   resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers}
  }));
  const createPage=async legacy=>{
@@ -251,6 +257,6 @@ console.log('BPM_ONE_CLICK_RESULTS',JSON.stringify(rows.filter(x=>x.done).map(x=
  processed:x.done.job.done,review:x.done.job.review,unavailable:x.done.job.unavailable,
  errors:x.done.job.errors,firstTrackStatus:x.done.candidate?.status,
  firstTrackBpm:x.done.candidate?.bpm,
- firstTrackAlgorithms:x.done.candidate?.algorithms,decisionUi:x.decisionUi,resources:x.done.resources
+ firstTrackAlgorithms:x.done.candidate?.algorithms,tempoDecision:x.done.candidate?.decision,decisionUi:x.decisionUi,resources:x.done.resources
 }))));
 console.log('BPM_ONE_CLICK_E2E',JSON.stringify({browser:name,mode,passed:rows.length,report:join(out,'report.json')}));
