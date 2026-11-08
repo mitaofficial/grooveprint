@@ -83,7 +83,7 @@ async function pump(){
    await new Promise(resolve=>setTimeout(resolve,0));
   }
  }finally{
-  if(current===owner)current=null;job.running=false;if(owner.generation===generation){job.phase=owner.controller.signal.aborted?'cancelled':'complete';
+  if(current===owner)current=null;job.running=false;if(owner.generation===generation){comparisonRecord=null;job.phase=owner.controller.signal.aborted?'cancelled':'complete';
   job.message=owner.pauseMessage|| (job.phase==='complete'?'Ricerca terminata. I casi fuori dal catalogo autorizzato restano senza BPM.':'Interrotto: nessun risultato tardivo viene applicato.');}refresh();
   if(queue.length&&!paused&&enabled)void pump();
  }
