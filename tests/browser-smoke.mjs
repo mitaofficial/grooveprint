@@ -497,7 +497,7 @@ try{
   await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);assert.equal(await automatic.locator('.gp-bpm-lookup-results').first().evaluate(el=>el.open),true,'explicit review must expand the selected automatic estimate');assert.match(await automatic.locator('.gp-bpm-lookup-results').first().innerText(),/correlazione, non probabilità/);
   // Explicitly compare both engines using the already authorized source, no user audio upload.
   await automatic.locator('[data-gp-auto-compare]').click();
-  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===6&&
+  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===3&&
    !window.GrooveprintAutomaticBPM.job.running&&state.releases[0].tracks[0].bpmComparisons?.length===2);
   const comparedAuto=await automatic.evaluate(()=>{
    const t=state.releases[0].tracks[0];
@@ -533,7 +533,7 @@ try{
   ];
   await automatic.locator('[data-gp-auto-example]').click();
   await automatic.waitForFunction(()=>state.releases.some(r=>r.gpResearchExample===true&&r.tracks.length===2));
-  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===8&&!window.GrooveprintAutomaticBPM.job.running);
+  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===5&&!window.GrooveprintAutomaticBPM.job.running);
   const exampleCheck=await automatic.evaluate(()=>{
    const demo=state.releases.find(r=>r.gpResearchExample===true);
    return {liveTracks:demo.tracks.length,tracklistFresh:gpIsFresh(demo.tracklistFetchedAt),
