@@ -115,7 +115,17 @@ function retry(){
   return;
  }
  paused=false;
- for(const {track} of library.trackList(state.releases)){const item=seen.get(track);if(item&&['error','cancelled','stale'].includes(item.phase))seen.delete(track)}
+ for(const {track} of library.trackList(state.releases)){
+  const item=seen.get(track);
+  if(!item||!['error','cancelled','stale'].includes(item.phase))continue;
+  seen.delete(track);
+  // Replace a failed attempt, not an additional fictitious track.
+  job.total=Math.max(0,job.total-1);
+  if(item.phase!=='cancelled')job.done=Math.max(0,job.done-1);
+  if(item.phase==='error')job.errors=Math.max(0,job.errors-1);
+  if(item.phase==='stale')job.stale=Math.max(0,job.stale-1);
+  if(item.phase==='cancelled')job.cancelled=Math.max(0,job.cancelled-1);
+ }
  schedule();
 }
 function isResearchControl(record){
