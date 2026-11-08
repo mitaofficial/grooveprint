@@ -1151,10 +1151,13 @@ function gpBpmHistory(record,index){
 function chooseLocalBpmCandidate(releaseId,index,candidateIndex){
  const record=state.releases.find(r=>r.id===releaseId),track=record?.tracks[index];
  if(!track||(!track.bpmComparisonCandidates?.length&&(!['review','estimated'].includes(track.bpmStatus)||!['local-dsp','audio-estimate'].includes(track.source))))return toast('Nessun candidato locale disponibile.',true);
- const choices=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:(['review','estimated'].includes(track.bpmStatus)&&['local-dsp','audio-estimate'].includes(track.source)?track.bpmCandidates||[]:[])).filter(c=>Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8),chosen=choices[candidateIndex],bpm=chosen?.bpm;
+ const decision=track.bpmDecision?.version==='grooveprint-tempo-decision-v3-experimental'?track.bpmDecision:null;
+ if(decision&&(candidateIndex!==-1||decision.status!=='supported'))return toast('Tempo ambiguo o non verificato: ascolta e inserisci il BPM manualmente.',true);
+ const choices=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:(['review','estimated'].includes(track.bpmStatus)&&['local-dsp','audio-estimate'].includes(track.source)?track.bpmCandidates||[]:[])).filter(c=>Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8);
+ const chosen=decision?{bpm:decision.suggestedBpm,algorithm:decision.version}:choices[candidateIndex],bpm=chosen?.bpm;
  if(!Number.isFinite(bpm))return toast('Candidato non valido.',true);
  if(!confirm('Usare '+bpm+' BPM dall’analisi del motore interno per '+track.title+'? Il valore resta una stima da verificare.'))return;
- commit(()=>{window.GrooveprintBPMEvidence.userEdit(track);track.bpmCandidates=choices;track.bpm=bpm;track.bpmStatus='estimated';track.source='local-dsp';track.bpmAlgorithm=String(chosen.algorithm||track.bpmAlgorithm||'grooveprint-onset-acf-v1');track.bpmAnalysisSeconds=Number(track.bpmComparisons?.find(x=>x.algorithm===track.bpmAlgorithm)?.analysisSeconds)||track.bpmAnalysisSeconds||0;track.bpmCheckedAt=track.bpmComparisonAt||track.bpmCheckedAt||'';track.bpmReferenceUrl='';});
+ commit(()=>{window.GrooveprintBPMEvidence.userEdit(track);track.bpmCandidates=decision?[chosen]:choices;track.bpm=bpm;track.bpmStatus='estimated';track.source='local-dsp';track.bpmAlgorithm=String(chosen.algorithm||track.bpmAlgorithm||'grooveprint-onset-acf-v1');track.bpmAnalysisSeconds=Number(track.bpmComparisons?.find(x=>x.algorithm===track.bpmAlgorithm)?.analysisSeconds)||track.bpmAnalysisSeconds||0;track.bpmCheckedAt=track.bpmComparisonAt||track.bpmCheckedAt||'';track.bpmReferenceUrl='';});
  toast('BPM '+bpm+' selezionato come stima. Puoi confermarlo dopo la verifica.');
 }
 
