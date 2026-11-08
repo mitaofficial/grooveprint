@@ -110,6 +110,8 @@ function openReview(){
  state.search='';state.statusFilter='All';state.formatFilter='All';state.folderFilter='All';
  if(typeof reviewPage!=='undefined')reviewPage=0;
  state.active=item.record.id;state.step=1;renderApp();
+ // The overview keeps automatic rows compact; explicitly opening review reveals the first candidate.
+ const panel=document.querySelector?.('.gp-bpm-lookup-results');if(panel){panel.open=true;panel.scrollIntoView?.({block:'nearest',behavior:'instant'});}
 }
 async function example(){
  if(!available||discogsSync.running||discogsConnect.running)return;
