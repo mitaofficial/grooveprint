@@ -112,9 +112,26 @@ function openReview(){
 async function example(){
  if(!available||discogsSync.running||discogsConnect.running)return;
  try{
-  const d=await gpRequest('/api/audio/example');const r=normalizeRelease({...d,tracks:mappedDiscogsTracks(d),tracklistFetchedAt:d.fetchedAt});
-  commit(()=>{state.releases.push(r);state.selected.push(r.id);state.active=r.id;state.step=1});paused=false;schedule();
- }catch(e){toast('Esempio pubblico non disponibile: '+e.message,true)}
+  const d=await gpRequest('/api/audio/example');
+  const tracks=mappedDiscogsTracks(d);
+  // Do not create a misleading zero-track record if the public API is incomplete.
+  if(!tracks.length)throw Error('Discogs non ha restituito una tracklist utilizzabile. Riprova quando il servizio è disponibile.');
+  if(!gpIsFresh(d.fetchedAt))throw Error('Data dei metadati Discogs non valida: controlla l’orologio del PC e riprova.');
+  const r=normalizeRelease({...d,tracks,tracklistFetchedAt:d.fetchedAt});
+  // This is licensed-source research, not a permanent local record or an owned CSV.
+  // A later save/export must not leave an empty Discogs-derived demo behind.
+  r.gpResearchExample=true;
+  const existing=state.releases.find(x=>x.gpResearchExample===true&&x.releaseId===r.releaseId);
+  commit(()=>{
+   if(existing){
+    if(!existing.tracks.length){existing.tracks=r.tracks;existing.tracklistFetchedAt=r.tracklistFetchedAt;existing.tracklistError=''}
+    state.active=existing.id;
+   }else{state.releases.push(r);state.active=r.id}
+   if(!state.selected.includes(state.active))state.selected.push(state.active);
+   state.step=1;
+  });
+  paused=false;schedule();
+ }catch(e){toast('Esempio pubblico non disponibile: '+String(e.message||e),true)}
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-auto-enable]')){enabled=e.target.checked;try{localStorage.setItem('grooveprint-auto-bpm-enabled',enabled?'on':'off')}catch{}if(!enabled)stop();else{paused=false;schedule()}refresh()}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-example]'))void example()});
