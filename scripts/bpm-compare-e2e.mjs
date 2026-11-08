@@ -160,6 +160,24 @@ try{
    assert.match(state.job.message,/Confronto non avviato|Errore/i);
    await page.screenshot({path:join(out,'provider-error.png'),fullPage:true});
    rows.push({variant:'503-error-injection',state});
+   // A genuine second click on the visible Retry control must recover without
+   // restarting the page, without duplicating the release, or overwriting BPM.
+   await page.unroute('**/api/audio/example');
+   await page.route('**/api/audio/example',route=>route.fulfill({json:{
+    ...demo,fetchedAt:new Date().toISOString(),tracklist:tracks
+   }}));
+   await page.locator('[data-gp-auto-retry]').click();
+   await page.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===14&&
+    !window.GrooveprintAutomaticBPM.job.running&&state.releases[0].tracks.length===14,
+    null,{timeout:65000});
+   const recovered=await frame(page);
+   assert.equal(recovered.count,1);
+   assert.equal(recovered.job.errors,0);
+   assert.equal(recovered.candidate.bpm,null);
+   assert.deepEqual(recovered.candidate.algorithms,
+    ['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental']);
+   await page.screenshot({path:join(out,'provider-retry-success.png'),fullPage:true});
+   rows.push({variant:'503-retry-recovered',state:recovered});
   }finally{await context.close();}
  }
 }finally{
