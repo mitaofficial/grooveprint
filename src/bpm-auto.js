@@ -3,22 +3,28 @@
 'use strict';
 const evidence=window.GrooveprintBPMEvidence,library=window.GrooveprintAudioLibrary;
 const job={running:false,total:0,done:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
-let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,minInterval=0,lastResolve=0;
+let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,comparisonController=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
 try{if(typeof localStorage!=='undefined')enabled=localStorage.getItem('grooveprint-auto-bpm-enabled')!=='off'}catch{}
 const identity=(r,t)=>JSON.stringify([r.releaseId,r.title,r.artist,t.artist,t.position,t.title,t.duration]);
 const fresh=r=>(!r.discogsInstanceId||discogsConnect.connected&&gpIsFresh(r.discogsFetchedAt))&&(!r.tracklistFetchedAt||gpIsFresh(r.tracklistFetchedAt));
+function transition(phase,message){
+ job.phase=phase;job.message=message;
+ comparisonTrace.push({at:new Date().toISOString(),phase,message:message.slice(0,240),total:job.total,done:job.done});
+ if(comparisonTrace.length>100)comparisonTrace.shift();
+ refresh();
+}
 function panel(){
  if(!available)return '';
  return '<section class="gp-auto-audio" role="status" style="margin:12px 0;padding:12px;border:1px solid #566447"><b>BPM AUTOMATICI ALL’IMPORTAZIONE · RICERCA</b>'+
  '<label style="display:block;margin:8px 0"><input type="checkbox" data-gp-auto-enable '+(enabled?'checked':'')+'> Cerca e analizza automaticamente l’audio autorizzato dopo Discogs</label>'+
  '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; nessuna copertura commerciale generale garantita. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Risultati da verificare.</p>'+
- '<p class="footnote">'+job.done+'/'+job.total+' elaborate · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
- '<div class="flex" style="flex-wrap:wrap;gap:8px">'+(job.running?'<button class="small quiet" data-gp-auto-stop>INTERROMPI BPM AUTOMATICI</button>':'<button class="small quiet" data-gp-auto-retry>RIPROVA ERRORI / RIPRENDI</button>')+
+ '<p class="footnote gp-auto-progress" data-gp-auto-phase="'+esc(job.phase)+'" aria-live="polite"><strong>'+esc(job.phase==='idle'?'Pronto':job.phase.toUpperCase())+'</strong> · '+job.done+'/'+job.total+' elaborate · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
+ '<div class="flex" style="flex-wrap:wrap;gap:8px">'+(job.running||comparisonPreparing?'<button class="small quiet" data-gp-auto-stop>INTERROMPI BPM AUTOMATICI</button>':'<button class="small quiet" data-gp-auto-retry>RIPROVA ERRORI / RIPRENDI</button>')+
  '<button class="small quiet" data-gp-auto-review>VEDI RISULTATI BPM</button>'+(window.GrooveprintBPMDevelopment===true?'<button class="small quiet" data-gp-auto-compare '+(job.running||comparisonPreparing||discogsSync.running?'disabled':'')+'>CONFRONTA V1/V2 CON AUDIO AUTORIZZATO</button>':'')+'<button class="small quiet" data-gp-auto-example '+(discogsSync.running||discogsConnect.running||comparisonPreparing?'disabled':'')+'>PROVA UNA RELEASE APERTA</button></div></section>';
 }
 function refresh(){const el=document.querySelector?.('.gp-auto-audio');if(el)el.outerHTML=panel();evidence.refreshFields()}
 function stop({reset=false,pause=true}={}){
- generation++;paused=pause;current?.controller.abort();if(current?.item&&['searching','analyzing'].includes(current.item.phase)){current.item.phase='cancelled';job.cancelled++}
+ generation++;paused=pause;comparisonController?.abort();comparisonController=null;comparisonPreparing=false;current?.controller.abort();if(current?.item&&['searching','analyzing'].includes(current.item.phase)){current.item.phase='cancelled';job.cancelled++}
  for(const item of queue){if(seen.get(item.track)===item)item.phase='cancelled';job.cancelled++}queue=[];
  if(reset){seen=new WeakMap();memo.clear();for(const k of Object.keys(job))if(typeof job[k]==='number')job[k]=0;paused=false;job.phase='idle';job.message='';}
  else{job.phase='cancelled';job.message='Interrotto: i valori precedenti restano disponibili.';}
@@ -83,7 +89,7 @@ async function pump(){
  }
 }
 function schedule(){
- if(!ready||!available||!enabled||paused||!restoreReady)return;
+ if(!ready||!available||!enabled||paused||!restoreReady||comparisonPreparing)return;
  for(const {record,track,index} of library.trackList(state.releases)){
   if(!/^[1-9]\d*$/.test(String(record.releaseId||''))||!fresh(record))continue;
   const key=identity(record,track),prior=seen.get(track);
@@ -99,44 +105,88 @@ function retry(){
  for(const {track} of library.trackList(state.releases)){const item=seen.get(track);if(item&&['error','cancelled','stale'].includes(item.phase))seen.delete(track)}
  schedule();
 }
-async function compareEngines(){
- if(window.GrooveprintBPMDevelopment!==true||comparisonPreparing||job.running||library.job.running)return;
- if(!available||!ready){job.phase='error';job.message='La ricerca audio non è disponibile in questa sessione.';refresh();return}
- if(!enabled){job.phase='error';job.message='Attiva prima “Cerca e analizza automaticamente l’audio autorizzato dopo Discogs”.';refresh();return}
- if(discogsSync.running||discogsConnect.running){job.phase='error';job.message='Un recupero Discogs è già in corso. Riprova dopo il completamento.';refresh();return}
- const targets=(state.releases||[]).filter(r=>/^[1-9]\d*$/.test(String(r.releaseId||''))&&fresh(r));
- if(!targets.length){job.phase='error';job.message='Nessuna release con Release ID Discogs e metadati validi da confrontare.';refresh();return}
- if(!library.setEngineMode?.('compare')){job.phase='error';job.message='Il confronto sperimentale V1/V2 non è disponibile.';refresh();return}
- // Reset any previous research before metadata recovery. The regular
- // Discogs sync may automatically schedule a new job as soon as tracks arrive.
- stop({reset:true,pause:false});
- if(!targets.some(r=>r.tracks?.length)){
-  const active=state.releases.find(r=>r.id===state.active);
-  if(!active||!targets.includes(active)){
-   job.phase='error';job.message='Seleziona una release valida nella collezione per recuperarne la tracklist.';refresh();return;
+function isResearchControl(record){
+ return Boolean(exampleReleaseId&&String(record?.releaseId)===exampleReleaseId&&
+  String(record.artist||'')===exampleArtist&&String(record.title||'')===exampleTitle&&
+  !record.discogsInstanceId);
+}
+async function ensureTracklistForComparison(record,signal){
+ if(!state.releases.includes(record))throw Error('La release selezionata non è più nella collezione.');
+ if(record.tracks?.length)return record;
+ const releaseId=String(record.releaseId||'');
+ if(!/^[1-9]\d*$/.test(releaseId))throw Error('Release ID Discogs mancante o non valido.');
+ const identity=[record.id,releaseId,record.artist,record.title];
+ if(isResearchControl(record)){
+  const data=await gpRequest('/api/audio/example',{signal});
+  if(signal.aborted)throw new DOMException('Operazione interrotta','AbortError');
+  const tracks=mappedDiscogsTracks(data);
+  if(String(data.releaseId)!==releaseId||String(data.artist)!==record.artist||String(data.title)!==record.title||
+     !gpIsFresh(data.fetchedAt)||!tracks.length)throw Error('Discogs ha restituito metadati vuoti, scaduti o di un’altra release.');
+  if(!state.releases.includes(record)||identity.some((value,i)=>value!==[record.id,String(record.releaseId),record.artist,record.title][i]))
+   throw Error('Release modificata durante il recupero: risultato scartato.');
+  if(!record.tracks.length){
+   commit(()=>{
+    record.tracks=tracks;
+    record.tracklistFetchedAt=data.fetchedAt;
+    record.tracklistError='';
+    record.gpResearchExample=true;
+   });
   }
-  comparisonPreparing=true;job.phase='tracklists';
-  job.message='Tracklist mancante: recupero i brani prima del confronto V1/V2…';refresh();
-  try{
-   // The known public research control uses the server-approved example,
-   // which can rehydrate an old zero-track demo without duplicating it.
-   if(exampleReleaseId&&String(active.releaseId)===exampleReleaseId&&active.artist===exampleArtist&&active.title===exampleTitle&&!active.discogsInstanceId){
-    const ok=await example({autoSchedule:false});
-    if(!ok)throw Error('La release dimostrativa non ha restituito una tracklist valida.');
-   }else{
-    await syncDiscogsTracklists(true,{autoEnrich:false});
-   }
-   const populated=state.releases.some(r=>targets.includes(r)&&r.tracks?.length>0&&fresh(r));
-   if(!populated)throw Error(String(active.tracklistError||'Nessuna traccia ricevuta da Discogs.'));
-  }catch(error){
-   job.phase='error';job.message='Confronto non avviato: '+String(error?.message||error)+
-    ' Usa RECUPERA DA DISCOGS per ritentare.';refresh();return;
-  }finally{comparisonPreparing=false;}
+ }else{
+  await syncDiscogsTracklists(true,{signal,autoEnrich:false});
+  if(signal.aborted)throw new DOMException('Operazione interrotta','AbortError');
+  if(!state.releases.includes(record)||identity.some((value,i)=>value!==[record.id,String(record.releaseId),record.artist,record.title][i]))
+   throw Error('Release modificata o rimossa durante il recupero: risultato scartato.');
  }
- // Idempotent: syncDiscogsTracklists may already have started the queue.
- schedule();
- if(job.total===0&&!job.running){
-  job.phase='error';job.message='Nessuna traccia eleggibile per il confronto. Verifica Release ID e tracklist.';refresh();
+ if(!record.tracks?.length)throw Error(record.tracklistError||'Discogs non ha fornito una tracklist utilizzabile.');
+ return record;
+}
+async function compareEngines(){
+ // The click must visibly acknowledge every path, including missing metadata and failures.
+ if(comparisonPreparing||job.running||library.job.running){
+  if(!comparisonPreparing)transition('busy','È già in corso un’analisi. Interrompila prima di avviarne un’altra.');
+  return;
+ }
+ const record=state.releases.find(r=>r.id===state.active);
+ const releaseId=String(record?.releaseId||'');
+ const serial=++comparisonSerial;
+ transition('preparing','Richiesta V1/V2 ricevuta · release '+(releaseId||'non selezionata')+'.');
+ if(window.GrooveprintBPMDevelopment!==true||!available||!ready){
+  transition('error','Il confronto V1/V2 è disponibile solo sulla preview di sviluppo con ricerca audio attiva.');return;
+ }
+ if(!enabled){transition('error','Attiva la ricerca automatica dell’audio autorizzato e riprova.');return;}
+ if(discogsSync.running||discogsConnect.running){transition('error','Un recupero Discogs è già in corso. Riprova al termine.');return;}
+ if(!record||!/^[1-9]\d*$/.test(releaseId)){transition('error','Seleziona una release con Release ID Discogs valido.');return;}
+ if(record.discogsInstanceId&&!discogsConnect.connected){transition('error','La release OAuth richiede una sessione Discogs valida.');return;}
+ // A stale or stripped tracklist is a *reason to refetch*, not a reason to silently reject the record.
+ stop({reset:true,pause:false});
+ comparisonPreparing=true;
+ const controller=new AbortController();
+ comparisonController=controller;
+ transition('preparing','Preparazione V1/V2 · release '+releaseId+'.');
+ try{
+  if(!library.setEngineMode?.('compare'))throw Error('Motore V1/V2 non disponibile nel browser.');
+  if(!record.tracks?.length){
+   transition('recovering-tracklist','Recupero tracklist autentica Discogs · release '+releaseId+'…');
+   await ensureTracklistForComparison(record,controller.signal);
+  }
+  if(controller.signal.aborted||serial!==comparisonSerial)throw new DOMException('Operazione interrotta','AbortError');
+  if(!state.releases.includes(record)||!record.tracks.length||!fresh(record))
+   throw Error('Tracklist non disponibile o non più valida: riprova il recupero Discogs.');
+  // A preceding async import may have installed a queue while recovering: reset before compare.
+  comparisonPreparing=false;comparisonController=null;
+  transition('resolving-audio','Tracklist: '+record.tracks.length+' tracce. Ricerca fonti autorizzate e confronto V1/V2…');
+  schedule();
+  if(job.total===0&&!job.running)
+   throw Error('Nessuna traccia eleggibile. Controlla dati Discogs e valori BPM protetti.');
+ }catch(error){
+  if(serial!==comparisonSerial)return;
+  comparisonPreparing=false;comparisonController=null;
+  const cancelled=controller.signal.aborted||error?.name==='AbortError';
+  transition(cancelled?'cancelled':'error',(cancelled?'Confronto interrotto. ':'Confronto non avviato: ')+String(error?.message||error)+
+   (cancelled?'':' Usa RIPROVA dopo aver controllato Discogs.'));
+ }finally{
+  if(serial===comparisonSerial){comparisonPreparing=false;comparisonController=null;refresh();}
  }
 }
 function openReview(){
@@ -182,7 +232,7 @@ async function example({autoSchedule=true}={}){
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-auto-enable]')){enabled=e.target.checked;try{localStorage.setItem('grooveprint-auto-bpm-enabled',enabled?'on':'off')}catch{}if(!enabled)stop();else{paused=false;schedule()}refresh()}});
 document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-compare]'))void compareEngines();if(e.target.closest('[data-gp-auto-example]'))void example()});
-window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,inspect:track=>{const x=seen.get(track);return x?{phase:x.phase,reason:x.reason}:null}};
+window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,compareEngines,trace:()=>comparisonTrace.slice(),inspect:track=>{const x=seen.get(track);return x?{phase:x.phase,reason:x.reason}:null}};
 async function init(){
  if(!/^https?:$/.test(location.protocol))return;
  while(discogsConnect.loading)await new Promise(resolve=>setTimeout(resolve,50));
