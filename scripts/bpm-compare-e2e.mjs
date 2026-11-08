@@ -58,8 +58,14 @@ try{
   page.on('pageerror',e=>errors.push({page:'browser',message:e.message}));
   page.on('response',response=>{
    const url=new URL(response.url());
-   if(url.pathname.startsWith('/api/')||url.hostname==='archive.org')
-    traffic.push({time:new Date().toISOString(),path:url.pathname,status:response.status()});
+   if(url.pathname.startsWith('/api/')||url.hostname==='archive.org'||url.hostname.endsWith('.archive.org'))
+    traffic.push({time:new Date().toISOString(),kind:'response',hostname:url.hostname,path:url.pathname,status:response.status()});
+  });
+  page.on('requestfailed',request=>{
+   const url=new URL(request.url());
+   if(url.pathname.startsWith('/api/')||url.hostname==='archive.org'||url.hostname.endsWith('.archive.org'))
+    traffic.push({time:new Date().toISOString(),kind:'requestfailed',hostname:url.hostname,path:url.pathname,
+     reason:String(request.failure()?.errorText||'network failure').slice(0,160)});
   });
   if(!live){
    await page.route('**/api/audio/status',route=>route.fulfill({json:{enabled:true,reviewOnly:true,csrf:'fixture-csrf',approvedReleaseIds:null,researchExampleReleaseId:'3759149',
