@@ -615,20 +615,23 @@ try{
   assert.equal(await offline.locator('.gp-bpm-lookup-choice').count(),0,'V3 never renders raw candidate buttons');
   assert.ok(await offline.locator('[data-bpm-choose]').count()<=1,'V3 permits at most one manually chosen supported suggestion');
   assert.equal(await offline.evaluate(()=>state.releases[0].tracks[0].bpm),145,'protected manual BPM remains untouched');
-  // Manual verification remains possible regardless of the experimental decision.
-  offline.once('dialog',d=>d.accept('138'));await offline.locator('[data-bpm-confirm]').first().click();
+  // A user may explicitly enter a BPM manually even when V3 abstains.
+  // The edit must remain 'manual', never silently become VERIFIED.
+  await offline.locator('[data-track="0:bpm"]').fill('138');
+  await offline.locator('[data-track="0:bpm"]').press('Tab');
+  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='manual'&&state.releases[0].tracks[0].bpm===138);
   const savedPromise=offline.waitForEvent('download');await offline.getByRole('button',{name:'SAVE PROJECT',exact:true}).click();
   const saved=JSON.parse(await readFile(await(await savedPromise).path(),'utf8'));
   assert.equal(saved.releases[0].tracks[0].bpmDecision?.version,'grooveprint-tempo-decision-v3-experimental');
-  assert.equal(saved.releases[0].tracks[0].bpmStatus,'verified');
+  assert.equal(saved.releases[0].tracks[0].bpmStatus,'manual');
   assert.equal(saved.releases[0].tracks[0].bpm,138);
   await offline.locator('#fileChooser').setInputFiles({name:'roundtrip.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});
-  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='verified'&&state.releases[0].tracks[0].bpm===138);
+  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='manual'&&state.releases[0].tracks[0].bpm===138);
   await offline.locator('[data-act="step-3"]').click();
   const exportPromise=offline.waitForEvent('download');await offline.locator('[data-act="pdf"]').click();
   const pdf=await readFile(await(await exportPromise).path());assert.ok(pdf.toString('latin1').startsWith('%PDF-'));
   assert.deepEqual(offlineHttp,[],'the local-file BPM journey must make no HTTP requests');assert.deepEqual(offlineErrors,[]);
-  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,v3Decision:decision.status,rawCandidatesHidden:true,explicitConfirmation:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
+  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,v3Decision:decision.status,rawCandidatesHidden:true,explicitManualEdit:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
  }finally{await offline.close()}
  // Import historic external evidence without dropping, relabelling or re-querying it.
  const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
