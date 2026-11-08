@@ -596,7 +596,7 @@ try{
  offline.on('request',r=>{if(/^https?:/.test(r.url()))offlineHttp.push(r.url())});offline.on('pageerror',e=>offlineErrors.push(e.message));
  try{
   await offline.goto(pathToFileURL(portablePath).href);await offline.waitForFunction(()=>restoreReady&&window.GrooveprintAudioLibrary);
-  assert.equal(await offline.locator('[data-gp-engine]').inputValue(),'v1','local experiment is opt-in');
+  assert.equal(await offline.locator('[data-gp-engine]').inputValue(),'compare','development portable preview should default to V3 instead of six V1 choices');
   const project={app:'GROOVEPRINT',releases:[{id:'portable',artist:'Synthetic DJ',title:'Local tempo test',tracks:[{position:'A1',title:'Target recording',bpm:145,bpmStatus:'manual',source:'manual'}]}],selected:['portable'],active:'portable'};
   await offline.locator('#fileChooser').setInputFiles({name:'local-test.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});
   await offline.waitForFunction(()=>state.releases[0]?.id==='portable');
