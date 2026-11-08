@@ -17,7 +17,7 @@ for(const bpm of tempos)for(const pattern of patterns){
  const r=analyzeTempoComparison(audio.sampleRate,channels);
  const v1=r.comparisons[0],v2=r.comparisons[1],d=r.decision;
  cases.push({id,kind:'generated-synthetic',referenceBpm:bpm,
-  v1Bpm:v1.bpm,v2Bpm:v2.bpm,v1Reason:v1.reason,v2Reason:v2.reason,v2RequiresReview:v2.requiresReview,metricalRelation:d.evidence.metricalRelation,windowBpm:d.evidence.windows.map(w=>w.bpm),
+  v1Bpm:v1.bpm,v2Bpm:v2.bpm,v1Reason:v1.reason,v2Reason:v2.reason,v2RequiresReview:v2.requiresReview,v2SelectedFromHarmonic:v2.selectedFromHarmonic,v2HarmonicFactor:v2.harmonicFactor,metricalRelation:d.evidence.metricalRelation,windowBpm:d.evidence.windows.map(w=>w.bpm),
   v3Bpm:d.suggestedBpm,v3Status:d.status,v3Reason:d.reason,
   windowsPlanned:d.evidence.windowsPlanned,
   windowsConsistent:d.evidence.windowsConsistent??0,
@@ -51,4 +51,4 @@ await mkdir(output,{recursive:true});
 await writeFile(resolve(output,'report.json'),JSON.stringify(report,null,2));
 console.log('V3_DEVELOPMENT_SYNTHETIC',JSON.stringify({summaries,silentCase:silence.decision.status,
  reportPath:'.private/benchmarks/v3-development/report.json'}));
-console.log('V3_DEVELOPMENT_CASES',JSON.stringify(cases.map(({id,referenceBpm,v1Bpm,v2Bpm,v2RequiresReview,metricalRelation,windowBpm,v3Bpm,v3Status,v3Reason})=>({id,referenceBpm,v1Bpm,v2Bpm,v2RequiresReview,metricalRelation,windowBpm,v3Bpm,v3Status,v3Reason}))));
+console.log('V3_DEVELOPMENT_CASES',JSON.stringify(cases.map(({id,referenceBpm,v1Bpm,v2Bpm,v2RequiresReview,v2SelectedFromHarmonic,v2HarmonicFactor,metricalRelation,windowBpm,v3Bpm,v3Status,v3Reason})=>({id,referenceBpm,v1Bpm,v2Bpm,v2RequiresReview,v2SelectedFromHarmonic,v2HarmonicFactor,metricalRelation,windowBpm,v3Bpm,v3Status,v3Reason}))));
