@@ -51,16 +51,77 @@ jobs:
         env:
           GROOVEPRINT_MOBILE: 1
 
+  # Browser-based one-click regression with 10 persisted-legacy + 10 fresh sessions.
+  # Provider responses are fixture-controlled; all UI, decoder and DSP code is real.
+  evidence_matrix:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
+    env:
+      GROOVEPRINT_BROWSER: ${{ matrix.browser }}
+      GROOVEPRINT_REPEATS: '10'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.57.0
+      - run: npx playwright install --with-deps ${{ matrix.browser }}
+      - name: Ensure FFmpeg exists
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+      - name: Real-browser click to tracklist to DSP, 20 iterations
+        run: npm run test:one-click
+      - name: Upload screenshots, sanitized network trace and state checkpoints
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpm-one-click-${{ matrix.browser }}
+          path: .private/evidence/one-click-${{ matrix.browser }}-fixture/
+          if-no-files-found: warn
+          retention-days: 14
+
+  # Separate live-provider proof. External outages are documented.
+  live_research_browser:
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      GROOVEPRINT_BROWSER: chromium
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: npm install --no-save playwright@1.57.0
+      - run: npx playwright install --with-deps chromium
+      - name: Ensure FFmpeg exists
+        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+      - name: Live public Discogs and authorized audio in real Chromium
+        run: npm run test:one-click:live
+      - name: Upload live provider trace and screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bpm-one-click-live
+          path: .private/evidence/one-click-chromium-live/
+          if-no-files-found: warn
+          retention-days: 14
+
   # Preserve the existing required-check name while broadening browser coverage.
   browser:
-    needs: browser_matrix
+    needs: [browser_matrix, evidence_matrix]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     steps:
       - name: Require every browser and viewport to pass
-        run: test "$BROWSER_RESULT" = success
+        run: test "$BROWSER_RESULT" = success && test "$EVIDENCE_RESULT" = success
         env:
           BROWSER_RESULT: ${{ needs.browser_matrix.result }}
+          EVIDENCE_RESULT: ${{ needs.evidence_matrix.result }}
 
   provider_probe:
     needs: test
