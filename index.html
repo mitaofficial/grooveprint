@@ -1086,11 +1086,11 @@ function gpLocalBpmCandidates(record,index){
  const choices=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:(['review','estimated'].includes(track.bpmStatus)&&['local-dsp','audio-estimate'].includes(track.source)?track.bpmCandidates||[]:[])).filter(c=>Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8);
  if(!choices.length&&!track.bpmComparisons?.length)return '';
  const automatic=Boolean(track.bpmAudioEvidence),n=choices.length;
- const summary='ANALISI BPM · '+n+' '+(n===1?'ipotesi':'ipotesi')+' da verificare';
+ const summary='ANALISI BPM · '+n+' '+(n===1?'candidato':'candidati')+' da verificare';
  const source=automatic?'<p>'+esc(track.bpmAudioEvidence.attribution)+' · '+(safeReferenceUrl(track.bpmAudioEvidence.sourcePage)?'<a target="_blank" rel="noopener noreferrer" href="'+esc(safeReferenceUrl(track.bpmAudioEvidence.sourcePage))+'">Fonte audio</a> · ':'')+'analisi di '+esc(track.bpmAnalysisSeconds)+' s</p>':'';
  const readings=(track.bpmComparisons||[]).map(x=>'<p>'+esc(x.algorithm)+': '+esc(x.bpm??'nessuna stima')+' · '+esc(x.reason||'')+'</p>').join('');
  const choicesHtml=choices.map((candidate,j)=>
-  '<div class="gp-bpm-lookup-choice"><span><b>'+esc(candidate.bpm)+' BPM</b><small>Forza picco: '+esc(candidate.relative??'—')+' · correlazione, non probabilità</small></span><button type="button" class="small quiet" data-bpm-choose="'+index+'" data-release-id="'+esc(record.id)+'" data-candidate="'+j+'">SCEGLI STIMA</button></div>'
+  '<div class="gp-bpm-lookup-choice"><span><b>'+esc(candidate.bpm)+' BPM</b><small>Forza picco: '+esc(candidate.relative??'—')+' · correlazione, non probabilità'+(automatic?'':' · '+esc(candidate.algorithm||track.bpmAlgorithm||'motore locale'))+'</small></span><button type="button" class="small quiet" data-bpm-choose="'+index+'" data-release-id="'+esc(record.id)+'" data-candidate="'+j+'">SCEGLI STIMA</button></div>'
  ).join('');
  return '<details class="gp-bpm-lookup-results" '+(automatic?'':'open')+'><summary>'+esc(summary)+'</summary><div class="gp-bpm-lookup-body">'+
  '<p><strong>Motore: '+esc(track.bpmAlgorithm||'GROOVEPRINT')+'</strong> · Risultati sperimentali, BPM non verificato.</p>'+source+readings+
