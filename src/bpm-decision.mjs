@@ -55,7 +55,13 @@ export function decideTempo({v1,v2,windows=[]}={}){
  })):[];
  const available=temporal.filter(w=>valid(w.bpm));
  const relation=metricalRelation(a,b);
+ // V2's selectedFromHarmonic is emitted only after both bass and broadband
+ // onset bands independently support the integer-related faster pulse.
+ // It is signal evidence, not a genre tempo prior or catalog BPM.
+ const bandSupportedHarmonic=v2?.selectedFromHarmonic===true&&
+  (relation==='same-pulse'||relation==='half-double'&&b>a);
  const evidence={v1Bpm:a,v2Bpm:b,metricalRelation:relation,
+  bandSupportedHarmonic,
   windowsPlanned:temporal.length,windowsAnalyzed:available.length,
   windows:temporal.map(w=>({...w,bpm:valid(w.bpm)?rounded(w.bpm):null})),
   crossEngineAgreement:relation==='same-pulse',
@@ -68,16 +74,15 @@ export function decideTempo({v1,v2,windows=[]}={}){
  if(!valid(a)||!valid(b))return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'insufficient',reason:'only-one-engine-available',
   evidence,alternatives:alternatives(source,available)};
- if(relation!=='same-pulse')return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
+ if(relation!=='same-pulse'&&!bandSupportedHarmonic)return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'conflicting',reason:'discordant-'+relation,
   evidence,alternatives:alternatives(source,available)};
- // Never promote a candidate that the experimental V2 detector itself flags
- // as metrically ambiguous, even if V1 and a few windows happen to agree.
- // This is a conservative development gate, not a calibrated acceptance policy.
- if(v2?.requiresReview!==false)return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
+ // Never promote a V2 ambiguity on correlation alone. Only the *signal-based*
+ // low/full-band harmonic selector plus stable temporal windows can override it.
+ if(v2?.requiresReview!==false&&!bandSupportedHarmonic)return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'insufficient',reason:'v2-flags-tempo-ambiguity',
   evidence,alternatives:alternatives(source,available)};
- const anchors=[a,b];
+ const anchors=relation==='half-double'?[b]:[a,b];
  const center=med(anchors);
  const consistent=available.filter(w=>near(w.bpm,center,
   DECISION_RULES.segmentAbsoluteBpm,DECISION_RULES.segmentRelative));
@@ -94,6 +99,6 @@ export function decideTempo({v1,v2,windows=[]}={}){
  const bpm=rounded(med([...anchors,...consistent.map(w=>w.bpm)]));
  return {version:DECISION_VERSION,status:'supported',suggestedBpm:bpm,
   requiresReview:true,confidenceStatus:'cross-checked-not-calibrated',
-  reason:'two-engine-and-temporal-agreement',evidence,
+  reason:bandSupportedHarmonic?'band-supported-harmonic-and-temporal-agreement':'two-engine-and-temporal-agreement',evidence,
   alternatives:[]};
 }
