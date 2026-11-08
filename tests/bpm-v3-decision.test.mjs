@@ -63,3 +63,19 @@ test('V3 abstains when V2 raises its own metrical warning, even if simple window
  assert.equal(d.reason,'v2-flags-tempo-ambiguity');
  assert.equal(d.evidence.v2FlagsAmbiguity,true);
 });
+
+test('bass AND broadband harmonic support plus stable windows can suggest a double-time beat for manual review',()=>{
+ const v1=score(70),v2={...score(140,true),selectedFromHarmonic:true,harmonicFactor:2};
+ const d=decideTempo({v1,v2,windows:[segment(139.95,0),segment(140.1,25),segment(140,50)]});
+ assert.equal(d.status,'supported');
+ assert.ok(Math.abs(d.suggestedBpm-140)<=1);
+ assert.equal(d.evidence.bandSupportedHarmonic,true);
+ assert.equal(d.reason,'band-supported-harmonic-and-temporal-agreement');
+ assert.equal(d.requiresReview,true);
+});
+test('half-time V1 versus V2 is still ambiguous without band-supported harmonic evidence',()=>{
+ const d=decideTempo({v1:score(70),v2:score(140,true),
+  windows:[segment(140,0),segment(140,30),segment(140,60)]});
+ assert.equal(d.status,'ambiguous');assert.equal(d.suggestedBpm,null);
+ assert.equal(d.reason,'discordant-half-double');
+});
