@@ -31,7 +31,7 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
   commit:fn=>fn(),syncDiscogsTracklists:async()=>{resources.tracklistSyncs++;const record=state.releases.find(x=>x.id===state.active);if(record){record.tracks=[track('Recovered')];record.tracklistFetchedAt=new Date().toISOString();c.window.GrooveprintAutomaticBPM.schedule();}},
   storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
   abortablePause:(ms,s)=>new Promise((yes,no)=>{const t=setTimeout(yes,ms);s.addEventListener('abort',()=>{clearTimeout(t);no(new DOMException('Aborted','AbortError'))},{once:true})}),
-  gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],researchExampleReleaseId:'3759149',csrf:'fixture'};
+  gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],researchExampleReleaseId:'3759149',researchExampleArtist:'Josh Woodward',researchExampleTitle:'Crawford Street',csrf:'fixture'};
    if(path.endsWith('/example')){resources.exampleCalls++;if(exampleError)throw Error('Discogs temporary failure');return {releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',fetchedAt:new Date().toISOString(),tracklist:[{position:'1',title:'Recovered',duration:'0:22',type_:'track'}]}}
    resources.sourceCalls++;return resolve?resolve(JSON.parse(o.body),o.signal):structuredClone(result)},
   fetch:async()=>{resources.downloads++;return new Response(new Uint8Array(3),{headers:{'Content-Type':'audio/mpeg'}})} };
