@@ -121,9 +121,12 @@ async function example(){
   // This is licensed-source research, not a permanent local record or an owned CSV.
   // A later save/export must not leave an empty Discogs-derived demo behind.
   r.gpResearchExample=true;
-  const existing=state.releases.find(x=>x.gpResearchExample===true&&x.releaseId===r.releaseId);
+  const existing=state.releases.find(x=>x.gpResearchExample===true&&x.releaseId===r.releaseId
+   ||x.releaseId===r.releaseId&&!x.discogsInstanceId&&!x.tracks.length&&!x.notes&&
+     x.artist===r.artist&&x.title===r.title&&x.label===r.label&&x.format==='File');
   commit(()=>{
    if(existing){
+    existing.gpResearchExample=true;
     if(!existing.tracks.length){existing.tracks=r.tracks;existing.tracklistFetchedAt=r.tracklistFetchedAt;existing.tracklistError=''}
     state.active=existing.id;
    }else{state.releases.push(r);state.active=r.id}
