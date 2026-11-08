@@ -122,7 +122,7 @@ try{
    if(n===0)await page.screenshot({path:join(out,variant+'-after-click.png'),fullPage:true});
    await page.waitForFunction(()=>{const j=window.GrooveprintAutomaticBPM.job;
     return j.phase==='error'||j.phase==='cancelled'||
-     (j.done===j.total&&j.total>0&&!j.running&&j.phase==='complete');
+     (j.done===j.total&&j.total>0&&!j.running&&['complete','complete-with-errors'].includes(j.phase));
    },null,{timeout:live?300000:65000});
    const done=await frame(page);
    if(n===0)await page.screenshot({path:join(out,variant+'-after.png'),fullPage:true});
