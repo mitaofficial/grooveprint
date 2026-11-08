@@ -607,21 +607,28 @@ try{
   const compared=await offline.evaluate(()=>{const t=state.releases[0].tracks[0];return {bpm:t.bpm,status:t.bpmStatus,source:t.source,algorithms:t.bpmComparisons.map(x=>x.algorithm),resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers}}});
   assert.equal(compared.bpm,145);assert.equal(compared.status,'manual');assert.equal(compared.source,'manual');
   assert.deepEqual(compared.algorithms,['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental']);assert.deepEqual(compared.resources,{contexts:0,workers:0});
-  const candidate=offline.locator('.gp-bpm-lookup-choice').filter({hasText:'grooveprint-onset-acf-v2-experimental'}).first();
-  offline.once('dialog',d=>d.accept());await candidate.locator('button').click();
-  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='estimated');
-  assert.equal(await offline.evaluate(()=>state.releases[0].tracks[0].bpmAlgorithm),'grooveprint-onset-acf-v2-experimental');
+  const decisionCard=offline.locator('.gp-tempo-decision');
+  await decisionCard.waitFor();
+  const decision=await offline.evaluate(()=>state.releases[0].tracks[0].bpmDecision);
+  assert.equal(decision.version,'grooveprint-tempo-decision-v3-experimental');
+  assert.ok(['supported','ambiguous','undetermined'].includes(decision.status));
+  assert.equal(await offline.locator('.gp-bpm-lookup-choice').count(),0,'V3 never renders raw candidate buttons');
+  assert.ok(await offline.locator('[data-bpm-choose]').count()<=1,'V3 permits at most one manually chosen supported suggestion');
+  assert.equal(await offline.evaluate(()=>state.releases[0].tracks[0].bpm),145,'protected manual BPM remains untouched');
+  // Manual verification remains possible regardless of the experimental decision.
   offline.once('dialog',d=>d.accept('138'));await offline.locator('[data-bpm-confirm]').first().click();
   const savedPromise=offline.waitForEvent('download');await offline.getByRole('button',{name:'SAVE PROJECT',exact:true}).click();
   const saved=JSON.parse(await readFile(await(await savedPromise).path(),'utf8'));
-  assert.ok(saved.releases[0].tracks[0].bpmAnalysisSeconds>20);assert.equal(saved.releases[0].tracks[0].bpmAlgorithm,'grooveprint-onset-acf-v2-experimental');assert.equal(saved.releases[0].tracks[0].bpmStatus,'verified');
+  assert.equal(saved.releases[0].tracks[0].bpmDecision?.version,'grooveprint-tempo-decision-v3-experimental');
+  assert.equal(saved.releases[0].tracks[0].bpmStatus,'verified');
+  assert.equal(saved.releases[0].tracks[0].bpm,138);
   await offline.locator('#fileChooser').setInputFiles({name:'roundtrip.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(saved))});
-  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmAlgorithm==='grooveprint-onset-acf-v2-experimental'&&state.releases[0].tracks[0].bpm===138);
+  await offline.waitForFunction(()=>state.releases[0].tracks[0].bpmStatus==='verified'&&state.releases[0].tracks[0].bpm===138);
   await offline.locator('[data-act="step-3"]').click();
   const exportPromise=offline.waitForEvent('download');await offline.locator('[data-act="pdf"]').click();
   const pdf=await readFile(await(await exportPromise).path());assert.ok(pdf.toString('latin1').startsWith('%PDF-'));
   assert.deepEqual(offlineHttp,[],'the local-file BPM journey must make no HTTP requests');assert.deepEqual(offlineErrors,[]);
-  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,selectedEnginePersisted:true,explicitConfirmation:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
+  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,v3Decision:decision.status,rawCandidatesHidden:true,explicitConfirmation:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
  }finally{await offline.close()}
  // Import historic external evidence without dropping, relabelling or re-querying it.
  const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
