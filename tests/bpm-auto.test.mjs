@@ -5,10 +5,12 @@ import vm from 'node:vm';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve}};
 async function until(check){for(let i=0;i<2000&&!check();i++)await new Promise(r=>setTimeout(r,2));assert.ok(check(),'condition timed out')}
 const track=(title='Tool')=>({position:'1',title,duration:'0:22',bpm:null,source:'discogs',trackSource:'discogs'});
-function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on',development=false}={}){
+function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on',development=false,demo=false,exampleError=false}={}){
  const state={releases:Array.from({length:copies},(_,i)=>({id:'r'+i,releaseId:'3759149',artist:'DJ',title:'Album',tracklistFetchedAt:new Date().toISOString(),tracks:structuredClone(tracksByCopy?.[i]??tracks)}))};
+ if(demo)for(const r of state.releases)Object.assign(r,{artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',tracks:[]});
+ state.active=state.releases[0]?.id;state.selected=[];
  const preferences=new Map([['grooveprint-auto-bpm-enabled',preference]]);
- const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0,workerModes:[]},events={};
+ const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0,exampleCalls:0,tracklistSyncs:0,workerModes:[]},events={};
  class Context{constructor(){resources.contexts++;resources.maxContexts=Math.max(resources.contexts,resources.maxContexts)}async decodeAudioData(){resources.decodes++;if(decode)await decode();return {sampleRate:12000,length:264000,numberOfChannels:1,getChannelData:()=>new Float32Array(264000)}}async close(){resources.contexts--}}
  class Worker{
   constructor(url){resources.workers++;resources.workerModes.push(url);this.compare=String(url).includes('worker-dev')}
@@ -23,9 +25,15 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
  }
  const evidence={provider:'Test fixture',sourcePage:'https://archive.org/details/Crawford_Street-17897',recordingId:'synthetic-test',requiresReview:true};
  const result={status:'matched',asset:{name:'test.mp3',size:3,url:'https://archive.org/download/Crawford_Street-17897/test.mp3'},evidence};
- const c={localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},window:{AudioContext:Context,Worker,GrooveprintBPMDevelopment:development},document:{addEventListener:(n,f)=>(events[n]??=[]).push(f),querySelector:()=>null},state,location:{protocol:'http:'},restoreReady:true,discogsConnect:{loading:false,connected:false},discogsSync:{running:false},gpIsFresh:v=>Date.now()-Date.parse(v)<900000,storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
+ const c={localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},window:{AudioContext:Context,Worker,GrooveprintBPMDevelopment:development},document:{addEventListener:(n,f)=>(events[n]??=[]).push(f),querySelector:()=>null},state,location:{protocol:'http:'},restoreReady:true,discogsConnect:{loading:false,connected:false,running:false},discogsSync:{running:false},gpIsFresh:v=>Date.now()-Date.parse(v)<900000,
+  mappedDiscogsTracks:data=>data.tracklist.map(t=>({...t,bpm:null,source:'discogs',trackSource:'discogs'})),
+  normalizeRelease:x=>({...x,id:'fresh-demo',tracks:x.tracks||[]}),
+  commit:fn=>fn(),syncDiscogsTracklists:async()=>{resources.tracklistSyncs++;const record=state.releases.find(x=>x.id===state.active);if(record){record.tracks=[track('Recovered')];record.tracklistFetchedAt=new Date().toISOString();c.window.GrooveprintAutomaticBPM.schedule();}},
+  storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
   abortablePause:(ms,s)=>new Promise((yes,no)=>{const t=setTimeout(yes,ms);s.addEventListener('abort',()=>{clearTimeout(t);no(new DOMException('Aborted','AbortError'))},{once:true})}),
-  gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],csrf:'fixture'};resources.sourceCalls++;return resolve?resolve(JSON.parse(o.body),o.signal):structuredClone(result)},
+  gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],researchExampleReleaseId:'3759149',csrf:'fixture'};
+   if(path.endsWith('/example')){resources.exampleCalls++;if(exampleError)throw Error('Discogs temporary failure');return {releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',fetchedAt:new Date().toISOString(),tracklist:[{position:'1',title:'Recovered',duration:'0:22',type_:'track'}]}}
+   resources.sourceCalls++;return resolve?resolve(JSON.parse(o.body),o.signal):structuredClone(result)},
   fetch:async()=>{resources.downloads++;return new Response(new Uint8Array(3),{headers:{'Content-Type':'audio/mpeg'}})} };
  for(const file of ['bpm-evidence.js','bpm-library.js','bpm-auto.js'])vm.runInNewContext(readFileSync(new URL('../src/'+file,import.meta.url),'utf8'),c);
  return {state,c,resources,api:c.window.GrooveprintAutomaticBPM,evidence:c.window.GrooveprintBPMEvidence,result,events,preferences};
@@ -137,4 +145,39 @@ test('V1/V2 reanalysis is disabled outside the development research mode',async(
  await new Promise(r=>setTimeout(r,5));
  assert.equal(f.resources.decodes,1);
  assert.equal(f.c.window.GrooveprintAudioLibrary.setEngineMode('compare'),false);
+});
+
+test('V1/V2 click on a legacy zero-track demo hydrates it automatically and starts the comparison',async()=>{
+ const f=setup({development:true,demo:true,tracks:[]});
+ await new Promise(r=>setTimeout(r,15));
+ assert.equal(f.state.releases[0].tracks.length,0);
+ for(const handler of f.events.click||[])handler({target:{closest:s=>s==='[data-gp-auto-compare]'?{}:null}});
+ await until(()=>f.resources.exampleCalls===1&&f.api.job.done===1&&!f.api.job.running);
+ const r=f.state.releases[0],t=r.tracks[0];
+ assert.equal(f.state.releases.length,1,'do not duplicate the legacy record');
+ assert.equal(r.gpResearchExample,true,'repair legacy control as transient research data');
+ assert.equal(t.bpm,null,'comparison does not accept numbers silently');
+ assert.equal(t.bpmStatus,'review');
+ assert.equal(t.bpmComparisons.length,2,'compare both detectors after hydration');
+ assert.equal(f.resources.tracklistSyncs,0,'public demo uses server-approved metadata path');
+ assert.equal(f.resources.decodes,1,'no manual audio upload required');
+ assert.match(f.resources.workerModes[0],/bpm-worker-dev\.mjs$/);
+});
+test('V1/V2 click on a generic empty Discogs release requests its tracklist before analysis',async()=>{
+ const f=setup({development:true,tracks:[]});
+ await new Promise(r=>setTimeout(r,15));
+ for(const handler of f.events.click||[])handler({target:{closest:s=>s==='[data-gp-auto-compare]'?{}:null}});
+ await until(()=>f.resources.tracklistSyncs===1&&f.api.job.done===1&&!f.api.job.running);
+ assert.equal(f.resources.exampleCalls,0);
+ assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
+ assert.equal(f.resources.decodes,1);
+});
+test('V1/V2 metadata failure is visible and cannot produce misleading zero-of-zero success',async()=>{
+ const f=setup({development:true,demo:true,tracks:[],exampleError:true});
+ await new Promise(r=>setTimeout(r,15));
+ for(const handler of f.events.click||[])handler({target:{closest:s=>s==='[data-gp-auto-compare]'?{}:null}});
+ await until(()=>f.api.job.phase==='error');
+ assert.match(f.api.job.message,/Confronto non avviato/);
+ assert.equal(f.state.releases[0].tracks.length,0);
+ assert.equal(f.resources.decodes,0);
 });
