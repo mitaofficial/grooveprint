@@ -112,6 +112,7 @@ function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
    analysisSeconds:Number(x.analysisSeconds)||0
   }));
  }else{t.bpmComparisonAt='';t.bpmComparisonCandidates=[];t.bpmComparisons=[];}
+ t.bpmDecision=result.decision&&typeof result.decision==='object'?result.decision:null;
  t.bpmCheckedAt=new Date().toISOString();t.bpmAudioEvidence={...provenance,analyzedAt:t.bpmCheckedAt};storeLater();return true;
 }
 async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,signal,valid=()=>true,onCancel}={}){
@@ -173,9 +174,10 @@ async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket
       // Comparison is diagnostic: preserve the current BPM, status and provenance.
       match.track.bpmComparisonAt=new Date().toISOString();match.track.bpmComparisonCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
       match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];
+      match.track.bpmDecision=result.decision&&typeof result.decision==='object'?result.decision:null;
       job.review++;
      }else{
-      delete match.track.bpmAudioEvidence;delete match.track.bpmComparisonCandidates;match.track.bpmComparisons=[];
+      delete match.track.bpmAudioEvidence;delete match.track.bpmComparisonCandidates;delete match.track.bpmDecision;match.track.bpmComparisons=[];
       match.track.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
       match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
       match.track.bpmCheckedAt=new Date().toISOString();match.track.bpmReason=String(result.reason||'local-estimate');
@@ -184,7 +186,7 @@ async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket
      }
     }else if(result?.status==='unavailable'){
      if(!replaceExisting&&token.mode!=='compare'){match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmStatus='unavailable';match.track.bpmReason=String(result.reason||'no-beat-detected')}
-     if(token.mode==='compare'){match.track.bpmComparisonCandidates=[];match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];}
+     if(token.mode==='compare'){match.track.bpmComparisonCandidates=[];match.track.bpmComparisons=Array.isArray(result.comparisons)?result.comparisons:[];match.track.bpmDecision=result.decision||null;}
      job.unavailable++;
     }else throw Error('Risultato audio non valido.');
     outcome='completed';storeLater();
