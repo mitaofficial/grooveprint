@@ -32,7 +32,7 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
   storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
   abortablePause:(ms,s)=>new Promise((yes,no)=>{const t=setTimeout(yes,ms);s.addEventListener('abort',()=>{clearTimeout(t);no(new DOMException('Aborted','AbortError'))},{once:true})}),
   gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],researchExampleReleaseId:'3759149',researchExampleArtist:'Josh Woodward',researchExampleTitle:'Crawford Street',csrf:'fixture'};
-   if(path.endsWith('/example')){resources.exampleCalls++;if(exampleError)throw Error('Discogs temporary failure');return {releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',fetchedAt:new Date().toISOString(),tracklist:[{position:'1',title:'Recovered',duration:'0:22',type_:'track'}]}}
+   if(path.endsWith('/example')){resources.exampleCalls++;if(exampleError===true||typeof exampleError==='function'&&exampleError(resources.exampleCalls))throw Error('Discogs temporary failure');return {releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',fetchedAt:new Date().toISOString(),tracklist:[{position:'1',title:'Recovered',duration:'0:22',type_:'track'}]}}
    resources.sourceCalls++;return resolve?resolve(JSON.parse(o.body),o.signal):structuredClone(result)},
   fetch:async()=>{resources.downloads++;return new Response(new Uint8Array(3),{headers:{'Content-Type':'audio/mpeg'}})} };
  for(const file of ['bpm-evidence.js','bpm-library.js','bpm-auto.js'])vm.runInNewContext(readFileSync(new URL('../src/'+file,import.meta.url),'utf8'),c);
@@ -180,4 +180,20 @@ test('V1/V2 metadata failure is visible and cannot produce misleading zero-of-ze
  assert.match(f.api.job.message,/Confronto non avviato/);
  assert.equal(f.state.releases[0].tracks.length,0);
  assert.equal(f.resources.decodes,0);
+});
+
+test('Retry button re-runs a failed zero-track comparison and clears the persistent error',async()=>{
+ const f=setup({development:true,demo:true,tracks:[],exampleError:n=>n===1});
+ await new Promise(r=>setTimeout(r,15));
+ for(const handler of f.events.click||[])handler({target:{closest:q=>q==='[data-gp-auto-compare]'?{}:null}});
+ await until(()=>f.api.job.phase==='error');
+ assert.match(f.api.job.message,/Confronto non avviato/);
+ assert.equal(f.state.releases[0].tracks.length,0);
+ for(const handler of f.events.click||[])handler({target:{closest:q=>q==='[data-gp-auto-retry]'?{}:null}});
+ await until(()=>f.resources.exampleCalls===2&&f.api.job.done===1&&!f.api.job.running);
+ assert.equal(f.state.releases[0].tracks.length,1);
+ assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
+ assert.equal(f.state.releases[0].tracks[0].bpm,null);
+ assert.equal(f.api.job.errors,0);
+ assert.ok(f.api.trace().some(x=>x.phase==='recovering-tracklist'));
 });
