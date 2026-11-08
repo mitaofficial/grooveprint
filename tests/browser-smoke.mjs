@@ -533,7 +533,14 @@ try{
   ];
   await automatic.locator('[data-gp-auto-example]').click();
   await automatic.waitForFunction(()=>state.releases.some(r=>r.gpResearchExample===true&&r.tracks.length===2));
-  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===5&&!window.GrooveprintAutomaticBPM.job.running);
+  try{await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===5&&!window.GrooveprintAutomaticBPM.job.running,null,{timeout:15000})}
+  catch(error){console.log('AUTOMATIC DEMO AFTER COMPARE DIAGNOSTIC',JSON.stringify(await automatic.evaluate(()=>({
+    job:window.GrooveprintAutomaticBPM.job,
+    trace:window.GrooveprintAutomaticBPM.trace(),
+    releases:state.releases.map(r=>({id:r.id,releaseId:r.releaseId,tracks:r.tracks.length,example:r.gpResearchExample})),
+    library:window.GrooveprintAudioLibrary.job,
+    toast:document.querySelector('#toast')?.textContent
+  }))));throw error}
   const exampleCheck=await automatic.evaluate(()=>{
    const demo=state.releases.find(r=>r.gpResearchExample===true);
    return {liveTracks:demo.tracks.length,tracklistFresh:gpIsFresh(demo.tracklistFetchedAt),
