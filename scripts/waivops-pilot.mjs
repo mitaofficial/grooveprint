@@ -164,7 +164,7 @@ for(let i=0;i<targets.length;i++){
    const result=analyzeTempoComparison(loop.sampleRate,input),d=result.decision;
    v3={status:d.status==='supported'?'estimated':'unavailable',bpm:d.suggestedBpm,
     requiresReview:true,reason:d.reason,candidateBpm:d.suggestedBpm===null?[]:[d.suggestedBpm],
-    evidence:{...d.evidence,windows:undefined},developmentOnly:true};
+    evidence:{...d.evidence},developmentOnly:true};
   }catch(e){v3={status:'detector-error',bpm:null,requiresReview:true,candidateBpm:[],reason:'v3-processing-failed'};
    errors.push({id,error:'v3-processing-failed'});}
  }
@@ -203,4 +203,11 @@ const sourceLabelMisses=rows.filter(r=>r.v2.status!=='estimated'||Math.abs(r.v2.
    review:r.v2.requiresReview,reason:r.v2.reason,candidates:r.v2.candidates.slice(0,4)}));
 console.log(JSON.stringify({kind:'publisher-label-v2-mismatches',count:sourceLabelMisses.length,cases:sourceLabelMisses,
  groundTruthVerified:false}));
+if(includeV3)console.log('V3_LABEL_DIAGNOSTICS',JSON.stringify(rows.map(r=>({
+ id:r.id,referenceLabel:r.publisherBpm,v1Bpm:r.v1.bpm,v2Bpm:r.v2.bpm,
+ v2Review:r.v2.requiresReview,v3Status:r.v3.status,v3Bpm:r.v3.bpm,
+ reason:r.v3.reason,metricalRelation:r.v3.evidence?.metricalRelation,
+ windowBpm:r.v3.evidence?.windows?.map(w=>w.bpm),
+ windowsConsistent:r.v3.evidence?.windowsConsistent
+}))));
 if(errors.length)process.exitCode=2;
