@@ -497,6 +497,8 @@ try{
   await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);
   await automatic.locator('[data-act="step-3"]').click();const autoPdfPromise=automatic.waitForEvent('download');await automatic.locator('[data-act="pdf"]').click();const autoPdf=await readFile(await(await autoPdfPromise).path());assert.ok(autoPdf.toString('latin1').startsWith('%PDF-'));
 
+  await automatic.locator('[data-act="step-1"]').click();
+  await automatic.locator('[data-gp-auto-example]').waitFor();
   // Regression for the user-visible zero-track open-release example: never add an
   // empty demo, never persist stripped Discogs tracks as an empty local release.
   let exampleTracklist=[];
