@@ -336,7 +336,7 @@ function gpCleanTempoDecision(raw){
   confidenceStatus:String(raw.confidenceStatus||'insufficient').slice(0,64),
   reason:String(raw.reason||'not-established').slice(0,90),
   evidence:{v1Bpm:valid(e.v1Bpm),v2Bpm:valid(e.v2Bpm),
-   metricalRelation:String(e.metricalRelation||'unavailable').slice(0,40),
+   metricalRelation:String(e.metricalRelation||'unavailable').slice(0,40),bandSupportedHarmonic:e.bandSupportedHarmonic===true,
    windowsPlanned:Math.max(0,Math.min(5,Math.floor(Number(e.windowsPlanned)||0))),
    windowsAnalyzed:Math.max(0,Math.min(5,Math.floor(Number(e.windowsAnalyzed)||0))),
    windowsConsistent:Math.max(0,Math.min(5,Math.floor(Number(e.windowsConsistent)||0)))},
@@ -1100,7 +1100,7 @@ function gpTempoDecisionPanel(record,index){
  const track=record.tracks[index],d=track.bpmDecision,e=d.evidence||{};
  const supported=d.status==='supported'&&Number.isFinite(d.suggestedBpm);
  const title=supported?'BPM SUGGERITO':d.status==='undetermined'?'TEMPO NON DETERMINABILE':'TEMPO AMBIGUO';
- const summary=supported?'Due motori e finestre temporali concordano; serve comunque verifica umana.':
+ const summary=supported?(d.reason==='band-supported-harmonic-and-temporal-agreement'?'V2 rileva una pulsazione più rapida sostenuta dagli onset bassi e broadband, stabile fra più finestre. V1 può indicare metà tempo: verifica all’ascolto.':'Due motori e finestre temporali concordano; serve comunque verifica umana.'):
   d.status==='undetermined'?'Nessuna pulsazione attendibile individuata.':
   'Conflitto fra pulsazioni o stabilità temporale insufficiente. Non è possibile proporre un BPM principale.';
  const sourceUrl=safeReferenceUrl(track.bpmAudioEvidence?.sourcePage);
