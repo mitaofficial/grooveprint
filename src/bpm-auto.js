@@ -3,7 +3,7 @@
 'use strict';
 const evidence=window.GrooveprintBPMEvidence,library=window.GrooveprintAudioLibrary;
 const job={running:false,total:0,done:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
-let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',comparisonPreparing=false,minInterval=0,lastResolve=0;
+let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',comparisonPreparing=false,minInterval=0,lastResolve=0;
 try{if(typeof localStorage!=='undefined')enabled=localStorage.getItem('grooveprint-auto-bpm-enabled')!=='off'}catch{}
 const identity=(r,t)=>JSON.stringify([r.releaseId,r.title,r.artist,t.artist,t.position,t.title,t.duration]);
 const fresh=r=>(!r.discogsInstanceId||discogsConnect.connected&&gpIsFresh(r.discogsFetchedAt))&&(!r.tracklistFetchedAt||gpIsFresh(r.tracklistFetchedAt));
@@ -120,7 +120,7 @@ async function compareEngines(){
   try{
    // The known public research control uses the server-approved example,
    // which can rehydrate an old zero-track demo without duplicating it.
-   if(exampleReleaseId&&String(active.releaseId)===exampleReleaseId&&!active.discogsInstanceId){
+   if(exampleReleaseId&&String(active.releaseId)===exampleReleaseId&&active.artist===exampleArtist&&active.title===exampleTitle&&!active.discogsInstanceId){
     const ok=await example({autoSchedule:false});
     if(!ok)throw Error('La release dimostrativa non ha restituito una tracklist valida.');
    }else{
@@ -186,7 +186,7 @@ window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,in
 async function init(){
  if(!/^https?:$/.test(location.protocol))return;
  while(discogsConnect.loading)await new Promise(resolve=>setTimeout(resolve,50));
- try{const s=await gpRequest('/api/audio/status');available=s.enabled===true;csrf=s.csrf||'';exampleReleaseId=String(s.researchExampleReleaseId||'');approved=Array.isArray(s.approvedReleaseIds)?new Set(s.approvedReleaseIds):null;minInterval=Math.max(0,Number(s.minRequestIntervalMs)||0);ready=true;if(available){renderApp();schedule()}}catch{ready=true;}
+ try{const s=await gpRequest('/api/audio/status');available=s.enabled===true;csrf=s.csrf||'';exampleReleaseId=String(s.researchExampleReleaseId||'');exampleArtist=String(s.researchExampleArtist||'');exampleTitle=String(s.researchExampleTitle||'');approved=Array.isArray(s.approvedReleaseIds)?new Set(s.approvedReleaseIds):null;minInterval=Math.max(0,Number(s.minRequestIntervalMs)||0);ready=true;if(available){renderApp();schedule()}}catch{ready=true;}
 }
 void init();
 })();
