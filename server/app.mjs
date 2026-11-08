@@ -72,7 +72,7 @@ if(req.method==='GET'&&['/assets/bpm-tempo.mjs','/assets/bpm-library.js','/asset
  res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store','X-Content-Type-Options':'nosniff'});
  res.end(await readFile(join(folder,'../src',target)));return;
 }
-if(req.method==='GET'&&process.env.NODE_ENV==='development'&&['/assets/bpm-worker-dev.mjs','/assets/bpm-tempo-experiment.mjs'].includes(path)){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(await readFile(join(folder,'../src',path.slice('/assets/'.length))));return;}
+if(req.method==='GET'&&process.env.NODE_ENV==='development'&&['/assets/bpm-worker-dev.mjs','/assets/bpm-tempo-experiment.mjs','/assets/bpm-decision.mjs','/assets/bpm-compare-v3.mjs'].includes(path)){res.writeHead(200,{'Content-Type':'text/javascript; charset=utf-8','Cache-Control':'no-store'});res.end(await readFile(join(folder,'../src',path.slice('/assets/'.length))));return;}
 if(req.method==='GET'&&path==='/health')return send(res,200,{status:'ok',version:'3.0.0-alpha.1',devSha:process.env.NODE_ENV==='development'?process.env.GROOVEPRINT_DEV_SHA||null:undefined});
 if(req.method==='GET'&&path==='/examples/grooveprint-demo.csv'){
  const csv=await readFile(join(folder,'../examples/grooveprint-demo.csv'));
