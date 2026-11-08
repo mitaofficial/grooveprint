@@ -18,7 +18,9 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
    const baseline={status:'estimated',bpm:140,bpmCandidates:[{bpm:140,relative:1}],algorithm:'grooveprint-onset-acf-v1',analysisSeconds:22,requiresReview:false};
    const result=this.compare?{...baseline,algorithm:'grooveprint-v1-v2-local-comparison',requiresReview:true,
     bpmCandidates:[{bpm:140,relative:1,algorithm:'grooveprint-onset-acf-v1'},{bpm:140.1,relative:.97,algorithm:'grooveprint-onset-acf-v2-experimental'}],
-    comparisons:[baseline,{...baseline,bpm:140.1,algorithm:'grooveprint-onset-acf-v2-experimental'}]}:baseline;
+    comparisons:[baseline,{...baseline,bpm:140.1,algorithm:'grooveprint-onset-acf-v2-experimental'}],
+    decision:{version:'grooveprint-tempo-decision-v3-experimental',status:'supported',suggestedBpm:140,requiresReview:true,
+      reason:'two-engine-and-temporal-agreement',evidence:{v1Bpm:140,v2Bpm:140.1,metricalRelation:'same-pulse',windowsPlanned:2,windowsConsistent:2},alternatives:[]}}:baseline;
    queueMicrotask(()=>this.onmessage?.({data:{id:d.id,result}}));
   }
   terminate(){resources.workers--}
@@ -141,11 +143,13 @@ test('album title, audio duration and metadata-source changes reject stale autom
  }
 });
 
-test('one-click V1/V2 re-runs authorized audio without a local upload and never assigns a verified BPM',async()=>{
+test('development uses V3 decision by default, and explicit reanalysis keeps protected values',async()=>{
  const f=setup({development:true,tracks:[track(),{...track('Protected'),bpm:138,bpmStatus:'verified',source:'user-verified'}]});
  await until(()=>f.api.job.done===1&&!f.api.job.running);
- assert.ok(f.resources.workerModes.every(x=>x.endsWith('bpm-worker.mjs')));
+ assert.ok(f.resources.workerModes.every(x=>x.endsWith('bpm-worker-dev.mjs')),
+  'automatic development analysis must not quietly fall back to six V1 peaks');
  assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
+ assert.equal(f.state.releases[0].tracks[0].bpmDecision?.version,'grooveprint-tempo-decision-v3-experimental');
  for(const handler of f.events.click)handler({target:{closest:selector=>selector==='[data-gp-auto-compare]'?{}:null}});
  await until(()=>f.api.job.done===1&&!f.api.job.running&&f.resources.decodes===2);
  const t=f.state.releases[0].tracks[0];
@@ -154,6 +158,7 @@ test('one-click V1/V2 re-runs authorized audio without a local upload and never 
  assert.equal(t.bpmStatus,'review');
  assert.equal(t.bpmComparisons.length,2,'V1 and V2 diagnoses are retained');
  assert.equal(t.bpmComparisonCandidates.length,2);
+ assert.equal(t.bpmDecision.status,'supported');
  assert.equal(f.state.releases[0].tracks[1].bpm,138,'previously verified values stay protected');
  assert.equal(f.api.job.protected,1);
 });
