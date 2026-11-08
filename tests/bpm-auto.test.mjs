@@ -57,7 +57,7 @@ test('metadata expiry during native decode rejects late output and retains one r
 });
 test('unavailable sources and failed requests are counted once; only explicit retry retries errors',async()=>{
  let calls=0;const f=setup({tracks:[track('Absent'),track('Failure')],resolve:async x=>{calls++;if(x.title==='Failure')throw Error('503');return {status:'unavailable',reason:'no-source'}}});
- await until(()=>f.api.job.done===2&&!f.api.job.running);assert.equal(f.api.job.unavailable,1);assert.equal(f.api.job.errors,1);f.api.schedule();assert.equal(calls,2);f.api.retry();await until(()=>calls===3&&!f.api.job.running);assert.equal(f.resources.decodes,0);
+ await until(()=>f.api.job.done===2&&!f.api.job.running);assert.equal(f.api.job.unavailable,1);assert.equal(f.api.job.errors,1);assert.equal(f.api.job.phase,'complete-with-errors');assert.match(f.api.job.message,/errore.*RIPROVA/i);f.api.schedule();assert.equal(calls,2);f.api.retry();await until(()=>calls===3&&!f.api.job.running);assert.equal(f.api.job.total,2);assert.equal(f.api.job.done,2);assert.equal(f.resources.decodes,0);
 });
 test('shared audio Stop cancels the automatic queue and does not restart the next recording',async()=>{
  const gate=deferred(),f=setup({tracks:[track('First'),track('Second')],decode:()=>gate.promise});
@@ -72,6 +72,25 @@ test('a concurrent manual analysis retains the single decoder and invalidates th
  await until(()=>f.resources.decodes===1);lookup.resolve(f.result);decoded.resolve();await run;await until(()=>!f.api.job.running);
  assert.equal(f.resources.maxContexts,1);assert.equal(f.resources.decodes,1);assert.equal(f.state.releases[0].tracks[0].bpm,140);assert.equal(f.state.releases[0].tracks[0].bpmStatus,'estimated');assert.equal(f.api.job.stale,1);
 });
+test('transient audio error clears after Retry without reanalyzing successful tracks',async()=>{
+ let failOnce=true,attempts=[];
+ const f=setup({tracks:[track('Good'),track('Transient')],resolve:async x=>{
+  attempts.push(x.title);
+  if(x.title==='Transient'&&failOnce){failOnce=false;throw Error('temporary MP3 source timeout')}
+  return {status:'unavailable',reason:'no-source'};
+ }});
+ await until(()=>!f.api.job.running&&f.api.job.done===2);
+ assert.equal(f.api.job.phase,'complete-with-errors');
+ assert.equal(f.api.job.errors,1);
+ assert.match(f.api.job.message,/temporary MP3 source timeout/);
+ f.api.retry();
+ await until(()=>f.api.job.done===2&&!f.api.job.running&&attempts.length===3);
+ assert.deepEqual(attempts,['Good','Transient','Transient']);
+ assert.equal(f.api.job.errors,0);
+ assert.equal(f.api.job.total,2);
+ assert.equal(f.api.job.phase,'complete');
+});
+
 test('source outage pauses the batch instead of turning every remaining track into a new failing request',async()=>{
  const f=setup({tracks:[track('First'),track('Second')],resolve:async()=>{throw Object.assign(Error('temporarily unavailable'),{status:503})}});
  await until(()=>!f.api.job.running&&f.api.job.errors===1);f.api.schedule();await new Promise(r=>setTimeout(r,10));
