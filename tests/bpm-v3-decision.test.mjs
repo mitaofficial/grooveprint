@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DECISION_VERSION,DECISION_RULES,metricalRelation,decideTempo} from '../src/bpm-decision.mjs';
-const score=(bpm)=>({status:'estimated',bpm,requiresReview:true});
+const score=(bpm,requiresReview=false)=>({status:'estimated',bpm,requiresReview});
 const segment=(bpm,startSeconds)=>({...score(bpm),startSeconds,endSeconds:startSeconds+12});
 test('3:2 metrical conflict is not incorrectly classified as half/double time',()=>{
  assert.equal(metricalRelation(100,66.7),'three-to-two');
@@ -53,4 +53,13 @@ test('wrong half-double or triple pulse cannot become supported through noisy wi
   assert.equal(d.status,'ambiguous');
   assert.equal(d.suggestedBpm,null);
  }
+});
+
+test('V3 abstains when V2 raises its own metrical warning, even if simple windows agree',()=>{
+ const d=decideTempo({v1:score(140),v2:score(140.1,true),
+  windows:[segment(140,0),segment(140.1,30),segment(140,60)]});
+ assert.equal(d.status,'ambiguous');
+ assert.equal(d.suggestedBpm,null);
+ assert.equal(d.reason,'v2-flags-tempo-ambiguity');
+ assert.equal(d.evidence.v2FlagsAmbiguity,true);
 });
