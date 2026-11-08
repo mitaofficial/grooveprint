@@ -14,7 +14,7 @@ function panel(){
  '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; nessuna copertura commerciale generale garantita. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Risultati da verificare.</p>'+
  '<p class="footnote">'+job.done+'/'+job.total+' elaborate · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
  '<div class="flex" style="flex-wrap:wrap;gap:8px">'+(job.running?'<button class="small quiet" data-gp-auto-stop>INTERROMPI BPM AUTOMATICI</button>':'<button class="small quiet" data-gp-auto-retry>RIPROVA ERRORI / RIPRENDI</button>')+
- '<button class="small quiet" data-gp-auto-review>VEDI RISULTATI BPM</button><button class="small quiet" data-gp-auto-example '+(discogsSync.running||discogsConnect.running?'disabled':'')+'>PROVA UNA RELEASE APERTA</button></div></section>';
+ '<button class="small quiet" data-gp-auto-review>VEDI RISULTATI BPM</button>'+(window.GrooveprintBPMDevelopment===true?'<button class="small quiet" data-gp-auto-compare '+(job.running?'disabled':'')+'>CONFRONTA V1/V2 CON AUDIO AUTORIZZATO</button>':'')+'<button class="small quiet" data-gp-auto-example '+(discogsSync.running||discogsConnect.running?'disabled':'')+'>PROVA UNA RELEASE APERTA</button></div></section>';
 }
 function refresh(){const el=document.querySelector?.('.gp-auto-audio');if(el)el.outerHTML=panel();evidence.refreshFields()}
 function stop({reset=false,pause=true}={}){
@@ -99,6 +99,13 @@ function retry(){
  for(const {track} of library.trackList(state.releases)){const item=seen.get(track);if(item&&['error','cancelled','stale'].includes(item.phase))seen.delete(track)}
  schedule();
 }
+function compareEngines(){
+ if(window.GrooveprintBPMDevelopment!==true||job.running||library.job.running)return;
+ if(!library.setEngineMode?.('compare'))return;
+ // Explicit user action: re-run the same licensed-source flow with both engines.
+ // Review-only writes are still blocked by manual/verified BPM guards.
+ stop({reset:true,pause:false});schedule();
+}
 function openReview(){
  const tracks=library.trackList(state.releases);
  // Prefer actionable DSP candidates; a missing/unsupported audio source is not a BPM estimate.
@@ -141,7 +148,7 @@ async function example(){
  }catch(e){toast('Esempio pubblico non disponibile: '+String(e.message||e),true)}
 }
 document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-auto-enable]')){enabled=e.target.checked;try{localStorage.setItem('grooveprint-auto-bpm-enabled',enabled?'on':'off')}catch{}if(!enabled)stop();else{paused=false;schedule()}refresh()}});
-document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-example]'))void example()});
+document.addEventListener('click',e=>{if(e.target.closest('[data-gp-auto-stop]'))stop();if(e.target.closest('[data-gp-auto-retry]'))retry();if(e.target.closest('[data-gp-auto-review]'))openReview();if(e.target.closest('[data-gp-auto-compare]'))compareEngines();if(e.target.closest('[data-gp-auto-example]'))void example()});
 window.GrooveprintAutomaticBPM={job,panel,schedule,stop,retry,example,refresh,inspect:track=>{const x=seen.get(track);return x?{phase:x.phase,reason:x.reason}:null}};
 async function init(){
  if(!/^https?:$/.test(location.protocol))return;
