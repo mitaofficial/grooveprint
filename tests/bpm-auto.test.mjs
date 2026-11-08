@@ -5,15 +5,25 @@ import vm from 'node:vm';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve}};
 async function until(check){for(let i=0;i<2000&&!check();i++)await new Promise(r=>setTimeout(r,2));assert.ok(check(),'condition timed out')}
 const track=(title='Tool')=>({position:'1',title,duration:'0:22',bpm:null,source:'discogs',trackSource:'discogs'});
-function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on'}={}){
+function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on',development=false}={}){
  const state={releases:Array.from({length:copies},(_,i)=>({id:'r'+i,releaseId:'3759149',artist:'DJ',title:'Album',tracklistFetchedAt:new Date().toISOString(),tracks:structuredClone(tracksByCopy?.[i]??tracks)}))};
  const preferences=new Map([['grooveprint-auto-bpm-enabled',preference]]);
- const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0},events={};
+ const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0,workerModes:[]},events={};
  class Context{constructor(){resources.contexts++;resources.maxContexts=Math.max(resources.contexts,resources.maxContexts)}async decodeAudioData(){resources.decodes++;if(decode)await decode();return {sampleRate:12000,length:264000,numberOfChannels:1,getChannelData:()=>new Float32Array(264000)}}async close(){resources.contexts--}}
- class Worker{constructor(){resources.workers++}postMessage(d){queueMicrotask(()=>this.onmessage?.({data:{id:d.id,result:{status:'estimated',bpm:140,bpmCandidates:[{bpm:140,relative:1}],algorithm:'grooveprint-onset-acf-v1',analysisSeconds:22,requiresReview:false}}}))}terminate(){resources.workers--}}
+ class Worker{
+  constructor(url){resources.workers++;resources.workerModes.push(url);this.compare=String(url).includes('worker-dev')}
+  postMessage(d){
+   const baseline={status:'estimated',bpm:140,bpmCandidates:[{bpm:140,relative:1}],algorithm:'grooveprint-onset-acf-v1',analysisSeconds:22,requiresReview:false};
+   const result=this.compare?{...baseline,algorithm:'grooveprint-v1-v2-local-comparison',requiresReview:true,
+    bpmCandidates:[{bpm:140,relative:1,algorithm:'grooveprint-onset-acf-v1'},{bpm:140.1,relative:.97,algorithm:'grooveprint-onset-acf-v2-experimental'}],
+    comparisons:[baseline,{...baseline,bpm:140.1,algorithm:'grooveprint-onset-acf-v2-experimental'}]}:baseline;
+   queueMicrotask(()=>this.onmessage?.({data:{id:d.id,result}}));
+  }
+  terminate(){resources.workers--}
+ }
  const evidence={provider:'Test fixture',sourcePage:'https://archive.org/details/Crawford_Street-17897',recordingId:'synthetic-test',requiresReview:true};
  const result={status:'matched',asset:{name:'test.mp3',size:3,url:'https://archive.org/download/Crawford_Street-17897/test.mp3'},evidence};
- const c={localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},window:{AudioContext:Context,Worker},document:{addEventListener:(n,f)=>(events[n]??=[]).push(f),querySelector:()=>null},state,location:{protocol:'http:'},restoreReady:true,discogsConnect:{loading:false,connected:false},discogsSync:{running:false},gpIsFresh:v=>Date.now()-Date.parse(v)<900000,storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
+ const c={localStorage:{getItem:k=>preferences.get(k),setItem:(k,v)=>preferences.set(k,v)},window:{AudioContext:Context,Worker,GrooveprintBPMDevelopment:development},document:{addEventListener:(n,f)=>(events[n]??=[]).push(f),querySelector:()=>null},state,location:{protocol:'http:'},restoreReady:true,discogsConnect:{loading:false,connected:false},discogsSync:{running:false},gpIsFresh:v=>Date.now()-Date.parse(v)<900000,storeLater(){},renderApp(){},toast(){},esc:String,AbortController,DOMException,URL,setTimeout,clearTimeout,queueMicrotask,
   abortablePause:(ms,s)=>new Promise((yes,no)=>{const t=setTimeout(yes,ms);s.addEventListener('abort',()=>{clearTimeout(t);no(new DOMException('Aborted','AbortError'))},{once:true})}),
   gpRequest:async(path,o)=>{if(path.endsWith('/status'))return {enabled:true,approvedReleaseIds:['3759149'],csrf:'fixture'};resources.sourceCalls++;return resolve?resolve(JSON.parse(o.body),o.signal):structuredClone(result)},
   fetch:async()=>{resources.downloads++;return new Response(new Uint8Array(3),{headers:{'Content-Type':'audio/mpeg'}})} };
@@ -102,4 +112,29 @@ test('album title, audio duration and metadata-source changes reject stale autom
   assert.equal(t.bpmStatus,undefined);
   assert.equal(f.api.job.stale,1,change+' must be counted stale');
  }
+});
+
+test('one-click V1/V2 re-runs authorized audio without a local upload and never assigns a verified BPM',async()=>{
+ const f=setup({development:true,tracks:[track(),{...track('Protected'),bpm:138,bpmStatus:'verified',source:'user-verified'}]});
+ await until(()=>f.api.job.done===1&&!f.api.job.running);
+ assert.ok(f.resources.workerModes.every(x=>x.endsWith('bpm-worker.mjs')));
+ assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
+ for(const handler of f.events.click)handler({target:{closest:selector=>selector==='[data-gp-auto-compare]'?{}:null}});
+ await until(()=>f.api.job.done===1&&!f.api.job.running&&f.resources.decodes===2);
+ const t=f.state.releases[0].tracks[0];
+ assert.ok(f.resources.workerModes.some(x=>x.endsWith('bpm-worker-dev.mjs')));
+ assert.equal(t.bpm,null,'comparison must remain review-only');
+ assert.equal(t.bpmStatus,'review');
+ assert.equal(t.bpmComparisons.length,2,'V1 and V2 diagnoses are retained');
+ assert.equal(t.bpmComparisonCandidates.length,2);
+ assert.equal(f.state.releases[0].tracks[1].bpm,138,'previously verified values stay protected');
+ assert.equal(f.api.job.protected,1);
+});
+test('V1/V2 reanalysis is disabled outside the development research mode',async()=>{
+ const f=setup();
+ await until(()=>f.api.job.done===1&&!f.api.job.running);
+ for(const handler of f.events.click)handler({target:{closest:selector=>selector==='[data-gp-auto-compare]'?{}:null}});
+ await new Promise(r=>setTimeout(r,5));
+ assert.equal(f.resources.decodes,1);
+ assert.equal(f.c.window.GrooveprintAudioLibrary.setEngineMode('compare'),false);
 });
