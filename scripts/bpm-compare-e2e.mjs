@@ -1,0 +1,176 @@
+/**
+ * Real Playwright browser probe for the zero-track one-click V1/V2 incident.
+ * Fixture mode mocks *providers*, never the app's event handler, DSP worker,
+ * decoding, state persistence, or UI. Live mode uses actual licensed APIs.
+ * Evidence contains public demo metadata only, never copyrighted audio.
+ */
+import assert from 'node:assert/strict';
+import {spawn,execFileSync} from 'node:child_process';
+import {createServer} from 'node:net';
+import {mkdir,writeFile,readFile,mkdtemp} from 'node:fs/promises';
+import {join,resolve} from 'node:path';
+import {tmpdir} from 'node:os';
+import {chromium,firefox,webkit} from 'playwright';
+import {synthesize} from './tempo-synthetic.mjs';
+
+const name=process.env.GROOVEPRINT_BROWSER||'chromium';
+const engine={chromium,firefox,webkit}[name];
+if(!engine)throw Error('Unsupported Playwright browser '+name);
+const live=process.argv.includes('--live');
+const runs=live?1:Number(process.env.GROOVEPRINT_REPEATS||10);
+const mode=live?'live':'fixture';
+const out=resolve('.private/evidence/one-click-'+name+'-'+mode);
+await mkdir(out,{recursive:true});
+const rows=[],traffic=[],errors=[],serverLog=[];
+const delay=ms=>new Promise(r=>setTimeout(r,ms));
+const port=await new Promise((yes,no)=>{const s=createServer();s.once('error',no);s.listen(0,'127.0.0.1',()=>{const n=s.address().port;s.close(()=>yes(n))})});
+const base='http://127.0.0.1:'+port;
+const server=spawn(process.execPath,['scripts/dev.mjs'],{env:{...process.env,NODE_ENV:'development',PORT:String(port),PUBLIC_ORIGIN:base,DISCOGS_CONSUMER_KEY:'',DISCOGS_CONSUMER_SECRET:''},stdio:['ignore','pipe','pipe']});
+server.stdout.on('data',chunk=>serverLog.push(String(chunk).slice(0,2000)));
+server.stderr.on('data',chunk=>serverLog.push('stderr:'+String(chunk).slice(0,2000)));
+const closed=new Promise(r=>server.once('exit',r));
+let browser=null,fixtureMp3=null;
+const tracks=Array.from({length:14},(_,i)=>({position:String(i+1),title:i===0?'Signal (Original Mix)':'No Audio '+String(i+1).padStart(2,'0'),duration:'0:12',type_:'track'}));
+const demo={releaseId:'3759149',artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File'};
+try{
+ let healthy=false;
+ for(let i=0;i<100;i++){if(server.exitCode!==null)break;try{if((await fetch(base+'/health')).ok){healthy=true;break}}catch{}await delay(100)}
+ assert.ok(healthy,'Real application server did not become healthy');
+ if(!live){
+  const temp=await mkdtemp(join(tmpdir(),'gp-bpm-'));
+  const wav=join(temp,'pulse.wav'),mp3=join(temp,'pulse.mp3');
+  const signal=synthesize('browser-one-click',100,'four',{quick:true});
+  const samples=signal.getChannelData(0),wavBytes=Buffer.alloc(44+samples.length*2);
+  wavBytes.write('RIFF',0);wavBytes.writeUInt32LE(wavBytes.length-8,4);wavBytes.write('WAVEfmt ',8);
+  wavBytes.writeUInt32LE(16,16);wavBytes.writeUInt16LE(1,20);wavBytes.writeUInt16LE(1,22);
+  wavBytes.writeUInt32LE(signal.sampleRate,24);wavBytes.writeUInt32LE(signal.sampleRate*2,28);
+  wavBytes.writeUInt16LE(2,32);wavBytes.writeUInt16LE(16,34);wavBytes.write('data',36);
+  wavBytes.writeUInt32LE(samples.length*2,40);
+  for(let i=0;i<samples.length;i++)wavBytes.writeInt16LE(Math.max(-32767,Math.min(32767,Math.round(samples[i]*16000))),44+i*2);
+  await writeFile(wav,wavBytes);
+  execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-y','-i',wav,'-codec:a','libmp3lame','-q:a','5',mp3],{timeout:30000});
+  fixtureMp3=await readFile(mp3);
+  assert.ok(fixtureMp3.length>1000);
+ }
+ browser=await engine.launch({headless:true,args:name==='chromium'?['--no-sandbox']:[]});
+ const events=async page=>{
+  page.on('pageerror',e=>errors.push({page:'browser',message:e.message}));
+  page.on('response',response=>{
+   const url=new URL(response.url());
+   if(url.pathname.startsWith('/api/')||url.hostname==='archive.org')
+    traffic.push({time:new Date().toISOString(),path:url.pathname,status:response.status()});
+  });
+  if(!live){
+   await page.route('**/api/audio/status',route=>route.fulfill({json:{enabled:true,reviewOnly:true,csrf:'fixture-csrf',approvedReleaseIds:null,researchExampleReleaseId:'3759149',
+    researchExampleArtist:demo.artist,researchExampleTitle:demo.title,minRequestIntervalMs:0}}));
+   await page.route('**/api/audio/example',route=>route.fulfill({json:{...demo,fetchedAt:new Date().toISOString(),tracklist:tracks}}));
+   await page.route('**/api/audio/resolve',route=>{
+    const input=route.request().postDataJSON();
+    const matched=input.position==='1';
+    return route.fulfill({json:matched?{status:'matched',asset:{name:'pulse.mp3',size:fixtureMp3.length,url:'https://archive.org/download/Crawford_Street-17897/pulse.mp3'},
+     evidence:{provider:'Original synthetic browser fixture',recordingId:'test-pulse-100',sourcePage:'https://archive.org/details/Crawford_Street-17897',requiresReview:true}}
+     :{status:'unavailable',reason:'no-open-license-source'}});
+   });
+   await page.route('https://archive.org/download/Crawford_Street-17897/pulse.mp3',route=>route.fulfill({
+    body:fixtureMp3,contentType:'audio/mpeg',headers:{'Access-Control-Allow-Origin':'*'}
+   }));
+  }
+ };
+ const frame=page=>page.evaluate(()=>({
+  active:state.active,count:state.releases.length,
+  tracks:state.releases[0]?.tracks?.length||0,
+  job:{...window.GrooveprintAutomaticBPM.job},
+  trace:window.GrooveprintAutomaticBPM.trace(),
+  candidate:state.releases[0]?.tracks?.[0]&&{
+   bpm:state.releases[0].tracks[0].bpm,
+   status:state.releases[0].tracks[0].bpmStatus,
+   algorithms:(state.releases[0].tracks[0].bpmComparisons||[]).map(x=>x.algorithm)},
+  resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers}
+ }));
+ const createPage=async legacy=>{
+  const context=await browser.newContext({viewport:{width:1365,height:850}});
+  const page=await context.newPage();
+  await events(page);
+  if(legacy)await page.addInitScript(publicDemo=>{
+   try{if(location.protocol.startsWith('http')){
+    const record={...publicDemo,id:'legacy-control',tracks:[],tracklistFetchedAt:''};
+    localStorage.setItem('grooveprint-project',JSON.stringify({releases:[record],active:record.id,selected:[record.id],folderFilter:'All'}));
+    localStorage.setItem('grooveprint-auto-bpm-enabled','on');
+   }}catch{}
+  },demo);
+  await page.goto(base,{waitUntil:'domcontentloaded'});
+  await page.waitForFunction(()=>restoreReady&&window.GrooveprintAutomaticBPM&&document.querySelector('[data-gp-auto-compare]'),null,{timeout:25000});
+  if(legacy)await page.waitForFunction(()=>state.releases.length===1&&state.releases[0].tracks.length===0,null,{timeout:15000});
+  return {context,page};
+ };
+ const runOne=async(variant,n)=>{
+  const {context,page}=await createPage(variant==='legacy');
+  const began=Date.now();
+  try{
+   if(variant==='fresh'){
+    await page.locator('[data-gp-auto-example]').click();
+    await page.waitForFunction(()=>state.releases.some(x=>x.releaseId==='3759149'&&x.tracks.length>0),null,{timeout:30000});
+    await page.waitForFunction(()=>!window.GrooveprintAutomaticBPM.job.running&&window.GrooveprintAutomaticBPM.job.done>0,null,{timeout:live?270000:30000});
+   }
+   const before=await frame(page);
+   if(variant==='legacy'){assert.equal(before.tracks,0);assert.equal(before.job.total,0);}
+   if(n===0)await page.screenshot({path:join(out,variant+'-before.png'),fullPage:true});
+   const button=page.locator('[data-gp-auto-compare]');
+   await button.click();
+   await page.waitForFunction(()=>window.GrooveprintAutomaticBPM.trace().some(x=>x.phase==='preparing'||x.phase==='error'),null,{timeout:4000});
+   const immediately=await frame(page);
+   if(n===0)await page.screenshot({path:join(out,variant+'-after-click.png'),fullPage:true});
+   await page.waitForFunction(()=>{const j=window.GrooveprintAutomaticBPM.job;
+    return j.phase==='error'||j.phase==='cancelled'||
+     (j.done===j.total&&j.total>0&&!j.running&&j.phase==='complete');
+   },null,{timeout:live?300000:65000});
+   const done=await frame(page);
+   if(n===0)await page.screenshot({path:join(out,variant+'-after.png'),fullPage:true});
+   assert.equal(done.count,1,'comparison cannot duplicate demo record');
+   if(done.job.phase!=='error'&&done.job.phase!=='cancelled'){
+    assert.equal(done.tracks,live?done.tracks:14,'real tracklist must be present');
+    assert.ok(done.tracks>0);
+    assert.ok(done.job.total>0&&done.job.done===done.job.total);
+    if(!live){
+     assert.equal(done.candidate.bpm,null,'no silent BPM auto-acceptance');
+     assert.equal(done.candidate.status,'review');
+     assert.deepEqual(done.candidate.algorithms,
+      ['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental']);
+     assert.equal(done.resources.contexts,0);
+     assert.equal(done.resources.workers,0);
+    }
+   }else if(!live)throw Error('Provider fixture failed: '+done.job.message);
+   const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,done};
+   rows.push(result);return result;
+  }finally{await context.close();}
+ };
+ if(live){await runOne('legacy',0);}
+ else{
+  for(let n=0;n<runs;n++)await runOne('legacy',n);
+  for(let n=0;n<runs;n++)await runOne('fresh',n);
+  // Failure injection: malformed metadata cannot silently show 0/0 success.
+  const {context,page}=await createPage(true);
+  try{
+   await page.unroute('**/api/audio/example');
+   await page.route('**/api/audio/example',route=>route.fulfill({status:503,json:{error:'temporary outage'}}));
+   await page.locator('[data-gp-auto-compare]').click();
+   await page.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.phase==='error',null,{timeout:8000});
+   const state=await frame(page);
+   assert.equal(state.tracks,0);
+   assert.match(state.job.message,/Confronto non avviato|Errore/i);
+   await page.screenshot({path:join(out,'provider-error.png'),fullPage:true});
+   rows.push({variant:'503-error-injection',state});
+  }finally{await context.close();}
+ }
+}finally{
+ await writeFile(join(out,'report.json'),JSON.stringify({
+  generatedAt:new Date().toISOString(),head:process.env.GITHUB_SHA||'local',browser:name,mode,runs,
+  providerSource:live?'LIVE HTTP providers':'MOCKED provider metadata and licensed-source matching; real browser native decoder and V1/V2',
+  rows,traffic,errors,serverLog
+ },null,2));
+ await browser?.close();
+ server.kill('SIGTERM');
+ await Promise.race([closed,delay(1500)]);
+}
+if(errors.length)throw Error('Browser page errors: '+errors.map(e=>e.message).join(', '));
+console.log('BPM_ONE_CLICK_E2E',JSON.stringify({browser:name,mode,passed:rows.length,report:join(out,'report.json')}));
