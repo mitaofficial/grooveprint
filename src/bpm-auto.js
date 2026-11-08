@@ -104,7 +104,7 @@ async function compareEngines(){
  if(!available||!ready){job.phase='error';job.message='La ricerca audio non è disponibile in questa sessione.';refresh();return}
  if(!enabled){job.phase='error';job.message='Attiva prima “Cerca e analizza automaticamente l’audio autorizzato dopo Discogs”.';refresh();return}
  if(discogsSync.running||discogsConnect.running){job.phase='error';job.message='Un recupero Discogs è già in corso. Riprova dopo il completamento.';refresh();return}
- const targets=(state.releases||[]).filter(r=>/^[1-9]\\d*$/.test(String(r.releaseId||''))&&fresh(r));
+ const targets=(state.releases||[]).filter(r=>/^[1-9]\d*$/.test(String(r.releaseId||''))&&fresh(r));
  if(!targets.length){job.phase='error';job.message='Nessuna release con Release ID Discogs e metadati validi da confrontare.';refresh();return}
  if(!library.setEngineMode?.('compare')){job.phase='error';job.message='Il confronto sperimentale V1/V2 non è disponibile.';refresh();return}
  // Reset any previous research before metadata recovery. The regular
