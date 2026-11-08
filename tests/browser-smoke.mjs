@@ -529,6 +529,7 @@ try{
   await automatic.evaluate(()=>{const d=state.releases.find(x=>x.gpResearchExample);
    d.gpResearchExample=false;d.tracks=[];d.tracklistFetchedAt='';});
   await automatic.locator('[data-gp-auto-example]').click();
+  await automatic.waitForFunction(()=>{const d=state.releases.find(x=>x.releaseId==='3759149'&&x.artist==='Josh Woodward');return d?.gpResearchExample===true&&d.tracks.length===2});
   const legacyRecovered=await automatic.evaluate(()=>{const d=state.releases.find(x=>x.releaseId==='3759149'&&x.artist==='Josh Woodward');return {
    count:state.releases.filter(x=>x.releaseId==='3759149'&&x.artist==='Josh Woodward').length,
    tracks:d.tracks.length,transient:d.gpResearchExample===true,backupCount:snapshot().releases.length
