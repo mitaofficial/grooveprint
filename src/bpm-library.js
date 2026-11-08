@@ -6,7 +6,9 @@ const MAX_FILES=1500,MAX_FILE_BYTES=160*1024*1024,MAX_PCM_BYTES=128*1024*1024,AN
 const job={running:false,generation:0,total:0,processed:0,pending:0,active:0,completed:0,skipped:0,cancelled:0,
  matched:0,estimated:0,review:0,unavailable:0,errors:0,unmatched:0,ambiguous:0,alreadyBpm:0,stale:0,
  found:0,unsupported:0,empty:0,oversize:0,beyondLimit:0,contexts:0,workers:0,maxDecodedBytesObserved:0,phase:'idle',message:''};
-let input=null,current=null,mode='v1';
+// Development preview runs the conservative V3 decision by default; production remains V1.
+// Explicit V1 selection is retained for diagnostics only.
+let input=null,current=null,mode=window.GrooveprintBPMDevelopment===true?'compare':'v1';
 const norm=v=>String(v||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').toLowerCase().trim().replace(/\s+/g,' ');
 const artistName=v=>String(v||'').replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'');
 function trackList(releases){
