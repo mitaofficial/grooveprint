@@ -57,3 +57,39 @@ test('automatic BPM hypotheses stay collapsible and clearly state that correlati
  assert.match(manual,/<details class="gp-bpm-lookup-results" open>/,'explicit local comparison remains immediately accessible');
  assert.match(manual,/grooveprint-onset-acf-v1/);
 });
+
+test('V3 metrical conflict shows a clear abstention with no eight action buttons',()=>{
+ const r={id:'demo',tracks:[{bpm:null,bpmStatus:'review',source:'local-dsp',
+  bpmDecision:{version:'grooveprint-tempo-decision-v3-experimental',status:'ambiguous',suggestedBpm:null,
+    reason:'discordant-three-to-two',evidence:{v1Bpm:100,v2Bpm:66.7,metricalRelation:'three-to-two',
+    windowsPlanned:3,windowsConsistent:2},alternatives:[{bpm:100,source:'V1'},{bpm:66.7,source:'V2'}]},
+  bpmComparisonCandidates:Array.from({length:8},(_,i)=>({bpm:100+i*4,relative:.44-i*.01}))}]};
+ const ctx={esc,safeReferenceUrl:x=>x};vm.createContext(ctx);
+ vm.runInContext(html.slice(html.indexOf('function gpTempoDecisionPanel(record,index){'),
+  html.indexOf('function gpBpmHistory(record,index){')),ctx);
+ const rendered=ctx.gpLocalBpmCandidates(r,0);
+ assert.match(rendered,/TEMPO AMBIGUO/);
+ assert.match(rendered,/three-to-two/);
+ assert.match(rendered,/V1: 100 BPM/);
+ assert.match(rendered,/V2: 66.7 BPM/);
+ assert.doesNotMatch(rendered,/BPM SUGGERITO/);
+ assert.doesNotMatch(rendered,/data-bpm-choose/,'do not offer numerical buttons for conflicting tempos');
+ assert.equal((rendered.match(/<li>/g)||[]).length,2,'at most two diagnostics in an optional panel');
+ assert.equal(r.tracks[0].bpm,null,'V3 cannot assign BPM while rendering');
+});
+test('V3 supported agreement offers exactly one explicitly manual estimate',()=>{
+ const r={id:'test-release',tracks:[{bpm:null,bpmStatus:'review',source:'local-dsp',
+  bpmDecision:{version:'grooveprint-tempo-decision-v3-experimental',status:'supported',suggestedBpm:140,
+   reason:'two-engine-and-temporal-agreement',evidence:{v1Bpm:139.9,v2Bpm:140.1,windowsPlanned:3,windowsConsistent:3},alternatives:[]},
+  bpmComparisonCandidates:Array.from({length:8},(_,i)=>({bpm:110+i*7,relative:.5-i*.01}))}]};
+ const ctx={esc,safeReferenceUrl:x=>x};vm.createContext(ctx);
+ vm.runInContext(html.slice(html.indexOf('function gpTempoDecisionPanel(record,index){'),
+  html.indexOf('function gpBpmHistory(record,index){')),ctx);
+ const rendered=ctx.gpLocalBpmCandidates(r,0);
+ assert.match(rendered,/BPM SUGGERITO/);
+ assert.match(rendered,/140 <small>BPM/);
+ assert.equal((rendered.match(/data-bpm-choose=/g)||[]).length,1);
+ assert.match(rendered,/data-candidate="-1"/);
+ assert.match(rendered,/Nessun BPM assegnato o confermato automaticamente/);
+ assert.equal(r.tracks[0].bpm,null);
+});
