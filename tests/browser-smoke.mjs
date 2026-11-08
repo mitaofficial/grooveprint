@@ -495,6 +495,23 @@ try{
   assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-onset-acf-v1');assert.equal(t.provenance,'Synthetic source fixture')}}
   assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
   await automatic.locator('[data-gp-auto-review]').click();assert.ok(await automatic.locator('.gp-bpm-lookup-choice').count()>0);assert.equal(await automatic.locator('.gp-bpm-lookup-results').first().evaluate(el=>el.open),true,'explicit review must expand the selected automatic estimate');assert.match(await automatic.locator('.gp-bpm-lookup-results').first().innerText(),/correlazione, non probabilità/);
+  // Explicitly compare both engines using the already authorized source, no user audio upload.
+  await automatic.locator('[data-gp-auto-compare]').click();
+  await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===6&&
+   !window.GrooveprintAutomaticBPM.job.running&&state.releases[0].tracks[0].bpmComparisons?.length===2);
+  const comparedAuto=await automatic.evaluate(()=>{
+   const t=state.releases[0].tracks[0];
+   return {bpm:t.bpm,status:t.bpmStatus,algorithms:t.bpmComparisons.map(x=>x.algorithm),
+    candidates:t.bpmComparisonCandidates.length,protected:window.GrooveprintAutomaticBPM.job.protected,
+    resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers}};
+  });
+  assert.equal(comparedAuto.bpm,null);
+  assert.equal(comparedAuto.status,'review','comparison never auto-assigns a number');
+  assert.deepEqual(comparedAuto.algorithms,['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental']);
+  assert.ok(comparedAuto.candidates>=2);
+  assert.deepEqual(comparedAuto.resources,{contexts:0,workers:0});
+  assert.equal(resolvedTracks.length,6,'explicit comparison searches sources only on request');
+  assert.equal(audioDownloads.length,2,'same recording decoded once more for both DSP engines together');
   await automatic.locator('[data-act="step-3"]').click();const autoPdfPromise=automatic.waitForEvent('download');await automatic.locator('[data-act="pdf"]').click();const autoPdf=await readFile(await(await autoPdfPromise).path());assert.ok(autoPdf.toString('latin1').startsWith('%PDF-'));
 
   await automatic.locator('[data-act="step-1"]').click();
