@@ -127,7 +127,21 @@ try{
     return j.phase==='error'||j.phase==='cancelled'||
      (j.done===j.total&&j.total>0&&!j.running&&['complete','complete-with-errors'].includes(j.phase));
    },null,{timeout:live?300000:65000});
-   const done=await frame(page);
+   let done=await frame(page),firstPassFailure=null;
+   // External Archive downloads can transiently fail with CORS/network errors.
+   // Exercise the *visible* recovery button exactly once; preserve first failure.
+   // Do not turn repeated provider errors into a false green live test.
+   if(live&&done.job.phase==='complete-with-errors'&&done.job.errors>0){
+    firstPassFailure=done;
+    if(n===0)await page.screenshot({path:join(out,variant+'-live-first-error.png'),fullPage:true});
+    await page.locator('[data-gp-auto-retry]').click();
+    await page.waitForFunction(()=>{
+     const j=window.GrooveprintAutomaticBPM.job;
+     return !j.running&&j.total>0&&j.done===j.total&&
+      ['complete','complete-with-errors','error','cancelled'].includes(j.phase);
+    },null,{timeout:300000});
+    done=await frame(page);
+   }
    if(n===0)await page.screenshot({path:join(out,variant+'-after.png'),fullPage:true});
    assert.equal(done.count,1,'comparison cannot duplicate demo record');
    if(done.job.phase!=='error'&&done.job.phase!=='cancelled'){
@@ -143,7 +157,7 @@ try{
      assert.equal(done.resources.workers,0);
     }
    }else if(!live)throw Error('Provider fixture failed: '+done.job.message);
-   const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,done};
+   const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,firstPassFailure,done};
    rows.push(result);
    // A live-provider error must never be counted as a passing real integration.
    // The report and screenshots are written even if the upstream service blocks us.
