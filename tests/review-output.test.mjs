@@ -39,3 +39,21 @@ test('print preflight distinguishes missing BPM from available but unverified es
  r.tracks[1].bpm=null;result=ctx.gpPrintPreflight();
  assert.equal(result.stats.missingBpm,1);
 });
+
+test('automatic BPM hypotheses stay collapsible and clearly state that correlation is not certainty',()=>{
+ const record={id:'r-control',tracks:[{bpm:null,bpmStatus:'review',source:'local-dsp',bpmAlgorithm:'grooveprint-onset-acf-v1',
+  bpmAnalysisSeconds:180,bpmAudioEvidence:{attribution:'Open audio example',sourcePage:'https://archive.org/details/sample'},
+  bpmCandidates:[{bpm:100,relative:.44,algorithm:'grooveprint-onset-acf-v1'},{bpm:206.9,relative:.429,algorithm:'grooveprint-onset-acf-v1'}]}]};
+ const ctx={esc,safeReferenceUrl:x=>x};vm.createContext(ctx);
+ vm.runInContext(html.slice(html.indexOf('function gpLocalBpmCandidates(record,index){'),html.indexOf('function gpBpmHistory(record,index){')),ctx);
+ const rendered=ctx.gpLocalBpmCandidates(record,0);
+ assert.match(rendered,/<details class="gp-bpm-lookup-results" >/,'automatic estimates should remain collapsed until requested');
+ assert.match(rendered,/<summary>ANALISI BPM · 2 candidati da verificare<\/summary>/);
+ assert.match(rendered,/correlazione, non probabilità/);
+ assert.equal((rendered.match(/data-bpm-choose/g)||[]).length,2,'every candidate remains selectable after expansion');
+ assert.equal(record.tracks[0].bpm,null,'display changes cannot assign numerical BPM');
+ delete record.tracks[0].bpmAudioEvidence;
+ const manual=ctx.gpLocalBpmCandidates(record,0);
+ assert.match(manual,/<details class="gp-bpm-lookup-results" open>/,'explicit local comparison remains immediately accessible');
+ assert.match(manual,/grooveprint-onset-acf-v1/);
+});
