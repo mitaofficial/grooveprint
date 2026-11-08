@@ -85,7 +85,7 @@ if(req.headers.origin&&req.headers.origin!==publicOrigin)throw httpError(403,'Wr
 let sess=store.get(cookies(req.headers.cookie).gp_session);if(!sess){const newSession=store.create();res.setHeader('Set-Cookie','gp_session='+newSession.id+'; Path=/; HttpOnly; SameSite=Lax; Max-Age=604800'+(origin.startsWith('https:')?'; Secure':''));sess=store.get(newSession.id);}
 const csrf=()=>{if(!same(req.headers['x-grooveprint-csrf'],sess.csrf))throw httpError(403,'Invalid CSRF token');};
 const auth=()=>{if(!sess.credentials||!sess.username)throw httpError(401,'Not connected to Discogs');};
-if(path==='/api/audio/status'&&req.method==='GET')return send(res,200,{enabled:audioResearch,reviewOnly:true,approvedCollection:audioResearch?'freemusicarchive':null,approvedReleaseIds:null,minRequestIntervalMs:1500,
+if(path==='/api/audio/status'&&req.method==='GET')return send(res,200,{enabled:audioResearch,reviewOnly:true,approvedCollection:audioResearch?'freemusicarchive':null,approvedReleaseIds:null,researchExampleReleaseId:audioResearch?RESEARCH_RELEASE.releaseId:null,minRequestIntervalMs:1500,
  scope:'research-only FMA CC0/BY audio; general commercial catalog coverage not established',csrf:sess.csrf});
 if(path.startsWith('/api/audio/')){
  if(!audioResearch)throw httpError(404,'Automatic audio research is unavailable in this environment');
