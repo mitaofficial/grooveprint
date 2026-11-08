@@ -59,6 +59,7 @@ export function decideTempo({v1,v2,windows=[]}={}){
   windowsPlanned:temporal.length,windowsAnalyzed:available.length,
   windows:temporal.map(w=>({...w,bpm:valid(w.bpm)?rounded(w.bpm):null})),
   crossEngineAgreement:relation==='same-pulse',
+  v2FlagsAmbiguity:v2?.requiresReview!==false,
   // Correlation peaks and these agreement counts are NOT calibrated probabilities.
   scoreIsProbability:false};
  if(!valid(a)&&!valid(b))return {version:DECISION_VERSION,status:'undetermined',suggestedBpm:null,
@@ -69,6 +70,12 @@ export function decideTempo({v1,v2,windows=[]}={}){
   evidence,alternatives:alternatives(source,available)};
  if(relation!=='same-pulse')return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'conflicting',reason:'discordant-'+relation,
+  evidence,alternatives:alternatives(source,available)};
+ // Never promote a candidate that the experimental V2 detector itself flags
+ // as metrically ambiguous, even if V1 and a few windows happen to agree.
+ // This is a conservative development gate, not a calibrated acceptance policy.
+ if(v2?.requiresReview!==false)return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
+  requiresReview:true,confidenceStatus:'insufficient',reason:'v2-flags-tempo-ambiguity',
   evidence,alternatives:alternatives(source,available)};
  const anchors=[a,b];
  const center=med(anchors);
