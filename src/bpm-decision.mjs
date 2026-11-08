@@ -71,6 +71,14 @@ export function decideTempo({v1,v2,windows=[]}={}){
  if(!valid(a)&&!valid(b))return {version:DECISION_VERSION,status:'undetermined',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'insufficient',reason:'no-valid-tempo',
   evidence,alternatives:[]};
+ // V1's broadband energy envelope can hallucinate a periodicity in unpitched
+ // noise or sustained audio. If V2 explicitly detected *no rhythmic onsets*,
+ // the lone V1 peak is not credible evidence of a competing musical tempo.
+ // This does not cover generic unavailable/codec errors or merely weak beats.
+ const noRhythmicEvidence=!valid(b)&&['insufficient-rhythmic-transient-contrast','no-rhythmic-onsets'].includes(v2?.reason);
+ if(noRhythmicEvidence)return {version:DECISION_VERSION,status:'undetermined',suggestedBpm:null,
+  requiresReview:true,confidenceStatus:'insufficient',reason:'no-rhythmic-evidence',
+  evidence,alternatives:[]};
  if(!valid(a)||!valid(b))return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'insufficient',reason:'only-one-engine-available',
   evidence,alternatives:alternatives(source,available)};
