@@ -144,7 +144,23 @@ try{
     }
    }else if(!live)throw Error('Provider fixture failed: '+done.job.message);
    const result={variant,n,mode,browser:name,elapsedMs:Date.now()-began,before,immediately,done};
-   rows.push(result);return result;
+   rows.push(result);
+   // A live-provider error must never be counted as a passing real integration.
+   // The report and screenshots are written even if the upstream service blocks us.
+   if(live){
+    assert.ok(done.tracks>0,'LIVE BLOCKED: public Discogs did not yield an authentic tracklist; '+done.job.message);
+    assert.ok(done.job.total>0&&done.job.done===done.job.total,'LIVE BLOCKED: audio analysis did not finish; '+done.job.message);
+    assert.ok(done.job.review>0,'LIVE BLOCKED: no authorized recording reached the two real DSP engines; '+done.job.message);
+    assert.ok(!['error','cancelled','complete-with-errors'].includes(done.job.phase),'LIVE BLOCKED: provider or decoding error; '+done.job.message);
+    assert.equal(done.candidate?.bpm,null,'live comparison cannot assign a BPM without user verification');
+    assert.equal(done.candidate?.status,'review','live top recording must be review-only');
+    assert.deepEqual(done.candidate?.algorithms,
+     ['grooveprint-onset-acf-v1','grooveprint-onset-acf-v2-experimental'],
+     'live comparison must evaluate both algorithms on an actual authorized recording');
+    assert.equal(done.resources.contexts,0,'live AudioContext must be released');
+    assert.equal(done.resources.workers,0,'live DSP worker must be released');
+   }
+   return result;
   }finally{await context.close();}
  };
  if(live){await runOne('legacy',0);}
