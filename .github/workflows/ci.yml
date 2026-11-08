@@ -164,7 +164,7 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           ffmpeg -version | head -n 1
-      - name: Compare V1 and experimental V2 using CC BY 4.0 real techno loops
-        run: npm run benchmark:licensed-techno
+      - name: Compare V1 V2 and review-only V3 on the same CC BY 4.0 techno loops
+        run: npm run benchmark:licensed-techno -- --v3
       - name: Explain benchmark scope
         run: echo 'WaivOps EDM-TECH publisher BPM labels only. Not independently verified; repeated four-bar loops, not full tracks. Audio is not published as an artifact.'
