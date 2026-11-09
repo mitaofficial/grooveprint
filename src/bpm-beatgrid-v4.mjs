@@ -161,7 +161,7 @@ export function trackPulse(events,bpm,{duration=null}={}){
   observedBeats:observed,missingBeats:missing,
   beatOccupancy:round(occupied),phaseJitter:round(phaseJitter),spanSeconds:round(span),
   spanFraction:round(spanFraction),meanStrength:round(meanStrength),
-  beatTimes: path.slice(0,16).map(x=>round(x.time)),diagnosticOnly:true};
+  beatTimes:path.slice(0,1024).map(x=>round(x.time)),diagnosticOnly:true};
 }
 function hypothesesFrom(v1,v2){
  const values=[];
