@@ -41,8 +41,19 @@ Do **not** tune further on these twelve signals or the previously used WaivOps l
 
 ## Legal, independent real-audio evidence — current status
 
-### WaivOps EDM-TECH
-31 CC BY 4.0 producer-labelled four-bar techno loop examples (repeated to meet the older detector's minimum duration). `npm run benchmark:licensed-techno -- --v3 --v4` compares all four engines on the same PCM and logs V4 separately. These are actual produced audio, **not independently checked complete recordings**. Never claim accurate full-song BPM from these counts.
+### WaivOps EDM-TECH — measured negative V4 result
+31 CC BY 4.0 producer-labelled four-bar techno loop examples (repeated to meet the older detector's minimum duration). `npm run benchmark:licensed-techno -- --v3 --v4` compares all four engines on the same PCM and logs V4 separately. The CI #240 pilot on commit `284a67d2198c977251ef57a895b4134d13364861` produced:
+
+| Engine | Proposed BPM | Within ±1 BPM of publisher labels | Precision conditional on proposal | Half/double errors |
+|---|---:|---:|---:|---:|
+| V1 | 31/31 | 19/31 | 61.29% | 12 |
+| V2 | 31/31 | 31/31 | 100% | 0 |
+| V3 | 31/31 | 31/31 | 100% | 0 |
+| **Research V4** | **20/31** | **11/31** | **55.00%** | **3** |
+
+**Decision: DO NOT PROMOTE V4.** The beat-grid DP in this version does not improve tempo inference. Strong periodicity and coherent event paths remain susceptible to metrical half/double errors, and the score sometimes selects a slower or slightly inaccurate pulse despite correct V2. Examples: `waivops_15` publisher 136/V2 136.25/V4 68.04 and `waivops_27` publisher 142/V2 142.01/V4 71. These are **real produced audio**, yet still repeated short loops with author labels, **not independently checked complete recordings**. Reported publisher-label accuracy must not be called musical ground truth.
+
+This failure is an explicit **release blocker** for V4, not an invitation to tune parameters repeatedly on the same 31 already-seen examples. Archive this experiment as a failed candidate and use new independent data before developing a new beatgrid selection strategy.
 
 ### GiantSteps Tempo
 [GiantSteps Tempo annotations](https://github.com/GiantSteps/giantsteps-tempo-dataset) describe 664 electronic music previews and include alternate tempo annotations. The audio copyright/access position is **not established by annotation availability**. The currently published mirdata loader says audio is not available for automated download. No Beatport audio was fetched or committed. Annotation format alone is insufficient for audio DSP testing.
