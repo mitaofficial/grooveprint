@@ -82,10 +82,18 @@ for(const item of selected){
   getChannelData:i=>channels[i]};
  const v4=evaluateBeatGridOnsets(input);
  const grid=v4.candidateGrids[0];
- const gridF=grid?beatFMeasure(grid.beatTimes,item.referenceBeatTimesSeconds):null;
+ // The CLI deliberately decodes at most 180 seconds; a long recording's
+ // reference beats outside this interval must not count as missed predictions.
+ // Compare on the identical observed interval, and surface its coverage.
+ const analyzedSeconds=channels[0].length/sr;
+ const beatsInAnalyzedSpan=item.referenceBeatTimesSeconds.filter(t=>t<=analyzedSeconds);
+ if(beatsInAnalyzedSpan.length<8)throw Error('Too few independently annotated beats in analyzed PCM window: '+item.id);
+ const gridF=grid?beatFMeasure(grid.beatTimes,beatsInAnalyzedSpan):null;
  const correct=(bpm,tol)=>Number.isFinite(bpm)&&Number.isFinite(item.groundTruthBpm)&&Math.abs(bpm-item.groundTruthBpm)<=tol;
  cases.push({id:item.id,split:item.split,recordingGroup:item.recordingGroup,
   referenceType:item.verificationMethod,referenceBeatN:item.referenceBeatTimesSeconds.length,
+  referenceBeatsInAnalyzedSpan:beatsInAnalyzedSpan.length,
+  referenceFractionWithinAnalyzedSpan:beatsInAnalyzedSpan.length/item.referenceBeatTimesSeconds.length,
   referenceBpm:item.groundTruthBpm??null,
   v1Bpm:v3.comparisons[0].bpm,v2Bpm:v3.comparisons[1].bpm,
   v3Bpm:v3.decision.suggestedBpm,v3Status:v3.decision.status,
@@ -95,7 +103,7 @@ for(const item of selected){
   v4MatchedBeats:gridF?.matchedBeats??0,
   within1Bpm:{v1:correct(v3.comparisons[0].bpm,1),v2:correct(v3.comparisons[1].bpm,1),
    v3:correct(v3.decision.suggestedBpm,1),v4:correct(v4.suggestedBpm,1)},
-  audioSecondsAnalyzed:channels[0].length/sr,
+  audioSecondsAnalyzed:analyzedSeconds,
   elapsedMs:Math.round(performance.now()-started)});
 }
 function summary(label){
