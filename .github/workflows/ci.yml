@@ -21,8 +21,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ensure FFmpeg so the private beat-reference CLI e2e is never silently skipped
-        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
       - run: npm run validate
       - run: npm run benchmark:compare
       - name: V3 original synthetic development-only score (not full-song validation)
@@ -170,6 +168,10 @@ jobs:
             sudo apt-get install -y ffmpeg
           fi
           ffmpeg -version | head -n 1
+      - name: Require exact-hash private beatgrid E2E with FFmpeg
+        env:
+          GROOVEPRINT_REQUIRE_FFMPEG: '1'
+        run: node --test tests/bpm-v4-reference-e2e.test.mjs
       - name: Compare V1 V2 V3 and research-only V4 on the same CC BY 4.0 techno loops
         run: npm run benchmark:licensed-techno -- --v3 --v4
       - name: Prepare independent offline librosa research baseline (ISC licensed)
