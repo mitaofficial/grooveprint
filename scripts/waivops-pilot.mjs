@@ -126,7 +126,11 @@ function repeatLoop(decoded,minSeconds=20){
   getChannelData:ch=>repeated[ch],originalDuration:length/rate,repeats};
 }
 function metrics(rows,model){
- const evaluated=rows.map(r=>({id:r.id,category:'techno-loop',groundTruthBpm:r.publisherBpm,groundTruthStatus:'publisher-labelled',...r[model],candidateBpm:r[model].candidateBpm||r[model].candidates||[]}));
+ const evaluated=rows.map(r=>{
+  const out=r[model]||{status:'unavailable',bpm:null,requiresReview:true,reason:'no-decoded-audio'};
+  return {id:r.id,category:'techno-loop',groundTruthBpm:r.publisherBpm,
+   groundTruthStatus:'publisher-labelled',...out,candidateBpm:out.candidateBpm||out.candidates||[]};
+ });
  const scored=scoreRows(evaluated,{referenceStatus:'publisher-labelled'});
  return {sourceLabelCount:rows.length,coveragePct:scored.coveragePct,primaryWithin1Pct:scored.top1Within1Pct,
   primaryConditionalWithin1Pct:scored.top1ConditionalWithin1Pct,publisherLabelAmongCandidatesPct:scored.candidateWithin1Pct,
@@ -205,9 +209,11 @@ const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
  'Dataset: WaivOps / Patchbanks EDM-TECH (2025), CC BY 4.0, https://doi.org/10.5281/zenodo.17584890',
  'GitHub source pinned at '+repoCommit,'',
  'Four-bar loop PCM was repeated to accommodate V1/V2 minimum analysis length. This artificially repeats musical content and should not be interpreted as a full-song benchmark.','',
- includeV3?'| Metric | V1 | V2 | V3 |':'| Metric | V1 | V2 |',includeV3?'|---|---:|---:|---:|':'|---|---:|---:|',
+ '| Metric | V1 | V2 |'+(includeV3?' V3 |':'')+(includeV4?' V4 |':''),
+ '|---|---:|---:|'+(includeV3?'---:|':'')+(includeV4?'---:|':''),
  ...['coveragePct','primaryWithin1Pct','publisherLabelAmongCandidatesPct','octaveErrorPct','unflaggedOctaveCount','autoAcceptedCoveragePct','acceptedWithin1Pct']
- .map(k=>'| '+k+' | '+(report.v1[k]??'N/A')+' | '+(report.v2[k]??'N/A')+' |'+(includeV3?' '+(report.v3[k]??'N/A')+' |':'')),
+ .map(k=>'| '+k+' | '+(report.v1[k]??'N/A')+' | '+(report.v2[k]??'N/A')+' |'+
+  (includeV3?' '+(report.v3[k]??'N/A')+' |':'')+(includeV4?' '+(report.v4[k]??'N/A')+' |':'')),
  '','Analyzed: '+analyzed+'/'+targets.length+'; download/decode errors: '+errors.length,
  '','**Real independent BPM verification: NOT TESTED**. Do not merge the experimental DSP based on this pilot.'];
 await writeFile(resolve(target,'report.md'),table.join('\n')+'\n');
