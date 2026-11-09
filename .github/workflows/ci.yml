@@ -153,7 +153,7 @@ jobs:
   licensed_audio_pilot:
     needs: test
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -170,5 +170,13 @@ jobs:
           ffmpeg -version | head -n 1
       - name: Compare V1 V2 V3 and research-only V4 on the same CC BY 4.0 techno loops
         run: npm run benchmark:licensed-techno -- --v3 --v4
+      - name: Prepare independent offline librosa research baseline (ISC licensed)
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install pinned research-only librosa (not a webapp dependency)
+        run: python -m pip install --quiet librosa==0.11.0
+      - name: Run librosa dynamic-programming beat tracker on same authorized loop audio
+        run: python scripts/bpm-v4-librosa-baseline.py .private/benchmarks/waivops-pilot/audio
       - name: Explain benchmark scope
         run: echo 'WaivOps EDM-TECH publisher BPM labels only. Not independently verified; repeated four-bar loops, not full tracks. Audio is not published as an artifact.'
