@@ -82,6 +82,28 @@ export function decideTempo({v1,v2,windows=[]}={}){
  if(!valid(a)||!valid(b))return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'insufficient',reason:'only-one-engine-available',
   evidence,alternatives:alternatives(source,available)};
+ // A provisional BPM is *not* a high-confidence beat-grid or a confirmed value.
+ // The previous V3 abstained even when V1 and V2 (or V1 at half tempo), plus
+ // ALL independent time windows, agreed with the same V2 pulse. Offer only
+ // one explicitly labeled listening cue in those cases; do not downgrade the
+ // stricter supported classification or turn 3:2/unrelated conflicts into BPMs.
+ const windowsNearV2=available.filter(w=>near(w.bpm,b,
+  DECISION_RULES.segmentAbsoluteBpm,DECISION_RULES.segmentRelative));
+ const provisionalWindowsStable=temporal.length>=DECISION_RULES.minSegments&&
+  available.length===temporal.length&&windowsNearV2.length===available.length;
+ const provisionalMeter=(relation==='same-pulse'||relation==='half-double'&&b>a);
+ if(provisionalMeter&&provisionalWindowsStable&&!bandSupportedHarmonic&&
+    (v2?.requiresReview!==false||relation==='half-double')){
+  evidence.windowsConsistent=windowsNearV2.length;
+  evidence.windowsConflicting=0;
+  evidence.indicativeOnly=true;
+  return {version:DECISION_VERSION,status:'provisional',
+   suggestedBpm:rounded(med([b,...windowsNearV2.map(w=>w.bpm)])),
+   requiresReview:true,confidenceStatus:'indicative-unvalidated',
+   reason:relation==='half-double'?'stable-v2-double-pulse-meter-uncertain':
+    'stable-v1-v2-with-metrical-ambiguity',
+   evidence,alternatives:[]};
+ }
  if(relation!=='same-pulse'&&!bandSupportedHarmonic)return {version:DECISION_VERSION,status:'ambiguous',suggestedBpm:null,
   requiresReview:true,confidenceStatus:'conflicting',reason:'discordant-'+relation,
   evidence,alternatives:alternatives(source,available)};
