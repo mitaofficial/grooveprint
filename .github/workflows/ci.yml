@@ -27,6 +27,8 @@ jobs:
         run: npm run benchmark:v3:development
       - name: V3 full synthetic precision/coverage versus original (development data only)
         run: npm run benchmark:v3:full-synthetic
+      - name: V4 experimental event-to-beat DP on matched synthetic PCM (not independent music validation)
+        run: npm run benchmark:v4:development
 
   browser_matrix:
     needs: test
