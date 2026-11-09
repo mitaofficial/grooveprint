@@ -100,10 +100,13 @@ for(const item of selected){
 }
 function summary(label){
  const key=label.toLowerCase()+'Bpm';
- const proposed=cases.filter(r=>Number.isFinite(r[key]));
- return {n:cases.length,proposed:proposed.length,
+ // Beat annotations can be valid for tempo-changing tracks that have NO
+ // single scalar BPM. Keep those in F-measure but not in ±1 BPM denominators.
+ const scalar=cases.filter(r=>Number.isFinite(r.referenceBpm));
+ const proposed=scalar.filter(r=>Number.isFinite(r[key]));
+ return {scalarReferenceN:scalar.length,proposed:proposed.length,
   precisionOnProposals:proposed.length?proposed.filter(r=>r.within1Bpm[label.toLowerCase()]).length/proposed.length:null,
-  correctCoverage:cases.filter(r=>r.within1Bpm[label.toLowerCase()]).length/cases.length};
+  correctCoverage:scalar.length?scalar.filter(r=>r.within1Bpm[label.toLowerCase()]).length/scalar.length:null};
 }
 const report={kind:'PRIVATE_AUDIO_INDEPENDENT_BEAT_REFERENCE',split:onlySplit,
  disclaimers:['The beat timestamp annotations and rights were declared in the manifest and require human auditing.',
