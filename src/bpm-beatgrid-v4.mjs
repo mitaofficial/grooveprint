@@ -60,7 +60,9 @@ export function extractBeatEvents(buffer,{maxSeconds=BEATGRID_PARAMETERS.maxSeco
  if(totalFlux/(totalLevel+1e-9)<.015)return {status:'unavailable',reason:'insufficient-transient-contrast',events:[],duration,hz};
  // Analyze relative attack strength rather than absolute loudness; an initial
  // transient should not dominate an entire track's phase score.
- const qLow=percentile(low,.95),qFull=percentile(full,.95);
+ // Sparse kicks occupy far fewer than 5% of frames. A P95 normalizer was
+ // literally zero on sparse genuine rhythms; use P99 and absolute guards.
+ const qLow=percentile(low,.99),qFull=percentile(full,.99);
  if(qLow<1e-7&&qFull<1e-7)return {status:'unavailable',reason:'no-onsets',events:[],duration,hz};
  const activation=new Float32Array(N);
  for(let i=0;i<N;i++)activation[i]=
@@ -72,10 +74,10 @@ export function extractBeatEvents(buffer,{maxSeconds=BEATGRID_PARAMETERS.maxSeco
  for(let i=2;i<N-2;i++){
   const a=activation[i];
   if(a<threshold||a<activation[i-1]||a<activation[i-2]||a<=activation[i+1]||a<=activation[i+2])continue;
-  const time=i/hz,weight=clamp(a,0,1.6);
+  const time=i/hz,weight=clamp(a,0,1.6),bass=clamp(low[i]/Math.max(1e-8,qLow),0,2);
   if(events.length&&time-events[events.length-1].time<.05){
-   if(weight>events[events.length-1].weight)events[events.length-1]={time,weight};
-  }else events.push({time,weight});
+   if(weight>events[events.length-1].weight)events[events.length-1]={time,weight,bass};
+  }else events.push({time,weight,bass});
  }
  if(events.length<BEATGRID_PARAMETERS.minGridBeats)return {status:'unavailable',reason:'too-few-onsets',events,duration,hz};
  return {status:'ready',reason:'onset-events',events,duration,hz,onsetContrast:round(totalFlux/(totalLevel+1e-9))};
@@ -123,8 +125,25 @@ export function trackPulse(events,bpm,{duration=null}={}){
  const phaseJitter=jitter[top]/Math.max(1,observed-1);
  // These are explicitly uncalibrated engineering diagnostics.
  const meanStrength=path.reduce((sum,x)=>sum+x.weight,0)/observed;
- const score=occupied*spanFraction*Math.min(1,meanStrength)*Math.exp(-4*phaseJitter);
- return {bpm:round(bpm),score:round(score),observedBeats:observed,missingBeats:missing,
+ const base=occupied*spanFraction*Math.min(1,meanStrength)*Math.exp(-4*phaseJitter);
+ // Evaluate whether the proposed beat grid actually explains bass onsets,
+ // including events the DP path did not choose. A 70 BPM sequence can be
+ // mathematically stable while ignoring half of the 140 BPM kicks; a 3:2
+ // spurious grid may align with subdivided hats but miss real bass accents.
+ const bassEvents=events.filter(e=>Number.isFinite(e.bass)&&e.bass>.08);
+ const totalBass=bassEvents.reduce((s,e)=>s+e.bass,0);
+ const gridOrigin=path[0].time;
+ const bassAligned=bassEvents.reduce((s,e)=>{
+  const k=Math.round((e.time-gridOrigin)/period);
+  const phaseError=Math.abs(e.time-gridOrigin-k*period)/period;
+  return s+(phaseError<=.12?e.bass:0);
+ },0);
+ const bassAlignment=totalBass>.01?bassAligned/totalBass:null;
+ // Do not treat a non-existent bass stream as negative evidence.
+ const score=base*(bassAlignment===null?1:.65+.35*bassAlignment);
+ return {bpm:round(bpm),score:round(score),baseScore:round(base),
+  bassAlignment:bassAlignment===null?null:round(bassAlignment),
+  observedBeats:observed,missingBeats:missing,
   beatOccupancy:round(occupied),phaseJitter:round(phaseJitter),spanSeconds:round(span),
   spanFraction:round(spanFraction),meanStrength:round(meanStrength),
   beatTimes: path.slice(0,16).map(x=>round(x.time)),diagnosticOnly:true};
@@ -151,7 +170,8 @@ export function evaluateBeatGridOnsets(buffer,{hypotheses=null,maxSeconds=180}={
  const tempos=Array.isArray(hypotheses)?hypotheses:hypothesesFrom(v1,v2);
  const grids=tempos.map(bpm=>trackPulse(extracted.events,bpm,{duration:extracted.duration}))
   .filter(Boolean).sort((a,b)=>b.score-a.score);
- const first=grids[0],runner=grids.find(g=>Math.abs((g.bpm||0)-(first?.bpm||0))>1.5);
+ const first=grids[0],runner=grids.find(g=>first&&
+  Math.abs((g.bpm||0)-(first.bpm||0))>Math.max(2,first.bpm*.025));
  if(!first||first.beatOccupancy<.45||first.spanFraction<.3||first.score<.12){
   return {version:BEATGRID_VERSION,status:'undetermined',suggestedBpm:null,
    reason:'no-coherent-beatgrid',candidateGrids:grids.slice(0,4),
