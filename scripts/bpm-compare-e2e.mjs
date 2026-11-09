@@ -185,8 +185,8 @@ try{
      legacyChoiceRows:await page.locator('.gp-bpm-lookup-choice').count()
     };
     assert.equal(decisionUi.legacyChoiceRows,0,'V3 must not expose 8 raw candidate actions');
-    assert.ok(decisionUi.suggestedButtons<=1,'a single BPM may be offered only for supported evidence');
-    assert.equal(decisionUi.suggestedButtons,decisionUi.status==='supported'?1:0,
+    assert.ok(decisionUi.suggestedButtons<=1,'V3 may show at most one supported or indicative BPM');
+    assert.equal(decisionUi.suggestedButtons,['supported','provisional'].includes(decisionUi.status)?1:0,
       'ambiguous or undetermined tempo must not offer a numeric choice');
     if(n===0)await page.screenshot({path:join(out,variant+'-tempo-decision.png'),fullPage:true});
    }
