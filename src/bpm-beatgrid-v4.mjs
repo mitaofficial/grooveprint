@@ -74,10 +74,10 @@ export function extractBeatEvents(buffer,{maxSeconds=BEATGRID_PARAMETERS.maxSeco
  for(let i=2;i<N-2;i++){
   const a=activation[i];
   if(a<threshold||a<activation[i-1]||a<activation[i-2]||a<=activation[i+1]||a<=activation[i+2])continue;
-  const time=i/hz,weight=clamp(a,0,1.6),bass=clamp(low[i]/Math.max(1e-8,qLow),0,2);
+  const time=i/hz,weight=clamp(a,0,1.6),bass=clamp(low[i]/Math.max(1e-8,qLow),0,2),wide=clamp(full[i]/Math.max(1e-8,qFull),0,2);
   if(events.length&&time-events[events.length-1].time<.05){
-   if(weight>events[events.length-1].weight)events[events.length-1]={time,weight,bass};
-  }else events.push({time,weight,bass});
+   if(weight>events[events.length-1].weight)events[events.length-1]={time,weight,bass,wide};
+  }else events.push({time,weight,bass,wide});
  }
  if(events.length<BEATGRID_PARAMETERS.minGridBeats)return {status:'unavailable',reason:'too-few-onsets',events,duration,hz};
  return {status:'ready',reason:'onset-events',events,duration,hz,onsetContrast:round(totalFlux/(totalLevel+1e-9))};
@@ -139,10 +139,25 @@ export function trackPulse(events,bpm,{duration=null}={}){
   return s+(phaseError<=.12?e.bass:0);
  },0);
  const bassAlignment=totalBass>.01?bassAligned/totalBass:null;
- // Do not treat a non-existent bass stream as negative evidence.
- const score=base*(bassAlignment===null?1:.65+.35*bassAlignment);
+ // In sparse hardgroove, kicks may recur every TWO beats while backbeat
+ // transients mark the missing beat. A half-tempo grid explains the kicks
+ // yet leaves many broadband accents stranded between its pulse positions.
+ // Compare the *entire onset stream*, not merely the DP-selected events.
+ const wideEvents=events.filter(e=>Number.isFinite(e.wide)&&e.wide>.08);
+ const totalWide=wideEvents.reduce((s,e)=>s+e.wide,0);
+ const wideAligned=wideEvents.reduce((s,e)=>{
+  const k=Math.round((e.time-gridOrigin)/period);
+  const phaseError=Math.abs(e.time-gridOrigin-k*period)/period;
+  return s+(phaseError<=.12?e.wide:0);
+ },0);
+ const wideAlignment=totalWide>.01?wideAligned/totalWide:null;
+ const bassFactor=bassAlignment===null?1:bassAlignment;
+ const wideFactor=wideAlignment===null?1:wideAlignment;
+ // Diagnostic ranking, not a trained score or calibrated confidence.
+ const score=base*(.15+.25*bassFactor+.6*wideFactor);
  return {bpm:round(bpm),score:round(score),baseScore:round(base),
   bassAlignment:bassAlignment===null?null:round(bassAlignment),
+  wideAlignment:wideAlignment===null?null:round(wideAlignment),
   observedBeats:observed,missingBeats:missing,
   beatOccupancy:round(occupied),phaseJitter:round(phaseJitter),spanSeconds:round(span),
   spanFraction:round(spanFraction),meanStrength:round(meanStrength),
