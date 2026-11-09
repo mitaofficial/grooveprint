@@ -93,6 +93,14 @@ try{
    counts[category]=(counts[category]||0)+1;
    return counts;
   },{}),
+  decisionDiagnostics:(state.releases[0]?.tracks||[]).slice(0,25).map((t,i)=>({
+   trackNumber:i+1,status:t.bpmDecision?.status||'no-v3-decision',
+   reason:t.bpmDecision?.reason||'',
+   bpm:t.bpmDecision?.suggestedBpm??null,
+   v1:t.bpmDecision?.evidence?.v1Bpm??null,
+   v2:t.bpmDecision?.evidence?.v2Bpm??null,
+   windows:t.bpmDecision?.evidence?.windows?.map(w=>w.bpm)||[]
+  })),
   candidate:state.releases[0]?.tracks?.[0]&&{
    bpm:state.releases[0].tracks[0].bpm,
    status:state.releases[0].tracks[0].bpmStatus,
@@ -262,6 +270,6 @@ console.log('BPM_ONE_CLICK_RESULTS',JSON.stringify(rows.filter(x=>x.done).map(x=
  processed:x.done.job.done,review:x.done.job.review,unavailable:x.done.job.unavailable,
  errors:x.done.job.errors,firstTrackStatus:x.done.candidate?.status,
  firstTrackBpm:x.done.candidate?.bpm,
- firstTrackAlgorithms:x.done.candidate?.algorithms,decisionCounts:x.done.decisionCounts,tempoDecision:x.done.candidate?.decision,decisionUi:x.decisionUi,resources:x.done.resources
+ firstTrackAlgorithms:x.done.candidate?.algorithms,decisionCounts:x.done.decisionCounts,decisionDiagnostics:x.done.decisionDiagnostics,tempoDecision:x.done.candidate?.decision,decisionUi:x.decisionUi,resources:x.done.resources
 }))));
 console.log('BPM_ONE_CLICK_E2E',JSON.stringify({browser:name,mode,passed:rows.length,report:join(out,'report.json')}));
