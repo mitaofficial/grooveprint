@@ -1,0 +1,22 @@
+{
+  "schemaVersion": 1,
+  "note": "Example manifest only; no audio or ground truth is supplied.",
+  "tracks": [
+    {
+      "id": "recording_001",
+      "file": "audio/001.wav",
+      "category": "techno-hardgroove",
+      "groundTruthBpm": 138,
+      "groundTruthStatus": "verified",
+      "verificationMethod": "independent DAW beat-grid over three sections"
+    },
+    {
+      "id": "recording_002",
+      "file": "audio/002.wav",
+      "category": "tribal-percussive",
+      "groundTruthBpm": null,
+      "groundTruthStatus": "ambiguous",
+      "verificationMethod": "requires independent second review"
+    }
+  ]
+}

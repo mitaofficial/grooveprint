@@ -1,0 +1,468 @@
+# GROOVEPRINT — current checkpoint: automatic import, partial source coverage
+
+## Follow-up corrections on the existing feature branch — 7 November 2026
+
+These changes continue the automatic-import research without changing the approved scope or altering `main`/Railway. The earlier research proof remains limited to curated open audio. No new independently verified musical holdout or commercial-source access has been obtained.
+
+- **Album/track identity:** source search uses the release/album artist for non-compilations, keeping exact track artist, original title/version, album and duration checks to avoid mismatched guest remix credits.
+- **Rights matching:** accepts exact CC0/CC BY 3.0/4.0 license URLs with or without a trailing slash; unsupported NC/ND/SA licenses remain excluded.
+- **User review:** the BPM review shortcut prioritizes DSP candidates and removes active filters that would hide the chosen release.
+- **Stale writes:** shared audio tickets now reject a result if release title, track duration or tracklist origin changes during source search or decode, alongside the previous strict identity, revision and manual-value barriers.
+- **Print:** preflight distinguishes missing BPMs from present but unverified DSP/catalog estimates. This is a warning, not a forced overwrite or invented tempo.
+- **Accuracy of messaging:** development-only automatic audio access is distinguished from public Railway `main` and portable HTML, and import wording no longer implies that all imported BPM fields are necessarily permanent blanks.
+- **Regressions added:** `tests/audio-source.test.mjs`, `tests/bpm-auto.test.mjs` and `tests/review-output.test.mjs` exercise these cases. Final-head CI is required; previous runs do not certify a later head.
+
+**Still blocked:** unrestricted commercial techno/hardgroove Discogs BPM coverage requires legally usable version-identifiable audio/preview rights; independent tempo accuracy and an auto-acceptance policy have not been established. All automatic candidates remain review-only. No merge, hosting creation, production deploy, credential change or purchase.
+
+---
+7 November 2026. The attached BPM_AUTOMATICO_IMPORT_DISCOGS(1).md was read in
+full and applied. This section supersedes earlier next-action instructions.
+Base verified clean: `fa00c353cdba31eb8ca02b57715dca51ac3627ae`, feature branch
+`feature/bpm-intelligence-3-open-data`, PR #3 open/draft/mergeable, CI #94 success.
+Protected main `28f9fd9ed699ec13c4ab4108ca2266159715e73c` unchanged. No merge,
+Railway operation, deploy, secret change, account registration or purchase.
+
+## Outcome and unresolved priority
+
+**PARTIAL.** Automatic import → approved source lookup → audio → internal DSP now
+works without per-track audio selection for matching FMA CC0/BY recordings.
+The live control proof covers one album; the resolver is not pinned to that ID.
+General commercial techno/hardgroove catalog coverage and musically validated
+automatic acceptance remain unresolved. The prerequisite is version-identifiable
+audio/preview access with explicit automated-analysis rights, not a generic key.
+MassiveMusic/7digital documents authenticated preview delivery but no permission
+for this specific analysis has been established. No service was contracted.
+
+## Implemented
+
+- Add bpm-auto.js: metadata-ready hooks from CSV, incremental tracklist recovery,
+  sync/enrichment, project import and restore; fresh/eligible tracks only.
+- Development-only audio-source resolver searches and validates an explicitly
+  curated FMA collection with item/file CC0 or CC BY license checks. Searches use
+  imported artist/album identity, not hardcoded recording IDs. No arbitrary URL proxy or retired provider is introduced. Query/item/file/cache
+  limits and a persisted opt-out apply; outages pause the batch.
+- Direct browser MP3 acquisition, MIME/byte/time limits, same library decoder and
+  original V1 worker. All automatic results stay review, with no numeric assignment.
+- Positive/negative resolution and DSP reuse for identical copies; manual values,
+  explicit clears, ticket revisions, Stop, expiry, project change and decode
+  ownership stay protected. Shared Stop cancels the automatic queue completely.
+- Preserve API metadata origin separately as trackSource=discogs: a DSP result
+  must not accidentally exempt a tracklist from TTL, backup or import filtering.
+- Persist only bounded analysis provenance, never audio, PCM, download URL or signed
+  reference. Production resolver/example stay 404 and source CSP stays unchanged.
+
+## Evidence and verification
+
+Read `docs/BPM-AUTOMATIC-IMPORT.md` and
+`docs/evidence/auto-discogs-2026-11-07.json`. Private logs/audio remain ignored in
+`.private/checkpoints/auto-discogs/`; no audio or raw uploader data is committed.
+
+Real runner `npm run proof:auto-bpm`: live Discogs/IA search/metadata and original
+MP3, first 180 seconds decoded to 12 kHz mono, no repetition. 14 track identities:
+11 pass source criteria, 2 duration conflicts, 1 artist mismatch. Runner analyzes
+ONE recording; V1 100 / V2 66.7, no independent reference, accuracy NOT VALIDATED.
+Separate live Chrome UI: one click imports the real release and automatically
+performs 11 analyses; final 14/14, 13 review (11 tempo + 2 identity), 1 unavailable,
+zero errors, zero automatic numeric assignments; no audio chooser/mocks.
+
+Offline suite: 87 tests, syntax/config/privacy and synthetic smoke. Browser tests
+add automatic CSV/tracklist → source → actual generated MP3/worker → PDF with
+explicit API mocks: six tracks, three resolver requests, one audio download/decode,
+all review; duplicate/expiry/backup provenance checks retained. Final-head CI must
+confirm all six Chromium/Firefox/WebKit desktop/mobile flows; #94 is historical.
+DSP hashes and synthetic outcomes remain unchanged. A viewport is not a phone.
+
+The managed preview was observed working in the session; its loopback is not a
+public user-device URL. Run `npm run dev` from the repository on the user's PC and
+open the printed Local URL, then PROVA UNA RELEASE APERTA. The earlier standalone
+HTML cannot run this backend pipeline and is not presented as a new solution.
+No new hosting was created to bypass the no-deploy constraint.
+
+## Resume here
+
+Finish the final-head checks/PR checkpoint and report the partial scope plainly.
+The next product dependency is an approved target-catalog audio source; extend
+the adapter only after its identity/access/analysis permissions are concrete,
+then validate the precision-versus-coverage policy with independent references.
+Do not lower review thresholds, substitute provider BPM, or claim the pilot
+solves arbitrary Discogs imports. Preserve main and Railway.
+
+---
+
+## Previous internal-BPM checkpoint (historical)
+
+# GROOVEPRINT — internal BPM and downloadable trial
+
+7 November 2026. This section supersedes earlier next-action instructions to
+restart a general audit or leave V2 benchmark-only in all environments. The
+focused BPM attachment was read in full. Base:
+`aeb0b7854f44a05c1def9e1afe2227bc4e29555e`, clean branch
+`feature/bpm-intelligence-3-open-data`, PR #3 open/draft. Protected main:
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. No merge, deploy, secrets or
+Railway mutation. Ordinary feature-branch commits/push and PR update authorized.
+
+## Current result
+
+- Public root HTML was read anonymously: HTTP 200, SHA-256
+  `29a1f42f672c6a63a038c8c1c0dcb352da767a7dc47dbf6c97f636667807c4db`.
+  It is byte-identical to the known protected main index, contains GetSongBPM
+  footer branding and lacks the internal-engine asset. This proves the old
+  frontend is served; it does not establish backend SHA, actual provider
+  requests or a cache cause.
+- Fixed the first reproducible BPM gap: FILE previously linked playback but
+  referred to an absent analysis command. A visible single-track action now
+  joins the same owned queue/decoder/worker as CONNECT AUDIO LIBRARY.
+- Bind the chosen file to record/track/identity; reorder, removal and identity
+  changes cannot apply it to another track with the same numeric index.
+- Default original V1 unchanged. New shared result/PCM adapter preserves the DSP.
+  Explicit local V1/V2 comparison runs both real algorithms on separate copies;
+  comparison candidates require choice and do not overwrite the previous BPM.
+- Development server alone serves experimental modules. Production denies both
+  even with a compare query parameter. The downloadable standalone HTML embeds
+  the real workers and permits opt-in only for its local-file mode.
+- Keep manual/verified/clear revision barriers, Stop, late-result rejection,
+  library version matching, original Mix Lab grid, historical source evidence
+  and project/PDF semantics. Persist chosen algorithm/analysis duration, never PCM.
+
+## Trial and evidence
+
+`npm run preview:local` builds the standalone app. The final user deliverable
+is `GROOVEPRINT_BPM_LOCALE.zip`, containing HTML and Italian instructions.
+Download, extract and open the HTML on the user's PC; this does not depend on
+the unavailable ChatGPT remote-browser connection. It is not a hosted Railway
+preview, needs no Node to open, and has no live OAuth backend.
+
+Read `docs/BPM-INTEGRATION.md` for the actual path map and public-version
+diagnosis, `docs/BPM-LOCAL-TRIAL.md` for user steps, and
+`docs/evidence/bpm-integration-2026-11-07.json` for sanitized evidence.
+Raw logs are ignored under `.private/checkpoints/bpm-integration/`.
+
+Offline suite: 69/69 plus syntax/repository/privacy guards and synthetic smoke.
+Local Firefox 144 desktop and 390x844 touch flows passed, including real
+file-URL Blob workers, manual 145 preservation, V2 choice, explicit confirmation,
+JSON roundtrip and PDF, with zero HTTP requests and zero owned contexts/workers.
+One generated waveform proves integration only. The final PR workflow must pass
+all six Chromium/Firefox/WebKit desktop/mobile jobs and Node on the final head;
+CI #93 at the base is historical and does not certify this change.
+
+Both DSP source files are byte-identical to the base. Full synthetic comparison
+before/after: all non-timing metrics unchanged, 168 rhythmic cases plus one
+negative; V1 76/168 and V2 158/168 top-1 within ±1. These are inspected development
+cases, not musical generalization. Existing 31 publisher-labelled repeated loops
+are also development material and all require review.
+
+## Next authorized step
+
+Complete final-head CI and deliver the downloadable local ZIP with a working
+link. Then use an authorized full-recording corpus with independent beat-grid
+references and grouped holdout to evaluate musical errors. No algorithm promotion
+or production readiness follows from these integration tests. Native decode
+memory, physical print scale, real OAuth and physical-device endurance remain
+unverified. Preserve main and Railway.
+
+---
+
+## Previous product-audit checkpoint (historical)
+
+# GROOVEPRINT — product audit and usable trial
+
+7 November 2026. This section supersedes earlier next-action instructions about
+restarting the general audit. The attached product-trial mandate was read in
+full. Baseline: `25bba4fa464065c5ec6afb628201b50fd64df925`, clean checkout, PR #3
+open/draft/mergeable, CI #92 passed; main
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. Main and Railway remain protected.
+
+## Implemented in this audit
+
+- `npm run dev` starts the complete server without manual secret setup, with a
+  random in-memory key/SQLite session store and production-mode refusal. It
+  never opens an inherited database path. Existing production start is unchanged.
+- Escape imported IDs in review row/checkbox HTML and preserve the raw identifier.
+  Native title buttons allow keyboard activation without changing the row workflow.
+- Correct stale automatic-provider BPM copy and the 2.0 document title. Local
+  estimates, historical values, manual edits and the original detector are intact.
+- Separate missing-tracklist warnings from physical layout overflow in preflight.
+- Keep Save/Guide directly reachable on narrow viewports.
+- Add fictional downloadable CSV (5 releases, 12 tracks, accents/quotes, duplicate
+  copy; no real release IDs or BPM), an explicit server allowlist and Docker copy.
+
+## Evidence and use
+
+Read `docs/PRODUCT-AUDIT.md` for reproduced problems, exact scope/limits and seven
+ranked proposals. `docs/USER-TEST-GUIDE.md` gives access instructions, local commands,
+ten user steps, sample expectations, print calibration and a feedback format.
+Sanitized results/hashes: `docs/evidence/product-audit-2026-11-07.json`.
+Raw intermediate logs are ignored under `.private/checkpoints/product-audit/`.
+
+Offline suite: 63 tests (59 prior + 4 meaningful launcher/output/preflight cases),
+syntax/config/privacy and synthetic smoke. Firefox 144.0.2 desktop + 390x844 touch
+full flows passed. The new separate guest context uses real, unauthenticated
+server routes without API mocks: CSV download/import, keyboard opening, manual
+BPM, design, 2-page PDF, adversarial JSON IDs, backup/reimport and reload. It makes
+zero BPM API requests. Existing seven PDF presets remain byte-identical between
+sync/progressive paths; audio stop/expiry/legacy guards remain in the browser suite.
+Latest PR CI, not #92, must certify this audit's final HEAD; retain the seven jobs
+and required aggregate `browser`. No source DSP files changed or were promoted.
+
+The managed preview serves the whole app at internal `http://127.0.0.1:4173/`.
+The user needs the session browser control/handoff; that loopback address is not
+a public link on their PC. Preview lifetime is not guaranteed and maintenance
+may stop it. For private data/audio, run `npm run dev` on the user's own device.
+Use fictional data for this remote trial. Do not register another public hosting
+service or deploy to Railway to work around this boundary.
+
+Docker CLI/image build, live OAuth, physical phones/print, native-memory endurance
+and independently verified complete-recording BPM holdout remain unverified.
+All three detector/worker hashes remain those in the preceding removal report.
+
+## Next action
+
+Have the owner complete the ten-step CSV/editor/PDF trial and report the first
+specific friction. The first implementation proposal is a clearer primary CSV
+entry with progressive optional Discogs/audio panels, based on the dense initial
+screen. Keep musical accuracy work on the independent-authorized-full-recording
+protocol; do not rebuild a provider or infer accuracy from integration tests.
+No merge, deploy, secret change or Railway operation was performed or authorized.
+
+---
+
+## Historical checkpoint: catalog removal (still applicable where not superseded)
+
+# GROOVEPRINT — current checkpoint: internal engine, catalog removal
+
+Date: 7 November 2026. This section supersedes the historical stabilization record below.
+Starting branch HEAD: `a644c8ef549b38a03147adcfd4c25dc5f8a910b9`; PR #3 was open,
+draft, mergeable and CI #91 passed all seven jobs. Main remains
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. Shell checkout was clean.
+No main update, merge, deploy, secret/environment change or Railway operation is authorized.
+
+## Product decision and implementation
+
+GetSongBPM is **removed from active integration**, superseding the former optional
+provider decision. It has not been replaced with another BPM service.
+
+- Delete `server/bpm-match.mjs`, the server client/key reader and remote catalog
+  processing. Old GET lookup / POST batch return `410 BPM_CATALOG_RETIRED`; origin,
+  CSRF and throttling safeguards remain. A valid old key has no effect.
+- `/api/bpm/status` describes the experimental local-audio engine: audio required,
+  no upload, no catalog lookup, unchanged baseline algorithm. Discogs status has
+  no provider-configuration field.
+- Replace `src/auto-bpm.js` with `src/collection-enrichment.js`. All callers,
+  lifecycle/busy checks, owned cancellation and restart epochs now concern only
+  metadata/tracklists. It never assigns BPM or calls a catalog/archive endpoint.
+- Remove fixed credits, setup/signup messages, catalog panels, controls, cache and
+  request functions. Remove the obsolete asset and update syntax/package scripts.
+- Separate `gpLocalBpmCandidates` / `chooseLocalBpmCandidate` from historic provenance.
+  Selecting a local candidate stays `estimated`; explicit confirmation sets `verified`.
+  The engine panel and VEDI CANDIDATI provide the internal-audio path.
+- Preserve existing external BPM, raw source, reference URL, manual/verified values,
+  clears, project JSON and user evidence. Stored HTTPS references are sanitized when
+  displayed; they do not trigger automatic lookup or relabel data as internal DSP.
+- The explicit archive adapter and availability probe remain isolated research;
+  neither stored MBIDs nor CSV import invokes them as fallback.
+
+Default product flow: CSV/Discogs metadata -> voluntarily connected authorized
+local audio -> exact version matching -> original detector worker -> estimates /
+review -> explicit confirmation -> editor/PDF. Missing BPM stays empty without
+signal or existing user evidence. No external key or Discogs login is needed for
+local-audio analysis itself.
+
+## Verification
+
+Sanitized machine-readable evidence is stored in
+`docs/evidence/provider-removal-2026-11-07.json` (local runs, request counts,
+preserved history, PDF comparisons and unchanged detector hashes).
+
+- The pre-change offline suite passed 69 tests. The new suite has 59 cases:
+  seven retired catalog-matcher cases were removed; 13 remote-orchestrator tests
+  were replaced by eight metadata-only lifecycle tests; one backend test became
+  two with/without-key authenticated egress audits; one static runtime removal
+  guard was added. Browser regressions now check absence rather than mock success
+  from a replacement catalog. Test-count changes reflect retired functionality.
+- `npm run validate`: offline tests, syntax, repository privacy/config guard and
+  synthetic smoke. `npm run test:audio-lifecycle`, `npm run benchmark:compare`, and
+  the cached authorized 31-loop pilot were executed. Inspect the final command
+  results and latest PR CI before relying on any historical run number.
+- The backend tests run the real Node server with a test-only outbound-network
+  audit for fetch/http/https. They exercise a real fixture-authorized session,
+  CSRF/origin failures, internal status and retired routes both without and with
+  a dummy legacy key. **Zero backend outgoing requests** in these scenarios.
+- Firefox desktop and 390x844 touch viewport exercise Discogs import, metadata Stop
+  with late response/queued restart, two expiry cycles, no BPM from metadata/MBID,
+  actual WAV decode/worker, local candidate choice and explicit confirmation,
+  1500-row navigation, seven PDF presets/cancellation, CSV errors and legacy JSON.
+  **Zero BPM API requests and zero retired-host requests** through the full flow.
+- Existing controlled 10/100/500/1500 queues, resource cleanup, manual-clear/revision
+  barriers and 30 real decodes of the same generated WAV remain covered. These
+  are not 1500 distinct real recordings or a native-memory leak proof.
+- Chromium/Firefox/WebKit desktop/mobile CI and the aggregate `browser` required
+  check remain intact. Local Chromium/WebKit environment limitations from the
+  historical section do not imply a test pass; latest CI decides their result.
+
+Retained provider-name occurrences are classified: negative/legacy test fixtures,
+this removal record and explicitly marked historical research. Current runtime
+`index.html`, `src/` and `server/` contain no retired provider name/domain/key.
+Current configuration docs no longer instruct signup/key activation. Existing
+historical source strings inside user-imported data are intentionally preserved.
+
+## DSP and remaining limits
+
+No detector or worker algorithm was changed/promoted by this removal:
+
+- Baseline SHA-256: `63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4`.
+- Challenger SHA-256: `0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc`.
+
+Development counts remain 158/168 original synthetic and 137/144 follow-up top-1
+for the challenger; 31/31 repeated publisher-labelled loops, all review-required.
+These are inspected development data, not independently verified full tracks.
+No confidence calibration or musical production approval follows from removal.
+Full-file native decode remains non-abortable; physical phones/print and extended
+native-memory endurance remain distinct, unverified gates.
+
+Next single research action: use authorized complete recordings with independent
+beat-grid references and a grouped untouched holdout in the existing corrected
+benchmark. Do not rebuild an external BPM lookup or re-audit completed removal.
+The source is in the development PR; an unchanged deployed site can still display
+its prior implementation until a separately authorized release.
+
+---
+
+## Historical stabilization checkpoint (superseded where provider behavior differs)
+
+# GROOVEPRINT — execution checkpoint, 7 November 2026
+
+## Resume here
+
+The operating prompt has been read in full and implemented locally against PR #3,
+`feature/bpm-intelligence-3-open-data`. Initial HEAD was
+`b72373f017b407ed9744f52876179dd396919e51`; initial main was
+`28f9fd9ed699ec13c4ab4108ca2266159715e73c`. PR was open, draft and mergeable;
+initial CI #90 passed. A real checkout and a detached baseline worktree were used,
+not API-only edits. No applicable on-disk AGENTS.md was present.
+
+Current code and the evidence files in this commit are the checkpoint. Local
+Node is 24.22.1; CI retains Node 22. Publication uses the connected GitHub account
+because the shell has no GitHub write credentials. Inspect the latest PR HEAD and
+its CI before resuming; do not use the historical #90 result as the current check.
+No main update, merge, auto-merge, deployment or Railway operation is authorized
+or performed in this work.
+
+## Reproduced defects and resulting behavior
+
+| Defect | Correction / regression |
+|---|---|
+| Local library had no stop; detector blocked the UI | One decoder plus reusable module worker; real worker termination; cancel while read/decode retains the lock until it drains; no late writes or duplicate starts. `audio-lifecycle.test.mjs`, browser real WAV cycles. |
+| 1500-file cap preceded filtering | Filter first; found/unsupported/empty/oversize/accepted/over-cap counts; duplicate-file matches marked ambiguous. |
+| A cleared manual BPM was overwritten by a late response | Shared evidence tickets bind record, track object, version fields, BPM, source and edit revision; manual empty values are protected. |
+| Stop missed archive/status requests, queued restart could survive stop | One owned AbortSignal across phases, owned tracklist cancellation, epoch-checked restart; explicit new request after stop is honored, earlier queued request is discarded. |
+| User evidence could restore a prior BPM after a clear, or collide across physical copies | Persist explicit clears; opaque per-instance/version keys, compatible legacy fallback; user-only evidence included in sanitized JSON recovery backup. |
+| Deferred whole-page redraw could swallow Import click | Progress updates replace only status panels and reconcile untouched BPM fields; no asynchronous whole-app redraw on focusout. Browser CSV fixture caught this. |
+| Rows after 1500 had no list navigation | Visible previous/next pages over the full filtered dataset; record 2999 can be opened and exported. |
+| Large PDF export occupied the UI for >1 second | Same vector builder driven incrementally; frozen export input, cancellable work, duplicate export guard. Byte-identical synchronous/progressive output on all seven actual presets. |
+| Malformed CSV could still be imported | Reject unclosed quotes without replacing the current collection; empty CSV keeps data; stale file-read generations cannot replace a newer selection. |
+| Benchmark dropped challenger decode failures and used prediction-only denominators | Same planned inputs for each engine; failures and invalid outputs remain rows; independent PCM copies, alternating order, 3 repetitions, both engine hashes, raw timings, explicit full/conditional metrics and Wilson intervals. |
+
+## Architecture and ownership
+
+- `index.html`: collection, explicit edits, import generations, Discogs/source lifecycle,
+  deferred persistence, editor and PDF. PDF exports own a frozen snapshot/controller.
+- `src/bpm-evidence.js`: shared write barrier; no audio or provider persistence.
+- `src/bpm-library.js`: bounded sequential queue, worker/context ownership and counters.
+- `src/bpm-worker.mjs`: only the unchanged production baseline detector.
+- `src/auto-bpm.js`: owned provider requests, restart epochs and metadata-only lookups.
+- `scripts/tempo-evaluation.mjs`: input isolation, case accounting and scoring.
+- `scripts/tempo-synthetic.mjs`: original deterministic signal generator.
+- `src/bpm-tempo-experiment.mjs`: benchmark-only candidate; not served or loaded by UI.
+
+The baseline `src/bpm-tempo.mjs` remains byte-for-byte unchanged, SHA-256
+`63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4`.
+No framework, build-system or production configuration migration was introduced.
+
+## Verification and evidence
+
+Local gates: `npm run validate`, `npm run benchmark:compare`, targeted lifecycle
+and scoring tests; real Firefox 144.0.2 desktop and 390x844 simulated-touch runs
+of `tests/browser-smoke.mjs`. The final local offline suite has 69 passing tests; see latest CI for its
+execution counts and final browser outcomes. Browser CI now runs Chromium, Firefox and WebKit, each desktop/mobile, while
+preserving the existing required `browser` check as an aggregate gate.
+`ffmpeg` is explicitly available for generated codec fixtures.
+
+Browser coverage: CSV valid/empty/malformed, two legitimate copies, import/mocked
+Discogs refresh through two expiries, manual evidence restoration, local WAV
+worker/privacy/cancellation, 30 repeated decodes of one original 22-second signal,
+zero owned contexts/workers after each cycle, search/caret, record beyond DOM cap,
+seven PDF presets, 9-label incomplete pages, accents, vector boundaries, frozen
+export state and PDF cancellation. Mobile viewport is not a physical phone test.
+
+Locally Chromium 1.57's download failed and system Chromium 156 could not create
+its process-singleton socket; Firefox ran successfully. WebKit downloaded but
+required system libraries could not be installed in this environment. Those
+local limits are not product passes. CI installs its supported browser dependencies.
+Firefox decoded generated MP3, FLAC, M4A, Ogg and Opus; generated AIFF was rejected
+with EncodingError. An extension is a candidate, not a codec-support guarantee.
+
+Controlled queue sizes 10/100/500/1500 prove scheduling and counters, not 1500
+independent real-file decodes. Memory ownership counts are not a native-RAM leak
+proof; Firefox did not expose JS heap memory. Full-file decode remains non-abortable;
+128 MiB is a post-decode PCM rejection threshold, not a guaranteed native peak.
+DSP transfer copies only two channels and at most 180 seconds at 12 kHz.
+
+Reproducible UI comparison: `GROOVEPRINT_BROWSER=firefox node scripts/ui-benchmark.mjs`
+with `--project BASELINE_WORKTREE --label baseline-final`, then `--label progressive`.
+At 3000 labels, one matched run changed the maximum heartbeat gap from 1308 ms to
+45 ms, with equal 38,911,671 PDF bytes / 375 pages. Wall time rose from 1303 to
+1758 ms because the UI gets time to respond. Render/parse each have five raw
+samples. Do not call two animation frames a complete paint trace or derive p95
+from these small samples. All raw public-safe samples are in
+[evidence/ui-before-after-2026-11-07.json](evidence/ui-before-after-2026-11-07.json).
+
+## BPM experiment: frozen development profile
+
+The experimental defaults are exported as `TEMPO_PARAMETERS`: 55–210 BPM,
+180 seconds, band-agreement selection, harmonic anchoring enabled, strong-band
+support ratio 0.70, combined score >=0.50, integer factors 2 and 3, review ratio
+0.20. No genre/BPM prior, file-name tempo or reference value enters the detector.
+Candidate scores remain uncalibrated; automatic application never means verified.
+
+1. Independent low/full-band support promotes a faster integer-related pulse.
+2. The stronger slower periodicity can anchor the faster pulse's refined tempo.
+3. Conservative review also catches weak, phase-sensitive doubled alternatives.
+
+A separate broadband-conflict review rule was tried and discarded: it did not
+catch the sparse control errors. Changes were selected using development data;
+the follow-up synthetic suite was inspected, so it is NOT an untouched holdout.
+
+| Development material | Original V2 correct ±1 | Selected profile correct ±1 | Accepted / correct, final |
+|---|---:|---:|---:|
+| 31 publisher-labelled repeated loops | 23/31 | 31/31 | 0 / N/A |
+| 168 original generated rhythmic cases | 157/168 | 158/168 | 28 / 28 |
+| 144 follow-up generated rhythmic cases | 97/144 | 137/144 | 38 / 38 |
+
+Ablation on the 31 loops: band selection alone 30/31; adding harmonic anchoring
+31/31. All 31 still require review. Synthetic coverage fell when review became
+more conservative; precision must always be read with coverage and sample size.
+No independent full-track music accuracy was measured. A 31/31 result gives a
+Wilson 95% interval of about 88.97–100% under independence, which these related
+loops do not establish. Zero automatic predictions means undefined precision.
+
+Case-by-case results, source/code hashes, attribution and raw measurements:
+[evidence/tempo-publisher-development-2026-11-07.json](evidence/tempo-publisher-development-2026-11-07.json)
+and [evidence/tempo-synthetic-development-2026-11-07.json](evidence/tempo-synthetic-development-2026-11-07.json).
+Private audio/cache and intermediate experiments stay under ignored `.private/`.
+
+## Gates and next single executable action
+
+- G0: baseline checkout, PR, main SHA and initial CI identified.
+- G1: local integrity regressions and Firefox flows pass; inspect latest CI matrix
+  for the final commit before treating the broader browser gate as passed.
+- G2: reproducible development ranking improvement, with honest coverage limits.
+- G3: INCOMPLETE — authorized full recordings with independently verified beat-grid
+  references and an untouched grouped holdout have not been supplied.
+
+Next action: initialize/reuse the private manifest for a first authorized 30 full
+recordings, independently verify beat-grid references using the existing Ableton
+protocol, then run the corrected two-engine benchmark. Do not overwrite a curated
+manifest. Do not re-run the general audit, add a provider as a substitute for
+signal evidence, or enable V2 in the UI. Live OAuth with a permitted account,
+physical print calibration and long native-memory/device soak remain separately
+unverified and do not negate the software fixes.

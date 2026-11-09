@@ -1,13 +1,42 @@
-# Known limits and remaining work
+# Remaining limits — 7 November 2026
 
-1. GetSongBPM API key is not configured in Railway; no real catalog BPM can currently be fetched, though the client/server lookup pipeline is coded and mocked in tests.
-2. Automatic lookup runs in the current browser tab, not a durable server-side queue. Closing the tab stops work.
-3. No legally authorized provider supplying raw track PCM automatically has been integrated. Discogs offers metadata, not the audio. Automatic audio DSP per track is therefore not achieved.
-4. Essentia.js not shipped pending commercial license review and audio benchmarks.
-5. CSV-only users without Discogs OAuth do not have access to the protected GetSongBPM batch endpoint.
-6. Exact matching may miss spelling variations; it deliberately favors no BPM over incorrect BPM.
-7. Heavy imports require real browser endurance tests. Discogs rate limiting may prolong tracklist fetches.
-8. Live OAuth, provider response, PDF physical print and YouTube embeds require browser/service validation with permitted credentials and media.
-9. Repository currently public; protect source/rights as appropriate before commercialization.
+The automatic Discogs import mandate is **PARTIAL**: development can find and
+analyze matching CC0/BY recordings in the curated FMA collection without file selection.
+One control album has live source/decode evidence. It does
+not cover the user's commercial techno/hardgroove catalog and assigns no numeric
+BPM automatically. The next prerequisite is an audio catalog with version IDs and
+explicit permission for automated BPM analysis. See BPM-AUTOMATIC-IMPORT.md for
+real/live versus mocked tests, proxy/DNS limits and the lack of a public preview.
 
-Future milestones: secure persisted job queue; licensed audio preview and optional one-time user audio library; calibrated DSP benchmarks; subscription readiness and print QA.
+1. BPM V2 is available only as explicit development/standalone local comparison;
+   V1 remains default and production does not serve V2. See BPM-INTEGRATION.md.
+   All 31 repeated publisher-labelled pilot loops
+   still require review; independent full-track accuracy and useful commercial
+   automatic coverage are not established. See WORK-CHECKPOINT.md and evidence/.
+2. Discogs CSV provides metadata, not signal or an implied tempo. The retired
+   catalog integration has no active client, key reader or fallback. Local analysis
+   needs authorized audio; the archive adapter is isolated research. Connected
+   Discogs regression flows use mocks unless explicitly marked live.
+3. Local jobs need the tab open. A running decode cannot be aborted through Web
+   Audio; stop discards its result and holds the single-decoder lock until cleanup.
+   Native decode can allocate the full file before the 128 MiB PCM check. Neither
+   file-size limits nor JS heap counters guarantee a fixed native peak.
+4. Controlled 1500-item scheduling is verified; real browser resource cycles reuse
+   one original 22-second WAV. Long diverse-codec/end-user-device endurance is not
+   established. Filename extensions do not guarantee decodability; Firefox 144
+   rejected generated AIFF while MP3/FLAC/M4A/Ogg/Opus/WAV worked.
+5. A 390x844 touch viewport is not a physical phone. Local Chromium launch/download
+   and WebKit system-dependency installation were environment-blocked. Use the
+   final CI matrix for actual Chromium/Firefox/WebKit verification.
+6. PDF export remains vector/Base-14 fonts with WinAnsi limits; fonts are not
+   embedded. Unsupported characters require browser printing or a supported font
+   path. Physical 100% scale / printer margins still need a measured print test.
+   Final PDF byte assembly is synchronous; 3000-label heartbeat observations are
+   diagnostics, not a universal timing guarantee.
+7. Exact artist/version matching intentionally abstains on ambiguity, spelling
+   differences, duplicate recordings or competing files. It does not infer a remix
+   identity from a shared title. User evidence is bounded and persisted separately
+   from short-lived provider snapshots; no source-retention period was extended.
+8. Live OAuth, real account/session failures, commercial security/billing readiness
+   and production deployment were not part of these verified local changes. No
+   main merge or Railway change is authorized by passing tests.

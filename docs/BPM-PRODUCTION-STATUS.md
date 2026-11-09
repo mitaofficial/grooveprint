@@ -1,0 +1,45 @@
+# GROOVEPRINT — internal BPM product status
+
+**Latest development exception:** BPM-AUTOMATIC-IMPORT.md documents the partial
+automatic import pipeline, FMA CC0/BY catalog discovery and its real-source proof
+on one open-license control album. It reuses V1 and forces review; no general commercial catalog or validated
+automatic assignment is claimed. Production denies the research resolver/example.
+
+GetSongBPM integration was removed from active code on the development branch
+`feature/bpm-intelligence-3-open-data`, PR #3. No main update, merge, deployment,
+production secret change or Railway operation was performed. A live site left
+on its previous release is not evidence that the development removal was deployed.
+
+**Default BPM path:** the experimental GROOVEPRINT BPM Engine analyzes authorized
+local audio in the browser using the unchanged original detector worker. Import
+recovers metadata only; a missing BPM stays missing without signal or explicit
+user input. There is no BPM provider signup/key gate or automatic remote fallback.
+
+**Preserved:** user manual/verified values, explicit clears, local candidates,
+version matching, stop/resource ownership, historical external provenance,
+project import/export, Discogs tracklists/two-expiry recovery and vector PDF.
+The isolated archive research adapter is not called by the default browser path.
+
+**Removed:** catalog client, environment-key reader, matching resolver, lookup/
+batch implementation, cache, readiness polling, promotional credits, service
+controls and activation instructions. Retired API routes return 410; capability
+status describes local signal analysis. Security checks remain on shared routes.
+
+**Verification:** the new offline suite and full browser flows explicitly check
+zero retired service/network/API use. A valid fixture-authorized backend session
+is tested with and without a dummy obsolete key under a network audit. Legacy
+JSON values retain source/reference and are not relabelled as internal estimates.
+Read WORK-CHECKPOINT.md and the latest PR CI for exact results.
+
+**Local trial exception, 7 November 2026:** the focused BPM mandate authorizes
+explicit V1/V2 comparison in development and the standalone local HTML. V1 is
+still the default. Comparison preserves the previous BPM until a user chooses a
+candidate; production never serves the experimental modules. Single-track and
+library analysis now share the owned queue. See `BPM-INTEGRATION.md` and
+`BPM-LOCAL-TRIAL.md` for the implementation and downloadable-trial workflow.
+
+**Musical gate remains incomplete:** the challenger is not a production default. Prior
+31/31 results refer to repeated publisher-labelled loops, all review-required;
+158/168 and 137/144 refer to inspected synthetic development cases. These are not
+independent full-track accuracy. No musical confidence, full-track reliability,
+physical print/device endurance or live OAuth certification is implied.
