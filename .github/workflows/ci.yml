@@ -21,6 +21,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - name: Ensure FFmpeg so the private beat-reference CLI e2e is never silently skipped
+        run: command -v ffmpeg >/dev/null || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
       - run: npm run validate
       - run: npm run benchmark:compare
       - name: V3 original synthetic development-only score (not full-song validation)
