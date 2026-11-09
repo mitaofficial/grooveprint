@@ -73,6 +73,7 @@ This failure is an explicit **release blocker** for V4, not an invitation to tun
 - `scripts/bpm-v4-verified-eval.mjs` uses only a private local manifest and SHA-256-checked audio, then decodes with locally installed FFmpeg into private memory, evaluates V1/V2/V3/V4 on the same PCM, and computes beat F-measure. It never uploads raw audio.
 - A generated-waveform **engineering E2E test** exercises the real local decoder and SHA mismatch rejection. It is skipped when FFmpeg is absent; the CI test job now explicitly installs FFmpeg so this test must execute. This test proves the evaluation pipeline operates, **not** that any real song has independently verified tempo.
 - Scalar BPM accuracy applies only to tracks with scalar references. Real tempo-changing pieces can still be evaluated by timestamp F-measure without inventing a single ground-truth BPM.
+- Full songs may exceed the current 180-second processing budget. Beat-timestamp F-measure is computed **only against the independently annotated beats within the analyzed PCM span**, and the report discloses the fraction of reference beats included. Never present this as full-song beatgrid accuracy when the recording is longer.
 
 Example PRIVATE manifest schema (put real paths, hashes, rights and annotations in `.private/tempo-dataset/verified-beatgrids.json`, **never commit it**):
 
