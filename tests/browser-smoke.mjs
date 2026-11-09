@@ -492,7 +492,7 @@ try{
   await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.total===6&&window.GrooveprintAutomaticBPM.job.done===6&&!window.GrooveprintAutomaticBPM.job.running);
   const checked=await automatic.evaluate(()=>({tracks:state.releases.flatMap(r=>r.tracks.map(t=>({title:t.title,bpm:t.bpm,status:t.bpmStatus,origin:t.trackSource,algorithm:t.bpmAlgorithm,decision:t.bpmDecision?.status,provenance:t.bpmAudioEvidence?.provider}))),job:{...window.GrooveprintAutomaticBPM.job},resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers},persisted:snapshot().releases.map(r=>r.tracks.length)}));
   assert.equal(resolvedTracks.length,3,'duplicate copies reuse positive and negative resolution');assert.equal(audioDownloads.length,1,'one decode per identical recording');
-  assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-v1-v2-local-comparison');assert.ok(['supported','ambiguous','undetermined'].includes(t.decision),'development auto analysis must reach the V3 decision layer');assert.equal(t.provenance,'Synthetic source fixture')}}
+  assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-v1-v2-local-comparison');assert.ok(['supported','provisional','ambiguous','undetermined'].includes(t.decision),'development auto analysis must reach the V3 decision layer');assert.equal(t.provenance,'Synthetic source fixture')}}
   assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
   await automatic.locator('[data-gp-auto-review]').click();
   assert.ok(await automatic.locator('.gp-tempo-decision').count()>0,'automatic preview should display V3 decision cards');
@@ -614,9 +614,9 @@ try{
   await decisionCard.waitFor();
   const decision=await offline.evaluate(()=>state.releases[0].tracks[0].bpmDecision);
   assert.equal(decision.version,'grooveprint-tempo-decision-v3-experimental');
-  assert.ok(['supported','ambiguous','undetermined'].includes(decision.status));
+  assert.ok(['supported','provisional','ambiguous','undetermined'].includes(decision.status));
   assert.equal(await offline.locator('.gp-bpm-lookup-choice').count(),0,'V3 never renders raw candidate buttons');
-  assert.ok(await offline.locator('[data-bpm-choose]').count()<=1,'V3 permits at most one manually chosen supported suggestion');
+  assert.ok(await offline.locator('[data-bpm-choose]').count()<=1,'V3 permits at most one manually chosen supported or indicative suggestion');
   assert.equal(await offline.evaluate(()=>state.releases[0].tracks[0].bpm),145,'protected manual BPM remains untouched');
   // A user may explicitly enter a BPM manually even when V3 abstains.
   // The edit must remain 'manual', never silently become VERIFIED.
@@ -634,7 +634,7 @@ try{
   const exportPromise=offline.waitForEvent('download');await offline.locator('[data-act="pdf"]').click();
   const pdf=await readFile(await(await exportPromise).path());assert.ok(pdf.toString('latin1').startsWith('%PDF-'));
   assert.deepEqual(offlineHttp,[],'the local-file BPM journey must make no HTTP requests');assert.deepEqual(offlineErrors,[]);
-  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'v1',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,v3Decision:decision.status,rawCandidatesHidden:true,explicitManualEdit:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
+  console.log('BROWSER PORTABLE BPM',JSON.stringify({fileUrl:true,defaultEngine:'compare',explicitComparison:true,manual145Preserved:true,algorithms:compared.algorithms,v3Decision:decision.status,rawCandidatesHidden:true,explicitManualEdit:true,pdfBytes:pdf.length,httpRequests:0,resources:compared.resources,content:'one generated click waveform; integration proof, not musical validation'}));
  }finally{await offline.close()}
  // Import historic external evidence without dropping, relabelling or re-querying it.
  const legacyProject={version:2,app:'GROOVEPRINT',releases:[{id:'legacy',releaseId:'998877',artist:'Legacy DJ',title:'Saved EP',tracks:[
