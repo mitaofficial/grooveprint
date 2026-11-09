@@ -55,12 +55,16 @@ test('wrong half-double or triple pulse cannot become supported through noisy wi
  }
 });
 
-test('V3 abstains when V2 raises its own metrical warning, even if simple windows agree',()=>{
+test('stable V1 and V2 windows with an octave warning give exactly one indicative, review-only BPM',()=>{
  const d=decideTempo({v1:score(140),v2:score(140.1,true),
   windows:[segment(140,0),segment(140.1,30),segment(140,60)]});
- assert.equal(d.status,'ambiguous');
- assert.equal(d.suggestedBpm,null);
- assert.equal(d.reason,'v2-flags-tempo-ambiguity');
+ assert.equal(d.status,'provisional');
+ assert.ok(Math.abs(d.suggestedBpm-140)<.5);
+ assert.equal(d.reason,'stable-v1-v2-with-metrical-ambiguity');
+ assert.equal(d.confidenceStatus,'indicative-unvalidated');
+ assert.deepEqual(d.alternatives,[]);
+ assert.equal(d.requiresReview,true);
+ assert.equal(d.evidence.windowsConsistent,3);
  assert.equal(d.evidence.v2FlagsAmbiguity,true);
 });
 
@@ -73,11 +77,16 @@ test('bass AND broadband harmonic support plus stable windows can suggest a doub
  assert.equal(d.reason,'band-supported-harmonic-and-temporal-agreement');
  assert.equal(d.requiresReview,true);
 });
-test('half-time V1 versus V2 is still ambiguous without band-supported harmonic evidence',()=>{
+test('stable faster V2 double pulse remains indicative, never supported without harmonic band evidence',()=>{
  const d=decideTempo({v1:score(70),v2:score(140,true),
   windows:[segment(140,0),segment(140,30),segment(140,60)]});
- assert.equal(d.status,'ambiguous');assert.equal(d.suggestedBpm,null);
- assert.equal(d.reason,'discordant-half-double');
+ assert.equal(d.status,'provisional');assert.equal(d.suggestedBpm,140);
+ assert.equal(d.reason,'stable-v2-double-pulse-meter-uncertain');
+ assert.equal(d.evidence.bandSupportedHarmonic,false);
+ assert.equal(d.requiresReview,true);
+ const conflicting=decideTempo({v1:score(70),v2:score(140,true),
+  windows:[segment(140,0),segment(70,30),segment(140,60)]});
+ assert.equal(conflicting.status,'ambiguous');assert.equal(conflicting.suggestedBpm,null);
 });
 
 test('a V1 false pulse cannot turn signal with no V2 rhythmic evidence into a BPM or false ambiguity',()=>{
@@ -92,4 +101,17 @@ test('a V1 false pulse cannot turn signal with no V2 rhythmic evidence into a BP
  const unknown=decideTempo({v1:score(120),v2:{status:'unavailable',bpm:null,reason:'audio-too-short'}});
  assert.equal(unknown.status,'ambiguous','generic analysis failures are not proof of silence');
  assert.equal(unknown.reason,'only-one-engine-available');
+});
+
+test('indicative BPM never bypasses 3:2 conflicting meters or incomplete tempo windows',()=>{
+ const third=decideTempo({v1:score(100),v2:score(66.7,true),
+  windows:[segment(66.7,0),segment(66.7,30),segment(66.7,60)]});
+ assert.equal(third.status,'ambiguous','3:2 difference is not proof of a correct pulse');
+ assert.equal(third.suggestedBpm,null);
+ for(const windows of [[],[segment(140,0)],[segment(140,0),{status:'unavailable',reason:'no-onsets'}],
+  [segment(140,0),segment(120,30),segment(140,60)]]){
+  const d=decideTempo({v1:score(140),v2:score(140,true),windows});
+  assert.equal(d.status,'ambiguous');
+  assert.equal(d.suggestedBpm,null);
+ }
 });
