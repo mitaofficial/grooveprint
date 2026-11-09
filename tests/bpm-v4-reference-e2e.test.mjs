@@ -44,6 +44,8 @@ test('private independent-reference CLI computes beat timestamps from exact hash
   const report=JSON.parse(await readFile(join(out,'report.json'),'utf8'));
   assert.equal(report.referenceRows,1);
   assert.equal(report.cases[0].referenceBpm,120);
+  assert.equal(report.cases[0].referenceBeatsInAnalyzedSpan,24);
+  assert.equal(report.cases[0].referenceFractionWithinAnalyzedSpan,1);
   assert.ok('v4BeatFMeasure' in report.cases[0]);
   assert.equal(report.cases[0].audioSecondsAnalyzed,12);
   // Detect an exact-version mismatch before doing DSP.
