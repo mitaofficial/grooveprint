@@ -954,6 +954,7 @@ function gpBpmHint(t){
  if(t.bpmDecision?.version==='grooveprint-tempo-decision-v3-experimental'&&!['manual','verified'].includes(t.bpmStatus)&&
      (t.bpm===null||t.bpm===undefined||t.bpm==='')){
   if(t.bpmDecision.status==='supported')return 'BPM SUGGERITO · ascolta e verifica prima di usarlo';
+  if(t.bpmDecision.status==='provisional')return 'BPM INDICATIVO · pulsazione stabile, metrica incerta: ascolta prima di usarlo';
   if(t.bpmDecision.status==='ambiguous')return 'TEMPO AMBIGUO · nessun BPM principale; verifica all’ascolto';
   return 'TEMPO NON DETERMINABILE · inserisci il BPM manualmente dopo ascolto';
  }
@@ -1110,8 +1111,13 @@ async function analyze(index){const d=lab.decks[index];if(!d.buffer)return toast
 function gpTempoDecisionPanel(record,index){
  const track=record.tracks[index],d=track.bpmDecision,e=d.evidence||{};
  const supported=d.status==='supported'&&Number.isFinite(d.suggestedBpm);
- const title=supported?'BPM SUGGERITO':d.status==='undetermined'?'TEMPO NON DETERMINABILE':'TEMPO AMBIGUO';
+ const provisional=d.status==='provisional'&&Number.isFinite(d.suggestedBpm);
+ const showBpm=supported||provisional;
+ const title=supported?'BPM SUGGERITO':provisional?'BPM INDICATIVO · DA VERIFICARE':d.status==='undetermined'?'TEMPO NON DETERMINABILE':'TEMPO AMBIGUO';
  const summary=supported?(d.reason==='band-supported-harmonic-and-temporal-agreement'?'V2 rileva una pulsazione più rapida sostenuta dagli onset bassi e broadband, stabile fra più finestre. V1 può indicare metà tempo: verifica all’ascolto.':'Due motori e finestre temporali concordano; serve comunque verifica umana.'):
+  provisional?(d.reason==='stable-v2-double-pulse-meter-uncertain'?
+   'La pulsazione V2 è stabile nelle finestre audio, ma V1 suggerisce metà tempo. Valore puramente orientativo: verifica la metrica e la beatgrid all’ascolto.':
+   'V1 e V2 indicano una pulsazione compatibile e le finestre audio sono stabili; V2 segnala però un conflitto metrico. La precisione non è stata validata.'):
   d.status==='undetermined'?'Nessuna pulsazione attendibile individuata.':
   'Conflitto fra pulsazioni o stabilità temporale insufficiente. Non è possibile proporre un BPM principale.';
  const sourceUrl=safeReferenceUrl(track.bpmAudioEvidence?.sourcePage);
@@ -1131,9 +1137,10 @@ function gpTempoDecisionPanel(record,index){
  return '<section class="gp-tempo-decision" data-tempo-decision-status="'+esc(d.status)+'" role="group" aria-label="Decisione BPM sperimentale">'+
   '<div class="gp-tempo-heading">GROOVEPRINT · V3 SPERIMENTALE</div>'+
   '<div class="gp-tempo-label">'+title+'</div>'+
-  (supported?'<div class="gp-tempo-value">'+esc(d.suggestedBpm)+' <small>BPM</small></div>':'')+
+  (showBpm?'<div class="gp-tempo-value">'+esc(d.suggestedBpm)+' <small>BPM</small></div>':'')+
   '<p>'+esc(summary)+'</p>'+source+
-  (supported?'<button type="button" class="small quiet" data-bpm-choose="'+index+'" data-release-id="'+esc(record.id)+'" data-candidate="-1">USA COME STIMA, DOPO AVER ASCOLTATO</button>':'')+
+  (showBpm?'<button type="button" class="small quiet" data-bpm-choose="'+index+'" data-release-id="'+esc(record.id)+'" data-candidate="-1">'+
+   (provisional?'HO VERIFICATO: USA COME STIMA':'USA COME STIMA, DOPO AVER ASCOLTATO')+'</button>':'')+
   '<p class="gp-tempo-disclaimer">Nessun BPM assegnato o confermato automaticamente.</p>'+detail+'</section>';
 }
 function gpLocalBpmCandidates(record,index){
@@ -1180,11 +1187,13 @@ function chooseLocalBpmCandidate(releaseId,index,candidateIndex){
  const record=state.releases.find(r=>r.id===releaseId),track=record?.tracks[index];
  if(!track||(!track.bpmComparisonCandidates?.length&&(!['review','estimated'].includes(track.bpmStatus)||!['local-dsp','audio-estimate'].includes(track.source))))return toast('Nessun candidato locale disponibile.',true);
  const decision=track.bpmDecision?.version==='grooveprint-tempo-decision-v3-experimental'?track.bpmDecision:null;
- if(decision&&(candidateIndex!==-1||decision.status!=='supported'))return toast('Tempo ambiguo o non verificato: ascolta e inserisci il BPM manualmente.',true);
+ if(decision&&(candidateIndex!==-1||!['supported','provisional'].includes(decision.status)))return toast('Tempo ambiguo o non verificato: ascolta e inserisci il BPM manualmente.',true);
  const choices=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:(['review','estimated'].includes(track.bpmStatus)&&['local-dsp','audio-estimate'].includes(track.source)?track.bpmCandidates||[]:[])).filter(c=>Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8);
  const chosen=decision?{bpm:decision.suggestedBpm,algorithm:decision.version}:choices[candidateIndex],bpm=chosen?.bpm;
  if(!Number.isFinite(bpm))return toast('Candidato non valido.',true);
- if(!confirm('Usare '+bpm+' BPM dall’analisi del motore interno per '+track.title+'? Il valore resta una stima da verificare.'))return;
+ if(!confirm('Usare '+bpm+' BPM dall’analisi del motore interno per '+track.title+'? '+
+  (decision?.status==='provisional'?'ATTENZIONE: è soltanto indicativo, la metrica non è confermata. Verifica prima la beatgrid. ':'')+
+  'Il valore resta una stima da verificare, non un BPM verificato.'))return;
  commit(()=>{window.GrooveprintBPMEvidence.userEdit(track);track.bpmCandidates=decision?[chosen]:choices;track.bpm=bpm;track.bpmStatus='estimated';track.source='local-dsp';track.bpmAlgorithm=String(chosen.algorithm||track.bpmAlgorithm||'grooveprint-onset-acf-v1');track.bpmAnalysisSeconds=Number(track.bpmComparisons?.find(x=>x.algorithm===track.bpmAlgorithm)?.analysisSeconds)||track.bpmAnalysisSeconds||0;track.bpmCheckedAt=track.bpmComparisonAt||track.bpmCheckedAt||'';track.bpmReferenceUrl='';});
  toast('BPM '+bpm+' selezionato come stima. Puoi confermarlo dopo la verifica.');
 }
