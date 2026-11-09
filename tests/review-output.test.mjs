@@ -115,3 +115,24 @@ test('legacy six-candidate V1 research shows one V3 reanalysis action, no mislea
  assert.match(ctx.gpLocalBpmCandidates(record,0),/6 candidati/,
   'production behavior stays unchanged on mainline V1 path');
 });
+
+test('V3 indicative tempo shows one listening-only estimate and zero raw peak choices',()=>{
+ const r={id:'demo',tracks:[{title:'Percussive Tool',bpm:null,bpmStatus:'review',source:'local-dsp',
+  bpmDecision:{version:'grooveprint-tempo-decision-v3-experimental',status:'provisional',suggestedBpm:136.25,
+   reason:'stable-v1-v2-with-metrical-ambiguity',
+   evidence:{v1Bpm:136.36,v2Bpm:136.25,metricalRelation:'same-pulse',
+    windowsPlanned:2,windowsConsistent:2,v2FlagsAmbiguity:true},alternatives:[]},
+  bpmComparisonCandidates:Array.from({length:8},(_,i)=>({bpm:68+i*10,relative:.42-i*.01}))}]};
+ const ctx={esc,safeReferenceUrl:x=>x};vm.createContext(ctx);
+ vm.runInContext(html.slice(html.indexOf('function gpTempoDecisionPanel(record,index){'),
+  html.indexOf('function gpBpmHistory(record,index){')),ctx);
+ const rendered=ctx.gpLocalBpmCandidates(r,0);
+ assert.match(rendered,/BPM INDICATIVO/);
+ assert.match(rendered,/136.25 <small>BPM/);
+ assert.match(rendered,/metr(ic|ica)/i);
+ assert.equal((rendered.match(/data-bpm-choose=/g)||[]).length,1,'a user can deliberately select just one provisional value');
+ assert.match(rendered,/HO VERIFICATO: USA COME STIMA/);
+ assert.equal((rendered.match(/gp-bpm-lookup-choice/g)||[]).length,0,'eight peaks must remain hidden diagnostics');
+ assert.equal(r.tracks[0].bpm,null,'showing the number never assigns a BPM');
+ assert.equal(r.tracks[0].bpmComparisonCandidates.length,8,'original diagnostic peaks are preserved');
+});
