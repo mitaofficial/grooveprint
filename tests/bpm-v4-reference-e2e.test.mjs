@@ -20,7 +20,8 @@ function wav16(audio){
  return bytes;
 }
 test('private independent-reference CLI computes beat timestamps from exact hash-matched PCM',
- {skip:!ffmpeg?'FFmpeg unavailable; cannot run offline validation integration':false},async()=>{
+ {skip:!ffmpeg&&process.env.GROOVEPRINT_REQUIRE_FFMPEG!=='1'?
+  'FFmpeg unavailable in generic Node test; required separately in licensed-audio CI':false},async()=>{
  const folder=await mkdtemp(join(tmpdir(),'gp-v4-integration-'));
  const suffix='v4-fixture-'+process.pid+'-'+Date.now();
  const out=resolve('.private/benchmarks',suffix);
