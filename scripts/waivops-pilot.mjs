@@ -19,6 +19,7 @@ import {performance} from 'node:perf_hooks';
 import {estimateLocalTempo as original} from '../src/bpm-tempo.mjs';
 import {estimateLocalTempo as experimental,TEMPO_PARAMETERS} from '../src/bpm-tempo-experiment.mjs';
 import {analyzeTempoComparison} from '../src/bpm-compare-v3.mjs';
+import {evaluateBeatGridOnsets} from '../src/bpm-beatgrid-v4.mjs';
 
 const project=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const args=process.argv.slice(2);
@@ -149,7 +150,7 @@ if(!['default','baseline','band-agreement'].includes(selection))throw Error('Inv
 const defaults=comparePath==='src/bpm-tempo-experiment.mjs'?TEMPO_PARAMETERS:{};
 const options={...defaults,...(selection==='default'?{}:{selectionMode:selection}),...(args.includes('--harmonic-refinement')?{harmonicRefinement:true}:{})};
 const engines=[{name:'v1',detector:original},{name:'v2',detector:challenger,options}];
-const rows=[],errors=[],includeV3=args.includes('--v3');
+const rows=[],errors=[],includeV3=args.includes('--v3'),includeV4=args.includes('--v4');
 for(let i=0;i<targets.length;i++){
  const name=targets[i],label=labelOf(name),id='waivops_'+String(i+1).padStart(2,'0');
  let file,loop;
@@ -170,21 +171,34 @@ for(let i=0;i<targets.length;i++){
   }catch(e){v3={status:'detector-error',bpm:null,requiresReview:true,candidateBpm:[],reason:'v3-processing-failed'};
    errors.push({id,error:'v3-processing-failed'});}
  }
+ let v4=null;
+ if(includeV4&&loop){
+  try{
+   const outcome=evaluateBeatGridOnsets(loop);
+   v4={status:outcome.status==='provisional'?'estimated':'unavailable',
+    bpm:outcome.suggestedBpm,decisionStatus:outcome.status,requiresReview:true,
+    reason:outcome.reason,candidateBpm:outcome.candidateGrids.map(g=>g.bpm),
+    beatGridSummary:outcome.metrics||null,developmentOnly:true};
+  }catch(error){v4={status:'detector-error',bpm:null,requiresReview:true,
+    candidateBpm:[],reason:'v4-processing-failed'};
+   errors.push({id,error:'v4-processing-failed'});}
+ }
  rows.push({id,publisherBpm:label,audioSha256:file?.sha256||null,sourceName:name,originalDuration:loop?Number(loop.originalDuration.toFixed(3)):null,
   analysisDuration:loop?Number(loop.duration.toFixed(3)):null,loopRepetitions:loop?.repeats||0,
   ...Object.fromEntries(results.map(r=>[r.engine,{...r,candidates:r.candidateBpm,ms:r.processingMs}])),
-  ...(includeV3?{v3}:{} )});
+  ...(includeV3?{v3}:{} ),...(includeV4?{v4}:{})});
 }
 const analyzed=rows.filter(r=>r.v1.status!=='decode-error').length;
 const algorithmMetadata={};
 for(const [name,path] of [['v1','src/bpm-tempo.mjs'],['v2',comparePath]])algorithmMetadata[name]={module:path,sha256:createHash('sha256').update(await readFile(resolve(project,path))).digest('hex'),options:name==='v2'?options:{}};
 if(includeV3)algorithmMetadata.v3={module:'src/bpm-compare-v3.mjs',sha256:createHash('sha256').update(await readFile(resolve(project,'src/bpm-compare-v3.mjs'))).digest('hex'),decisionModule:'src/bpm-decision.mjs',decisionSha256:createHash('sha256').update(await readFile(resolve(project,'src/bpm-decision.mjs'))).digest('hex'),options:{experimental:true,reviewOnly:true}};
-const report={schemaVersion:includeV3?3:2,engines:algorithmMetadata,repetitions:3,node:process.version,timingMethod:'Independent PCM copies, alternating order per case/repetition',validationType:'PUBLISHER_LABEL_ONLY',independentBpmGroundTruth:false,
+if(includeV4)algorithmMetadata.v4={module:'src/bpm-beatgrid-v4.mjs',sha256:createHash('sha256').update(await readFile(resolve(project,'src/bpm-beatgrid-v4.mjs'))).digest('hex'),options:{researchOnly:true,reviewOnly:true}};
+const report={schemaVersion:includeV4?4:includeV3?3:2,engines:algorithmMetadata,repetitions:3,node:process.version,timingMethod:'Independent PCM copies, alternating order per case/repetition',validationType:'PUBLISHER_LABEL_ONLY',independentBpmGroundTruth:false,
  audioType:'CC-BY 4.0 real produced four-bar techno loops, repeated as PCM for >8s detector compatibility',
  copyright:'WaivOps / Patchbanks, EDM-TECH Dataset (2025), https://doi.org/10.5281/zenodo.17584890',
  copyrightLicense:'CC BY 4.0',sourceCommit:repoCommit,generatedAt:new Date().toISOString(),
  attempted:targets.length,analyzed,errors,
- v1:metrics(rows,'v1'),v2:metrics(rows,'v2'),...(includeV3?{v3:metrics(rows,'v3')}:{}),cases:rows};
+ v1:metrics(rows,'v1'),v2:metrics(rows,'v2'),...(includeV3?{v3:metrics(rows,'v3')}:{}) ,...(includeV4?{v4:metrics(rows,'v4')}:{}) ,cases:rows};
 await writeFile(resolve(target,'report.json'),JSON.stringify(report,null,2)+'\n');
 const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
  '**Publisher-labelled rhythm loops only; NOT independent ground truth, NOT held-out full-track accuracy.**','',
@@ -198,7 +212,7 @@ const table=['# WaivOps EDM-TECH — OPEN AUDIO PILOT','',
  '','**Real independent BPM verification: NOT TESTED**. Do not merge the experimental DSP based on this pilot.'];
 await writeFile(resolve(target,'report.md'),table.join('\n')+'\n');
 console.log(JSON.stringify({kind:'licensed-edm-tech-publisher-label-pilot',independentGroundTruth:false,
- out:relative(project,target),analyzed,downloadDecodeErrors:errors.length,v1:report.v1,v2:report.v2,...(includeV3?{v3:report.v3}:{} )}));
+ out:relative(project,target),analyzed,downloadDecodeErrors:errors.length,v1:report.v1,v2:report.v2,...(includeV3?{v3:report.v3}:{} ),...(includeV4?{v4:report.v4}:{} )}));
 // Diagnoses on publisher labels only. No audio or private file metadata in logs.
 const sourceLabelMisses=rows.filter(r=>r.v2.status!=='estimated'||Math.abs(r.v2.bpm-r.publisherBpm)>1)
  .map(r=>({id:r.id,publisherBpm:r.publisherBpm,primaryBpm:r.v2.bpm,
@@ -213,3 +227,9 @@ if(includeV3)console.log('V3_LABEL_DIAGNOSTICS',JSON.stringify(rows.map(r=>({
  windowsConsistent:r.v3.evidence?.windowsConsistent
 }))));
 if(errors.length)process.exitCode=2;
+
+if(includeV4)console.log('V4_LABEL_DIAGNOSTICS',JSON.stringify(rows.map(r=>({
+ id:r.id,publisherBpm:r.publisherBpm,v2Bpm:r.v2.bpm,v3Bpm:r.v3?.bpm,
+ v4Status:r.v4?.decisionStatus,v4Bpm:r.v4?.bpm,
+ v4Reason:r.v4?.reason,v4BeatGrid:r.v4?.beatGridSummary
+}))));
