@@ -5,6 +5,7 @@ COPY package.json ./
 COPY index.html ./
 COPY server ./server
 COPY src ./src
+COPY examples/grooveprint-demo.csv ./examples/grooveprint-demo.csv
 RUN mkdir -p /data && chown -R node:node /app
 EXPOSE 4173
 # Railway mounts /data after image build; fix its ownership at runtime, then drop root privileges.

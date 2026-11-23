@@ -1,0 +1,207 @@
+{
+  "scope": "Same 1365x900 Firefox 144.0.2, Node 24.22.1, original ordered fixtures; render/parse 5 repeats, PDF one run per size; heartbeat is a responsiveness proxy, not a browser long-task trace",
+  "before": {
+    "label": "baseline-final",
+    "gitHead": "b72373f017b407ed9744f52876179dd396919e51",
+    "browser": "firefox",
+    "browserVersion": "144.0.2",
+    "node": "v24.22.1",
+    "viewport": [1365,900],
+    "syntheticSeed": "ordered-fixtures-v1",
+    "timingScope": "parse+normalize, state assignment, filter, JS render, two animation frames (paint proxy), synchronous PDF separately",
+    "data": [
+      {
+        "size": 50,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [3,1,1,0,2],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [3,2,2,3,2],
+          "nextFrameMs": [35,19,31,32,33]
+        },
+        "rows": 50,
+        "pdfMs": 36,
+        "pdfPath": "synchronous",
+        "heartbeatTicks": 2,
+        "maxHeartbeatGapMs": 37,
+        "pdfBytes": 649760,
+        "pdfPages": 7
+      },
+      {
+        "size": 250,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [1,2,3,0,1],
+          "stateMs": [0,0,0,1,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [5,5,11,7,9],
+          "nextFrameMs": [28,52,42,32,49]
+        },
+        "rows": 250,
+        "pdfMs": 113,
+        "pdfPath": "synchronous",
+        "heartbeatTicks": 2,
+        "maxHeartbeatGapMs": 113,
+        "pdfBytes": 3242262,
+        "pdfPages": 32
+      },
+      {
+        "size": 500,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [1,1,2,0,1],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [9,10,9,12,10],
+          "nextFrameMs": [44,54,48,50,50]
+        },
+        "rows": 500,
+        "pdfMs": 225,
+        "pdfPath": "synchronous",
+        "heartbeatTicks": 2,
+        "maxHeartbeatGapMs": 225,
+        "pdfBytes": 6483418,
+        "pdfPages": 63
+      },
+      {
+        "size": 1000,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [3,4,4,2,6],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [13,29,25,22,21],
+          "nextFrameMs": [93,151,114,113,111]
+        },
+        "rows": 1000,
+        "pdfMs": 432,
+        "pdfPath": "synchronous",
+        "heartbeatTicks": 2,
+        "maxHeartbeatGapMs": 436,
+        "pdfBytes": 12965671,
+        "pdfPages": 125
+      },
+      {
+        "size": 3000,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [6,9,12,7,17],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,1,0,0],
+          "renderMs": [35,35,32,30,27],
+          "nextFrameMs": [181,167,171,159,150]
+        },
+        "rows": 1500,
+        "pdfMs": 1303,
+        "pdfPath": "synchronous",
+        "heartbeatTicks": 2,
+        "maxHeartbeatGapMs": 1308,
+        "pdfBytes": 38911671,
+        "pdfPages": 375
+      }
+    ]
+  },
+  "after": {
+    "label": "progressive",
+    "gitHead": "b72373f017b407ed9744f52876179dd396919e51",
+    "browser": "firefox",
+    "browserVersion": "144.0.2",
+    "node": "v24.22.1",
+    "viewport": [1365,900],
+    "syntheticSeed": "ordered-fixtures-v1",
+    "timingScope": "parse+normalize, state assignment, filter, JS render, two animation frames (paint proxy), synchronous PDF separately",
+    "data": [
+      {
+        "size": 50,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [2,1,1,1,1],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [3,4,3,3,3],
+          "nextFrameMs": [41,24,32,33,33]
+        },
+        "rows": 50,
+        "pdfMs": 44,
+        "pdfPath": "progressive",
+        "heartbeatTicks": 4,
+        "maxHeartbeatGapMs": 17,
+        "pdfBytes": 649760,
+        "pdfPages": 7
+      },
+      {
+        "size": 250,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [1,1,2,1,1],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [5,6,8,8,7],
+          "nextFrameMs": [27,40,47,34,32]
+        },
+        "rows": 250,
+        "pdfMs": 162,
+        "pdfPath": "progressive",
+        "heartbeatTicks": 11,
+        "maxHeartbeatGapMs": 22,
+        "pdfBytes": 3242262,
+        "pdfPages": 32
+      },
+      {
+        "size": 500,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [2,2,1,1,1],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [13,10,11,10,11],
+          "nextFrameMs": [47,60,67,49,49]
+        },
+        "rows": 500,
+        "pdfMs": 263,
+        "pdfPath": "progressive",
+        "heartbeatTicks": 17,
+        "maxHeartbeatGapMs": 19,
+        "pdfBytes": 6483418,
+        "pdfPages": 63
+      },
+      {
+        "size": 1000,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [2,2,2,2,2],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [14,17,20,18,19],
+          "nextFrameMs": [76,97,99,81,98]
+        },
+        "rows": 1000,
+        "pdfMs": 497,
+        "pdfPath": "progressive",
+        "heartbeatTicks": 30,
+        "maxHeartbeatGapMs": 20,
+        "pdfBytes": 12965671,
+        "pdfPages": 125
+      },
+      {
+        "size": 3000,
+        "repetitions": 5,
+        "raw": {
+          "parseMs": [11,7,7,6,13],
+          "stateMs": [0,0,0,0,0],
+          "filterMs": [0,0,0,0,0],
+          "renderMs": [24,28,30,29,32],
+          "nextFrameMs": [120,159,144,147,164]
+        },
+        "rows": 1500,
+        "pdfMs": 1758,
+        "pdfPath": "progressive",
+        "heartbeatTicks": 98,
+        "maxHeartbeatGapMs": 45,
+        "pdfBytes": 38911671,
+        "pdfPages": 375
+      }
+    ]
+  }
+}

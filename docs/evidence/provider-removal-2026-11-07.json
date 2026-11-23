@@ -1,0 +1,211 @@
+{
+  "date": "2026-11-07",
+  "scope": "Remove active GetSongBPM integration; use existing experimental local-audio engine; preserve historical values",
+  "baselineHead": "a644c8ef549b38a03147adcfd4c25dc5f8a910b9",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "localValidation": {
+    "command": "npm run validate",
+    "tests": 59,
+    "passed": 59,
+    "failed": 0,
+    "syntaxPassed": true,
+    "privacyConfigurationGuardPassed": true,
+    "syntheticSmokePassed": true
+  },
+  "backend": {
+    "realServer": true,
+    "fixtureAuthorizedSession": true,
+    "keyCases": [
+      "absent",
+      "dummy legacy key present"
+    ],
+    "outboundAudit": [
+      "fetch",
+      "http",
+      "https"
+    ],
+    "observedOutgoingRequests": 0,
+    "retiredGetPostStatus": 410,
+    "originAndCsrfFailures": 403
+  },
+  "browserRuns": [
+    {
+      "environment": {
+        "browser": "firefox",
+        "version": "144.0.2",
+        "node": "v24.22.1",
+        "mobileViewport": false
+      },
+      "metadataCancellation": {
+        "phase": "interrupted",
+        "restart": false,
+        "lateTracks": 0
+      },
+      "pdf": {
+        "templates": [
+          {
+            "format": 2,
+            "labelsPerPage": 2,
+            "pages": 5,
+            "bytes": 119699,
+            "byteIdentical": true
+          },
+          {
+            "format": 4,
+            "labelsPerPage": 4,
+            "pages": 3,
+            "bytes": 119315,
+            "byteIdentical": true
+          },
+          {
+            "format": 6,
+            "labelsPerPage": 6,
+            "pages": 2,
+            "bytes": 119024,
+            "byteIdentical": true
+          },
+          {
+            "format": 8,
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 119189,
+            "byteIdentical": true
+          },
+          {
+            "format": 10,
+            "labelsPerPage": 10,
+            "pages": 1,
+            "bytes": 118552,
+            "byteIdentical": true
+          },
+          {
+            "format": 12,
+            "labelsPerPage": 12,
+            "pages": 1,
+            "bytes": 118716,
+            "byteIdentical": true
+          },
+          {
+            "format": "letter",
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 118144,
+            "byteIdentical": true
+          }
+        ],
+        "progressCallbacks": 12,
+        "snapshotPreserved": true,
+        "cancelled": true
+      },
+      "removal": {
+        "bpmApiRequests": 0,
+        "retiredHostRequests": 0,
+        "legacyEvidencePreserved": true,
+        "localCandidateSelection": true,
+        "explicitConfirmation": true
+      },
+      "fullFlowPassed": true
+    },
+    {
+      "environment": {
+        "browser": "firefox",
+        "version": "144.0.2",
+        "node": "v24.22.1",
+        "mobileViewport": true
+      },
+      "metadataCancellation": {
+        "phase": "interrupted",
+        "restart": false,
+        "lateTracks": 0
+      },
+      "pdf": {
+        "templates": [
+          {
+            "format": 2,
+            "labelsPerPage": 2,
+            "pages": 5,
+            "bytes": 119699,
+            "byteIdentical": true
+          },
+          {
+            "format": 4,
+            "labelsPerPage": 4,
+            "pages": 3,
+            "bytes": 119315,
+            "byteIdentical": true
+          },
+          {
+            "format": 6,
+            "labelsPerPage": 6,
+            "pages": 2,
+            "bytes": 119024,
+            "byteIdentical": true
+          },
+          {
+            "format": 8,
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 119189,
+            "byteIdentical": true
+          },
+          {
+            "format": 10,
+            "labelsPerPage": 10,
+            "pages": 1,
+            "bytes": 118552,
+            "byteIdentical": true
+          },
+          {
+            "format": 12,
+            "labelsPerPage": 12,
+            "pages": 1,
+            "bytes": 118716,
+            "byteIdentical": true
+          },
+          {
+            "format": "letter",
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 118144,
+            "byteIdentical": true
+          }
+        ],
+        "progressCallbacks": 13,
+        "snapshotPreserved": true,
+        "cancelled": true
+      },
+      "removal": {
+        "bpmApiRequests": 0,
+        "retiredHostRequests": 0,
+        "legacyEvidencePreserved": true,
+        "localCandidateSelection": true,
+        "explicitConfirmation": true
+      },
+      "fullFlowPassed": true
+    }
+  ],
+  "unchangedDetectorFiles": {
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc",
+    "src/bpm-worker.mjs": "adb55597d4681cd846037586137928bbb870a19b4eb6552d242376c362650df0"
+  },
+  "benchmarkRegression": {
+    "syntheticComparisonExecuted": true,
+    "cachedAuthorized31LoopPilotExecuted": true,
+    "challengerNotServedOrPromoted": true
+  },
+  "boundaries": {
+    "mainChanged": false,
+    "merged": false,
+    "railwayOperation": false,
+    "secretsChanged": false,
+    "deploymentPerformed": false
+  },
+  "limits": [
+    "Firefox runs use desktop and emulated touch viewport, not physical phones",
+    "Chromium/WebKit matrix delegated to the latest PR CI, not claimed locally",
+    "BPM engine remains experimental; no independently verified full-track holdout",
+    "Historic imported source strings and HTTPS references intentionally preserved",
+    "Existing deployed release remains unchanged"
+  ]
+}

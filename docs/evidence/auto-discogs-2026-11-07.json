@@ -1,0 +1,341 @@
+{
+  "at": "2026-11-07T19:00:22.189Z",
+  "kind": "live-authorized-open-audio-integration",
+  "metadata": "live Discogs public release",
+  "source": "live IA search + metadata + complete original MP3",
+  "noUserAudioUpload": true,
+  "noBpmProvider": true,
+  "importedTracks": 14,
+  "matchedTracks": 11,
+  "review": 2,
+  "unavailable": 1,
+  "rows": [
+    {
+      "position": "1",
+      "title": "Fight The Sea",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "2",
+      "title": "Cherry",
+      "status": "review",
+      "reason": "recording-duration-mismatch"
+    },
+    {
+      "position": "3",
+      "title": "Can't Take Our Love Away",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "4",
+      "title": "Big Disco Ball",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "5",
+      "title": "The Pawnbroker's Stepdaughter",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "6",
+      "title": "The Spirit World",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "7",
+      "title": "Shower Scene",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "8",
+      "title": "Swimming To Cambodia",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "9",
+      "title": "Twelve Monkeys",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "10",
+      "title": "Hey Ruth",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "11",
+      "title": "Thanks For Coming",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "12",
+      "title": "Sundown",
+      "status": "matched",
+      "reason": "matched"
+    },
+    {
+      "position": "13",
+      "title": "Frannie",
+      "status": "unavailable",
+      "reason": "exact-version-not-found"
+    },
+    {
+      "position": "14",
+      "title": "Waiting Takes Time",
+      "status": "review",
+      "reason": "recording-duration-mismatch"
+    }
+  ],
+  "requests": 4,
+  "bytes": 6049727,
+  "elapsedMs": 28848,
+  "independentBpmReference": null,
+  "musicalAccuracy": "NOT VALIDATED",
+  "targetTechnoHardgrooveCoverage": "NOT ESTABLISHED; this album is an integration control outside the target genre",
+  "automaticAssignmentPolicy": "force review until acceptance policy has independent evidence",
+  "recordingProof": {
+    "input": {
+      "releaseId": "3759149",
+      "album": "Crawford Street",
+      "artist": "Josh Woodward",
+      "title": "Fight The Sea",
+      "position": "1",
+      "duration": "4:39"
+    },
+    "evidence": {
+      "provider": "Internet Archive / Free Music Archive",
+      "recordingId": "Crawford_Street-17897/Josh_Woodward_-_01_-_Fight_the_Sea.mp3",
+      "sourcePage": "https://archive.org/details/Crawford_Street-17897",
+      "license": "https://creativecommons.org/licenses/by/4.0/",
+      "rightsReference": "https://freemusicarchive.org/music/Josh_Woodward/Crawford_Street/",
+      "attribution": "Josh Woodward — Fight the Sea (CC BY)",
+      "sourceChecksum": "91affc207e0d53ef75da71f38b94d661",
+      "match": "curated-open-license-exact-artist-title-version-album-duration",
+      "recordingSeconds": 277,
+      "requiresReview": true,
+      "scope": "open-audio-research; not a full commercial catalog"
+    },
+    "audioBytes": 5974865,
+    "sha256": "2016f8a4c3306ddc12c3a1c2bb2a117b8bf2f35913ddbb10c578253aaa4a0c1d",
+    "modifiedAudio": false,
+    "window": "first 180 seconds; decoded to 12 kHz mono, no repetition",
+    "v1": {
+      "status": "estimated",
+      "bpm": 100,
+      "source": "local-dsp",
+      "bpmCandidates": [
+        {
+          "bpm": 100,
+          "relative": 0.45,
+          "algorithm": "grooveprint-onset-acf-v1"
+        },
+        {
+          "bpm": 206.9,
+          "relative": 0.438,
+          "algorithm": "grooveprint-onset-acf-v1"
+        },
+        {
+          "bpm": 193.55,
+          "relative": 0.436,
+          "algorithm": "grooveprint-onset-acf-v1"
+        },
+        {
+          "bpm": 67.42,
+          "relative": 0.433,
+          "algorithm": "grooveprint-onset-acf-v1"
+        },
+        {
+          "bpm": 200,
+          "relative": 0.427,
+          "algorithm": "grooveprint-onset-acf-v1"
+        },
+        {
+          "bpm": 127.66,
+          "relative": 0.423,
+          "algorithm": "grooveprint-onset-acf-v1"
+        }
+      ],
+      "confidence": null,
+      "requiresReview": true,
+      "reason": "half-double-tempo-ambiguity",
+      "audioAnalyzed": true,
+      "analysisSeconds": 180,
+      "algorithm": "grooveprint-onset-acf-v1",
+      "analysisWindow": {
+        "startSeconds": 0,
+        "endSeconds": 180
+      }
+    },
+    "v2": {
+      "status": "estimated",
+      "bpm": 66.7,
+      "selectionMode": "band-agreement",
+      "harmonicRefinement": true,
+      "octaveReviewRatio": 0.2,
+      "selectedFromHarmonic": false,
+      "harmonicFactor": null,
+      "source": "local-dsp",
+      "confidence": null,
+      "bpmCandidates": [
+        {
+          "bpm": 66.7,
+          "relative": 0.259,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 99.84,
+          "relative": 0.251,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 196.77,
+          "relative": 0.241,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 202.12,
+          "relative": 0.233,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 127.08,
+          "relative": 0.228,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 133.3,
+          "relative": 0.223,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 96.27,
+          "relative": 0.226,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        },
+        {
+          "bpm": 185.91,
+          "relative": 0.216,
+          "algorithm": "grooveprint-onset-acf-v2-experimental"
+        }
+      ],
+      "requiresReview": true,
+      "reason": "octave-tempo-ambiguity",
+      "audioAnalyzed": true,
+      "analysisSeconds": 180,
+      "algorithm": "grooveprint-onset-acf-v2-experimental",
+      "analysisWindow": {
+        "startSeconds": 0,
+        "endSeconds": 180
+      }
+    }
+  },
+  "sourceBase": "fa00c353cdba31eb8ca02b57715dca51ac3627ae",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "status": "PARTIAL: no general commercial catalog and no validated automatic acceptance",
+  "liveBrowser": {
+    "browser": "managed Chrome",
+    "apiMocks": false,
+    "audioFileChooserUsed": false,
+    "entry": "PROVA UNA RELEASE APERTA -> live public Discogs release -> automatic research source",
+    "importedTracks": 14,
+    "audioAnalyses": 11,
+    "sourceReview": 2,
+    "noMatchingSource": 1,
+    "finalProcessed": 14,
+    "finalReview": 13,
+    "errors": 0,
+    "automaticNumericAssignments": 0,
+    "userCatalogCoverage": "NOT ESTABLISHED",
+    "preview": "session-internal, not a public user-device URL"
+  },
+  "tests": {
+    "offline": 87,
+    "browserApiMocks": "explicitly mocked source API; generated actual MP3 decode/worker",
+    "browserExpected": {
+      "tracks": 6,
+      "resolverRequests": 3,
+      "audioDownloads": 1,
+      "forcedReview": true,
+      "metadataRetention": true
+    },
+    "finalHeadCI": "see PR final HEAD workflow; base #94 is historical"
+  },
+  "dspSha256": {
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  },
+  "sourceBoundaries": {
+    "catalog": "dynamic artist/album lookup in curated freemusicarchive collection; item and file CC0 or CC BY 3.0/4.0; exact artist/title/version/album and duration within 5 s; not pinned to the example release ID",
+    "commercialPermission": "not established for a general catalog",
+    "dnsTransportPinning": "not claimed for managed HTTPS proxy",
+    "audioProxy": "none; browser downloads approved source directly",
+    "production": "resolver/example disabled, no experimental-source CSP expansion",
+    "limits": {
+      "maxSearchResults": 3,
+      "maxMetadataBytesPerRequest": 2097152,
+      "maxItemFiles": 600,
+      "albumCacheEntries": 16,
+      "albumCacheTtlSeconds": 300,
+      "clientMinRequestIntervalMs": 1500,
+      "serverMaxConcurrentResolutions": 2,
+      "browserAudioMaxBytes": 16777216,
+      "browserAudioTimeoutSeconds": 45,
+      "acceptance": "review only",
+      "preference": "opt-out persists in browser"
+    }
+  },
+  "sourceCatalog": "freemusicarchive CC0/BY research",
+  "testedReleases": 1,
+  "additionalDiscovery": {
+    "at": "2026-11-07T19:06:00.427Z",
+    "scope": "live metadata-only discovery, no audio download or BPM evaluation",
+    "rows": [
+      {
+        "input": {
+          "releaseId": "7162237",
+          "artist": "Josh Woodward",
+          "album": "Only Whispering",
+          "position": "1",
+          "title": "Only Whispering",
+          "duration": "3:48"
+        },
+        "status": "unavailable",
+        "reason": "source-rights-or-identity-unavailable"
+      },
+      {
+        "input": {
+          "releaseId": "7162237",
+          "artist": "Josh Woodward",
+          "album": "Only Whispering",
+          "position": "2",
+          "title": "Adventures Of The Deaf Dreamer",
+          "duration": "3:58"
+        },
+        "status": "unavailable",
+        "reason": "source-rights-or-identity-unavailable"
+      },
+      {
+        "input": {
+          "releaseId": "7162237",
+          "artist": "Josh Woodward",
+          "album": "Only Whispering",
+          "position": "3",
+          "title": "I'll Be Right Behind You, Josephine",
+          "duration": "4:19"
+        },
+        "status": "unavailable",
+        "reason": "source-rights-or-identity-unavailable"
+      }
+    ],
+    "requests": 2
+  }
+}

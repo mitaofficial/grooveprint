@@ -1,0 +1,227 @@
+{
+  "date": "2026-11-07",
+  "baselineCommit": "25bba4fa464065c5ec6afb628201b50fd64df925",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "branch": "feature/bpm-intelligence-3-open-data",
+  "nodeLocal": "v24.22.1",
+  "offlineSuite": {
+    "command": "npm run validate",
+    "tests": 63,
+    "passed": 63,
+    "failed": 0,
+    "scope": "Node, syntax, privacy/config and synthetic smoke; final command must remain successful before push"
+  },
+  "regressionBeforeFix": {
+    "reviewIdentifierEscaping": "failed with missing attribute escaping",
+    "missingTracklistOverflow": "failed: 1 instead of 0"
+  },
+  "localBrowserRuns": [
+    {
+      "environment": {
+        "browser": "firefox",
+        "version": "144.0.2",
+        "node": "v24.22.1",
+        "mobileViewport": false
+      },
+      "pdfComparison": {
+        "templates": [
+          {
+            "format": 2,
+            "labelsPerPage": 2,
+            "pages": 5,
+            "bytes": 119699,
+            "byteIdentical": true
+          },
+          {
+            "format": 4,
+            "labelsPerPage": 4,
+            "pages": 3,
+            "bytes": 119315,
+            "byteIdentical": true
+          },
+          {
+            "format": 6,
+            "labelsPerPage": 6,
+            "pages": 2,
+            "bytes": 119024,
+            "byteIdentical": true
+          },
+          {
+            "format": 8,
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 119189,
+            "byteIdentical": true
+          },
+          {
+            "format": 10,
+            "labelsPerPage": 10,
+            "pages": 1,
+            "bytes": 118552,
+            "byteIdentical": true
+          },
+          {
+            "format": 12,
+            "labelsPerPage": 12,
+            "pages": 1,
+            "bytes": 118716,
+            "byteIdentical": true
+          },
+          {
+            "format": "letter",
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 118144,
+            "byteIdentical": true
+          }
+        ],
+        "progressCallbacks": 16,
+        "snapshotPreserved": true,
+        "cancelled": true
+      },
+      "guestJourney": {
+        "count": 5,
+        "tracks": 12,
+        "duplicates": 1,
+        "blankBpms": true,
+        "blankReleaseIds": true,
+        "keyboardOpen": true,
+        "identifierAttributesSafe": true,
+        "guideAndBackupReachable": true,
+        "manualBpm": 141,
+        "pdfPages": 2,
+        "pdfBytes": 67589,
+        "jsonRoundtrip": true,
+        "reloadRestored": true,
+        "bpmApiRequests": 0
+      },
+      "providerRemoval": {
+        "bpmApiRequests": 0,
+        "retiredHostRequests": 0,
+        "legacyEvidencePreserved": true,
+        "localCandidateSelection": true,
+        "explicitConfirmation": true
+      },
+      "fullFlowPassed": true
+    },
+    {
+      "environment": {
+        "browser": "firefox",
+        "version": "144.0.2",
+        "node": "v24.22.1",
+        "mobileViewport": true
+      },
+      "pdfComparison": {
+        "templates": [
+          {
+            "format": 2,
+            "labelsPerPage": 2,
+            "pages": 5,
+            "bytes": 119699,
+            "byteIdentical": true
+          },
+          {
+            "format": 4,
+            "labelsPerPage": 4,
+            "pages": 3,
+            "bytes": 119315,
+            "byteIdentical": true
+          },
+          {
+            "format": 6,
+            "labelsPerPage": 6,
+            "pages": 2,
+            "bytes": 119024,
+            "byteIdentical": true
+          },
+          {
+            "format": 8,
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 119189,
+            "byteIdentical": true
+          },
+          {
+            "format": 10,
+            "labelsPerPage": 10,
+            "pages": 1,
+            "bytes": 118552,
+            "byteIdentical": true
+          },
+          {
+            "format": 12,
+            "labelsPerPage": 12,
+            "pages": 1,
+            "bytes": 118716,
+            "byteIdentical": true
+          },
+          {
+            "format": "letter",
+            "labelsPerPage": 8,
+            "pages": 2,
+            "bytes": 118144,
+            "byteIdentical": true
+          }
+        ],
+        "progressCallbacks": 16,
+        "snapshotPreserved": true,
+        "cancelled": true
+      },
+      "guestJourney": {
+        "count": 5,
+        "tracks": 12,
+        "duplicates": 1,
+        "blankBpms": true,
+        "blankReleaseIds": true,
+        "keyboardOpen": true,
+        "identifierAttributesSafe": true,
+        "guideAndBackupReachable": true,
+        "manualBpm": 141,
+        "pdfPages": 2,
+        "pdfBytes": 67589,
+        "jsonRoundtrip": true,
+        "reloadRestored": true,
+        "bpmApiRequests": 0
+      },
+      "providerRemoval": {
+        "bpmApiRequests": 0,
+        "retiredHostRequests": 0,
+        "legacyEvidencePreserved": true,
+        "localCandidateSelection": true,
+        "explicitConfirmation": true
+      },
+      "fullFlowPassed": true
+    }
+  ],
+  "runtimeSourceSha256": {
+    "index.html": "96afef8528aeb44ca67d704393f3b8445a5c9d83d92cbb353c6ea88594439ce6",
+    "server/app.mjs": "ab218ab67b9c715457d82e77f41482ef6be23b6e2a0acd8306010b96e59d4fed",
+    "scripts/dev.mjs": "c2b81498797a63545ac0957a9e4e6abfb7293056f7c3f72b53d58528cb570434",
+    "examples/grooveprint-demo.csv": "f8487adc1716d5acc1ca68011f0234805cefdb508d4d24f2e339d10f7a583953",
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc",
+    "src/bpm-worker.mjs": "adb55597d4681cd846037586137928bbb870a19b4eb6552d242376c362650df0"
+  },
+  "preview": {
+    "type": "managed session full backend/frontend",
+    "internalUrl": "http://127.0.0.1:4173/",
+    "publicDeployment": false,
+    "userAccess": "session cloud-browser deliverable / handoff, not a public localhost link",
+    "availability": "session-dependent; maintenance can stop it",
+    "privateData": "run on user device, use fictional data in remote browser"
+  },
+  "limits": [
+    "Current CI is authoritative for Chromium/WebKit and Node 22; prior CI #92 applies only to baseline",
+    "No Docker executable/image build",
+    "No live OAuth account validation",
+    "No physical phone or measured print",
+    "No independent full-recording BPM holdout; algorithms unchanged"
+  ],
+  "productionOperations": {
+    "mainUpdated": false,
+    "merged": false,
+    "railwayChanged": false,
+    "deployed": false,
+    "productionSecretsChanged": false
+  }
+}

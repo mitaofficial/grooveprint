@@ -1,0 +1,309 @@
+{
+  "date": "2026-11-07",
+  "scope": "BPM integration and downloadable local-file trial; no deployment",
+  "sourceBase": "aeb0b7854f44a05c1def9e1afe2227bc4e29555e",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "publicFrontend": {
+    "observedAtUtc": "2026-11-07T17:08:44.150408+00:00",
+    "url": "https://grooveprint-web-production.up.railway.app/",
+    "httpStatus": 200,
+    "htmlSha256": "29a1f42f672c6a63a038c8c1c0dcb352da767a7dc47dbf6c97f636667807c4db",
+    "matchesMainHtmlBytes": true,
+    "mainHtmlSha256": "29a1f42f672c6a63a038c8c1c0dcb352da767a7dc47dbf6c97f636667807c4db",
+    "markers": {
+      "GetSongBPM": true,
+      "GETBPM": false,
+      "get bpm": false,
+      "GROOVEPRINT BPM Engine": false,
+      "/assets/bpm-library.js": false
+    },
+    "interpretation": "Public response retains external catalog branding and lacks internal-engine assets. No cache cause inferred; no provider search/authentication performed."
+  },
+  "defaultDetector": "grooveprint-onset-acf-v1",
+  "localComparison": {
+    "optIn": true,
+    "allowed": "NODE_ENV=development or standalone file URL only",
+    "automaticBpmAssignment": false,
+    "requiresUserSelection": true,
+    "productionExperimentalEndpoints": 404
+  },
+  "validation": {
+    "offlineTests": 69,
+    "offlineFailures": 0,
+    "syntax": "pass",
+    "privacyRepositoryGuard": "pass",
+    "localFileBrowserFlows": [
+      {
+        "browser": "Firefox 144.0.2",
+        "viewport": "desktop",
+        "fileUrl": true,
+        "defaultEngine": "v1",
+        "explicitComparison": true,
+        "manual145Preserved": true,
+        "algorithms": [
+          "grooveprint-onset-acf-v1",
+          "grooveprint-onset-acf-v2-experimental"
+        ],
+        "selectedEnginePersisted": true,
+        "explicitConfirmation": true,
+        "pdfBytes": 14141,
+        "httpRequests": 0,
+        "resources": {
+          "contexts": 0,
+          "workers": 0
+        },
+        "content": "one generated click waveform; integration proof, not musical validation"
+      },
+      {
+        "browser": "Firefox 144.0.2",
+        "viewport": "390x844 touch",
+        "fileUrl": true,
+        "defaultEngine": "v1",
+        "explicitComparison": true,
+        "manual145Preserved": true,
+        "algorithms": [
+          "grooveprint-onset-acf-v1",
+          "grooveprint-onset-acf-v2-experimental"
+        ],
+        "selectedEnginePersisted": true,
+        "explicitConfirmation": true,
+        "pdfBytes": 14141,
+        "httpRequests": 0,
+        "resources": {
+          "contexts": 0,
+          "workers": 0
+        },
+        "content": "one generated click waveform; integration proof, not musical validation"
+      }
+    ],
+    "finalCI": "Verify the workflow on the PR final head; base CI #93 does not certify this change."
+  },
+  "dspSha256": {
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  },
+  "syntheticComparison": {
+    "totalCases": 169,
+    "rhythmicCases": 168,
+    "negativeCases": 1,
+    "allNonTimingMetricsUnchangedBeforeAfter": true,
+    "excludedVolatileMetrics": [
+      "meanProcessingMs",
+      "meanSampledRssMb",
+      "medianProcessingMs"
+    ],
+    "before": {
+      "summary": {
+        "n": 169,
+        "groundTruthN": 168,
+        "predictedN": 154,
+        "acceptedN": 79,
+        "correctWithin1N": 76,
+        "correctWithin2N": 76,
+        "acceptedCorrectWithin1N": 39,
+        "coveragePct": 91.67,
+        "autoAcceptedPct": 47.02,
+        "top1Within1Pct": 45.24,
+        "top1Within2Pct": 45.24,
+        "top1ConditionalWithin1Pct": 49.35,
+        "top1ConditionalWithin2Pct": 49.35,
+        "acceptedWithin1Pct": 49.37,
+        "acceptedWithin2Pct": 49.37,
+        "usefulCorrectCoveragePct": 23.21,
+        "candidateWithin1N": 110,
+        "candidateWithin1Pct": 65.48,
+        "candidateK": 8,
+        "octaveErrorN": 78,
+        "octaveErrorPct": 46.43,
+        "unflaggedOctaveN": 40,
+        "unflaggedOctavePct": 50.63,
+        "catastrophicN": 0,
+        "catastrophicPct": 0,
+        "unflaggedOver5N": 40,
+        "reviewN": 75,
+        "reviewPct": 44.64,
+        "unavailableN": 14,
+        "decodeSuccessN": 169,
+        "decodeFailuresN": 0,
+        "detectorErrorsN": 0,
+        "invalidOutputsN": 0,
+        "nonrhythmicN": 1,
+        "nonrhythmicFalseAcceptN": 0,
+        "nonrhythmicFalseAcceptPct": 0,
+        "autoPrecisionWilson95Pct": [
+          38.63,
+          60.16
+        ],
+        "top1Wilson95Pct": [
+          37.9,
+          52.79
+        ],
+        "mae": 39.2216,
+        "medianAe": 60
+      },
+      "comparison": {
+        "n": 169,
+        "groundTruthN": 168,
+        "predictedN": 168,
+        "acceptedN": 28,
+        "correctWithin1N": 158,
+        "correctWithin2N": 158,
+        "acceptedCorrectWithin1N": 28,
+        "coveragePct": 100,
+        "autoAcceptedPct": 16.67,
+        "top1Within1Pct": 94.05,
+        "top1Within2Pct": 94.05,
+        "top1ConditionalWithin1Pct": 94.05,
+        "top1ConditionalWithin2Pct": 94.05,
+        "acceptedWithin1Pct": 100,
+        "acceptedWithin2Pct": 100,
+        "usefulCorrectCoveragePct": 16.67,
+        "candidateWithin1N": 168,
+        "candidateWithin1Pct": 100,
+        "candidateK": 8,
+        "octaveErrorN": 10,
+        "octaveErrorPct": 5.95,
+        "unflaggedOctaveN": 0,
+        "unflaggedOctavePct": 0,
+        "catastrophicN": 0,
+        "catastrophicPct": 0,
+        "unflaggedOver5N": 0,
+        "reviewN": 140,
+        "reviewPct": 83.33,
+        "unavailableN": 1,
+        "decodeSuccessN": 169,
+        "decodeFailuresN": 0,
+        "detectorErrorsN": 0,
+        "invalidOutputsN": 0,
+        "nonrhythmicN": 1,
+        "nonrhythmicFalseAcceptN": 0,
+        "nonrhythmicFalseAcceptPct": 0,
+        "autoPrecisionWilson95Pct": [
+          87.94,
+          100
+        ],
+        "top1Wilson95Pct": [
+          89.39,
+          96.73
+        ],
+        "mae": 4.4783,
+        "medianAe": 0.01999999999999602
+      }
+    },
+    "after": {
+      "summary": {
+        "n": 169,
+        "groundTruthN": 168,
+        "predictedN": 154,
+        "acceptedN": 79,
+        "correctWithin1N": 76,
+        "correctWithin2N": 76,
+        "acceptedCorrectWithin1N": 39,
+        "coveragePct": 91.67,
+        "autoAcceptedPct": 47.02,
+        "top1Within1Pct": 45.24,
+        "top1Within2Pct": 45.24,
+        "top1ConditionalWithin1Pct": 49.35,
+        "top1ConditionalWithin2Pct": 49.35,
+        "acceptedWithin1Pct": 49.37,
+        "acceptedWithin2Pct": 49.37,
+        "usefulCorrectCoveragePct": 23.21,
+        "candidateWithin1N": 110,
+        "candidateWithin1Pct": 65.48,
+        "candidateK": 8,
+        "octaveErrorN": 78,
+        "octaveErrorPct": 46.43,
+        "unflaggedOctaveN": 40,
+        "unflaggedOctavePct": 50.63,
+        "catastrophicN": 0,
+        "catastrophicPct": 0,
+        "unflaggedOver5N": 40,
+        "reviewN": 75,
+        "reviewPct": 44.64,
+        "unavailableN": 14,
+        "decodeSuccessN": 169,
+        "decodeFailuresN": 0,
+        "detectorErrorsN": 0,
+        "invalidOutputsN": 0,
+        "nonrhythmicN": 1,
+        "nonrhythmicFalseAcceptN": 0,
+        "nonrhythmicFalseAcceptPct": 0,
+        "autoPrecisionWilson95Pct": [
+          38.63,
+          60.16
+        ],
+        "top1Wilson95Pct": [
+          37.9,
+          52.79
+        ],
+        "mae": 39.2216,
+        "medianAe": 60
+      },
+      "comparison": {
+        "n": 169,
+        "groundTruthN": 168,
+        "predictedN": 168,
+        "acceptedN": 28,
+        "correctWithin1N": 158,
+        "correctWithin2N": 158,
+        "acceptedCorrectWithin1N": 28,
+        "coveragePct": 100,
+        "autoAcceptedPct": 16.67,
+        "top1Within1Pct": 94.05,
+        "top1Within2Pct": 94.05,
+        "top1ConditionalWithin1Pct": 94.05,
+        "top1ConditionalWithin2Pct": 94.05,
+        "acceptedWithin1Pct": 100,
+        "acceptedWithin2Pct": 100,
+        "usefulCorrectCoveragePct": 16.67,
+        "candidateWithin1N": 168,
+        "candidateWithin1Pct": 100,
+        "candidateK": 8,
+        "octaveErrorN": 10,
+        "octaveErrorPct": 5.95,
+        "unflaggedOctaveN": 0,
+        "unflaggedOctavePct": 0,
+        "catastrophicN": 0,
+        "catastrophicPct": 0,
+        "unflaggedOver5N": 0,
+        "reviewN": 140,
+        "reviewPct": 83.33,
+        "unavailableN": 1,
+        "decodeSuccessN": 169,
+        "decodeFailuresN": 0,
+        "detectorErrorsN": 0,
+        "invalidOutputsN": 0,
+        "nonrhythmicN": 1,
+        "nonrhythmicFalseAcceptN": 0,
+        "nonrhythmicFalseAcceptPct": 0,
+        "autoPrecisionWilson95Pct": [
+          87.94,
+          100
+        ],
+        "top1Wilson95Pct": [
+          89.39,
+          96.73
+        ],
+        "mae": 4.4783,
+        "medianAe": 0.01999999999999602
+      }
+    },
+    "interpretation": "Inspected synthetic development set; not independent full-track musical accuracy."
+  },
+  "preserved": [
+    "manual/verified/clear evidence and revision barriers",
+    "single owned library/single-track job",
+    "historical external provenance",
+    "exact version matching in library",
+    "original Mix Lab anchor/beatgrid estimator",
+    "PDF/project import-export",
+    "main and Railway"
+  ],
+  "limitations": [
+    "No independent authorized full-recording holdout supplied.",
+    "Existing 31 producer-labelled repeated loops are development material and all require review.",
+    "Web Audio decode cannot be aborted and native allocations can precede PCM checks.",
+    "Mobile viewport is not a physical-phone endurance test.",
+    "Live OAuth, physical print calibration and production rollout not verified."
+  ]
+}

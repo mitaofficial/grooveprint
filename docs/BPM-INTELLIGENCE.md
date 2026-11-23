@@ -1,13 +1,24 @@
-# Automatic BPM — alpha functional contract
+# GROOVEPRINT BPM Engine — experimental
 
-**Zero-click trigger:** CSV import and successful Discogs collection sync automatically invoke the BPM pipeline; tracklists are optionally fetched when permitted. A manual "ANALIZZA BPM" button is not part of the primary collection workflow.
+The product uses its own local-audio analysis path. It has no BPM database signup,
+API-key activation, automatic title lookup or remote audio-processing step.
 
-The pipeline only does data lookup without audio. It calls `POST /api/bpm/batch` with up to four tracks per request. The server requires a Discogs OAuth session and CSRF token, validates inputs, rate-limits calls, and forwards each query to GetSongBPM if `GETSONGBPM_API_KEY` is set. Without the key it reports `provider-unavailable` and preserves all data. CSV-only users without OAuth can use CSV, label editing and printing but cannot use the authenticated provider route.
+CSV import and collection sync invoke `GrooveprintCollectionEnrichment.run` only
+for tracklist metadata. Without audio, missing BPMs stay empty and the application
+remains usable for cataloging, manual edits and printing.
 
-**Matching:** require exact normalized track title and track artist; numeric Discogs artist disambiguation suffix is stripped only during display/matching. Preserve remix/edit/dub version qualifiers. Multiple conflicting exact BPMs -> REVIEW, not auto-assign. Known BPM/manual overrides always win. Per-track VA artist information is preserved when supplied by Discogs.
+CONNECT AUDIO LIBRARY accepts an authorized folder or supported file selection.
+The browser matches recording names conservatively, decodes sequentially and runs
+the original detector in a module worker. It shows estimates/candidates, supports
+Stop, protects manual values/clears and never uploads audio, PCM or waveforms.
+The browser tab must remain open; native full-file decode cannot be interrupted,
+so cancellation discards late output and holds the resource lock until cleanup.
 
-**Statuses:** catalog (unverified external data), review (ambiguous), unavailable (no result), provider-inactive (no key). Values from an external catalog appear with ~ in the print layout until verified.
+VEDI CANDIDATI opens a release requiring review. Selecting a candidate records an
+estimate; CONFERMA BPM requires explicit checking/correction and marks it verified.
+Historical external BPMs stay external, with saved source/reference details. No
+migration relabels a previously imported catalog value as internal analysis.
 
-**Limitations:** BPM analysis of audio does not follow from Discogs metadata. YouTube iframe playback cannot be used as a decoded PCM source. DSP is not silently executed on streaming links. This alpha orchestrator runs only while the tab is open. Source catalog availability, result coverage and accuracy have not been benchmarked on real techno recordings.
-
-Attribution: https://getsongbpm.com/ and /credits.
+The production baseline and benchmark challenger are deliberately separate.
+Musical accuracy on independently verified complete recordings remains unproven;
+no calibrated confidence or universal BPM Pro accuracy is claimed.
