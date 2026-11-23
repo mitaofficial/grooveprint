@@ -1,3 +1,9 @@
+> Aggiornamento operativo 23 novembre 2026: leggere prima
+> [BPM-MUSICAL-RESOLUTION-2026-11-23.md](BPM-MUSICAL-RESOLUTION-2026-11-23.md).
+> La preview usa il nuovo motore di beat musicali con stime sperimentali;
+> i vincoli storici V1-default/review-globale sono superati nel solo sviluppo.
+> Main/Railway invariati; accuratezza target e copertura commerciale incomplete.
+
 # Remaining limits — 7 November 2026
 
 The automatic Discogs import mandate is **PARTIAL**: development can find and

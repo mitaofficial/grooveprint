@@ -21,6 +21,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
+      - run: npm ci
       - run: npm run validate
       - run: npm run benchmark:compare
       - name: V3 original synthetic development-only score (not full-song validation)
@@ -117,12 +118,16 @@ jobs:
       # Mandatory offline FFmpeg evaluation remains in licensed_audio_pilot.
       - name: Live public Discogs and authorized audio in real Chromium
         run: npm run test:one-click:live
+      - name: Live automatic import with musical beats, no audio chooser
+        run: npm run test:auto-bpm:live
       - name: Upload live provider trace and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: bpm-one-click-live
-          path: .private/evidence/one-click-chromium-live/
+          path: |
+            .private/evidence/one-click-chromium-live/
+            .private/evidence/musical-auto-chromium-live/
           if-no-files-found: warn
           retention-days: 14
 

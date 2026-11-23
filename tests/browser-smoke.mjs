@@ -487,7 +487,7 @@ try{
  try{
   let autoReady=false;for(let n=0;n<80;n++){if(autoServer.exitCode!==null)throw Error('Automatic BPM development server exited');try{if((await fetch(autoBase+'/health')).ok){autoReady=true;break}}catch{}await delay(75)}assert.ok(autoReady);
   await automatic.goto(autoBase);await automatic.locator('.gp-auto-audio').waitFor();
-  assert.equal(await automatic.locator('[data-gp-engine]').inputValue(),'v1','V1 remains the default in development');
+  assert.equal(await automatic.locator('[data-gp-engine]').inputValue(),'internal','musical beats are the automatic development default');
   // The local diagnostic selector must not change the normal automatic-import engine.
   await automatic.locator('[data-gp-engine]').selectOption('compare');
   await automatic.locator('#fileChooser').setInputFiles({name:'synthetic-source-import.csv',mimeType:'text/csv',buffer:Buffer.from('Artist,Title,Release ID\nSynthetic DJ,Test Album,3759149\nSynthetic DJ,Test Album,3759149\n')});
@@ -495,19 +495,15 @@ try{
   await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.total===6&&window.GrooveprintAutomaticBPM.job.done===6&&!window.GrooveprintAutomaticBPM.job.running);
   const checked=await automatic.evaluate(()=>({tracks:state.releases.flatMap(r=>r.tracks.map(t=>({title:t.title,bpm:t.bpm,status:t.bpmStatus,origin:t.trackSource,algorithm:t.bpmAlgorithm,decision:t.bpmDecision?.status,hypotheses:t.bpmCandidates?.map(c=>c.bpm),provenance:t.bpmAudioEvidence?.provider}))),job:{...window.GrooveprintAutomaticBPM.job},resources:{contexts:window.GrooveprintAudioLibrary.job.contexts,workers:window.GrooveprintAudioLibrary.job.workers},persisted:snapshot().releases.map(r=>r.tracks.length)}));
   assert.equal(resolvedTracks.length,3,'duplicate copies reuse positive and negative resolution');assert.equal(audioDownloads.length,1,'one decode per identical recording');
-  assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.equal(t.status,'review');assert.equal(t.algorithm,'grooveprint-onset-acf-v1');assert.equal(t.decision,undefined,'normal import must not opt into experimental comparison');assert.equal(t.provenance,'Synthetic source fixture')}}
+  assert.equal(checked.tracks.length,6);for(const t of checked.tracks){assert.equal(t.bpm,null);assert.equal(t.origin,'discogs');if(t.title==='Signal (Original Mix)'){assert.ok(['review','unavailable'].includes(t.status),'12s fixture cannot pass the 24s scalar gate');assert.equal(t.algorithm,'grooveprint-musical-beats-small0-v1');assert.ok(['ambiguous','undetermined'].includes(t.decision),'normal import must execute the musical-beat decision');assert.equal(t.provenance,'Synthetic source fixture')}}
   assert.deepEqual(checked.resources,{contexts:0,workers:0});assert.deepEqual(checked.persisted,[0,0],'analyzing audio must not bypass Discogs metadata retention');
   await automatic.locator('[data-gp-auto-review]').click();
-  assert.ok(await automatic.locator('[data-tempo-decision-status="unvalidated"]').count()>0,'V1 results show an honest review panel');
-  const v1Details=automatic.locator('[data-gp-v1-diagnostics]').first();
-  assert.notEqual(await v1Details.getAttribute('open'),null,'the review shortcut opens the actual V1 calculation');
-  const v1Text=await v1Details.innerText();
-  const actualHypotheses=checked.tracks.find(t=>t.title==='Signal (Original Mix)').hypotheses;
-  assert.ok(actualHypotheses?.length>0,'the native decoder and V1 produced actual hypotheses');
-  for(const bpm of actualHypotheses)assert.ok(v1Text.includes(bpm+' BPM'),'each computed hypothesis is readable');
-  assert.match(v1Text,/non è una probabilità/);
-  assert.equal(await automatic.locator('[data-bpm-choose]').count(),0,'uncalibrated V1 peaks are not promoted into numeric suggestions');
-  assert.ok(!/RIANALISI V3 NECESSARIA/.test(await automatic.locator('#rightSide').innerText()),'comparison is optional');
+  assert.ok(await automatic.locator('[data-tempo-decision-status="undetermined"], [data-tempo-decision-status="ambiguous"]').count()>0,'short audio has an explicit abstention');
+  const details=automatic.locator('.gp-tempo-details').first();
+  assert.notEqual(await details.getAttribute('open'),null,'the shortcut opens actual analysis details');
+  assert.match(await details.innerText(),/grooveprint-musical-beats-small0-v1/);
+  assert.equal(await automatic.locator('[data-bpm-choose]').count(),0,'insufficient musical beat support cannot assign a number');
+  assert.equal(autoErrors.length,0,JSON.stringify(autoErrors));
   // Explicitly compare both engines using the already authorized source, no user audio upload.
   await automatic.locator('[data-gp-auto-compare]').click();
   await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===3&&
@@ -550,7 +546,7 @@ try{
   ];
   await automatic.locator('[data-gp-auto-example]').click();
   await automatic.waitForFunction(()=>state.releases.some(r=>r.gpResearchExample===true&&r.tracks.length===2));
-  try{await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===8&&!window.GrooveprintAutomaticBPM.job.running,null,{timeout:15000})}
+  try{await automatic.waitForFunction(()=>window.GrooveprintAutomaticBPM.job.done===8&&!window.GrooveprintAutomaticBPM.job.running,null,{timeout:90000})}
   catch(error){console.log('AUTOMATIC DEMO AFTER COMPARE DIAGNOSTIC',JSON.stringify(await automatic.evaluate(()=>({
     job:window.GrooveprintAutomaticBPM.job,
     trace:window.GrooveprintAutomaticBPM.trace(),

@@ -5,7 +5,7 @@ import vm from 'node:vm';
 const deferred=()=>{let resolve;const promise=new Promise(r=>resolve=r);return {promise,resolve}};
 async function until(check){for(let i=0;i<2000&&!check();i++)await new Promise(r=>setTimeout(r,2));assert.ok(check(),'condition timed out')}
 const track=(title='Tool')=>({position:'1',title,duration:'0:22',bpm:null,source:'discogs',trackSource:'discogs'});
-function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on',development=false,demo=false,exampleError=false}={}){
+function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,preference='on',development=false,demo=false,exampleError=false,musicalResult}={}){
  const state={releases:Array.from({length:copies},(_,i)=>({id:'r'+i,releaseId:'3759149',artist:'DJ',title:'Album',tracklistFetchedAt:new Date().toISOString(),tracks:structuredClone(tracksByCopy?.[i]??tracks)}))};
  if(demo)for(const r of state.releases)Object.assign(r,{artist:'Josh Woodward',title:'Crawford Street',label:'Snooter Records',format:'File',tracks:[]});
  state.active=state.releases[0]?.id;state.selected=[];
@@ -13,7 +13,7 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
  const resources={contexts:0,maxContexts:0,workers:0,decodes:0,sourceCalls:0,downloads:0,exampleCalls:0,tracklistSyncs:0,workerModes:[]},events={};
  class Context{constructor(){resources.contexts++;resources.maxContexts=Math.max(resources.contexts,resources.maxContexts)}async decodeAudioData(){resources.decodes++;if(decode)await decode();return {sampleRate:12000,length:264000,numberOfChannels:1,getChannelData:()=>new Float32Array(264000)}}async close(){resources.contexts--}}
  class Worker{
-  constructor(url){resources.workers++;resources.workerModes.push(url);this.compare=String(url).includes('worker-dev')}
+  constructor(url){resources.workers++;resources.workerModes.push(url);this.compare=String(url).includes('worker-dev');this.internal=String(url).includes('worker-internal')}
   postMessage(d){
    const baseline={status:'estimated',bpm:140,bpmCandidates:[{bpm:140,relative:1}],algorithm:'grooveprint-onset-acf-v1',analysisSeconds:22,requiresReview:false};
    const result=this.compare?{...baseline,algorithm:'grooveprint-v1-v2-local-comparison',requiresReview:true,
@@ -21,7 +21,10 @@ function setup({resolve,decode,tracks=[track()],tracksByCopy=null,copies=1,prefe
     comparisons:[baseline,{...baseline,bpm:140.1,algorithm:'grooveprint-onset-acf-v2-experimental'}],
     decision:{version:'grooveprint-tempo-decision-v3-experimental',status:'supported',suggestedBpm:140,requiresReview:true,
       reason:'two-engine-and-temporal-agreement',evidence:{v1Bpm:140,v2Bpm:140.1,metricalRelation:'same-pulse',windowsPlanned:2,windowsConsistent:2},alternatives:[]}}:baseline;
-   queueMicrotask(()=>this.onmessage?.({data:{id:d.id,result}}));
+   const delivered=this.internal?(musicalResult||{status:'review',bpm:null,requiresReview:true,algorithm:'grooveprint-musical-beats-small0-v1',
+    bpmCandidates:[{bpm:140}],reason:'insufficient-musical-beat-support',analysisSeconds:12,
+    decision:{version:'grooveprint-musical-beat-decision-v1',status:'undetermined',suggestedBpm:null,requiresReview:true,windows:[]}}):result;
+   queueMicrotask(()=>this.onmessage?.({data:{id:d.id,result:delivered}}));
   }
   terminate(){resources.workers--}
  }
@@ -143,13 +146,13 @@ test('album title, audio duration and metadata-source changes reject stale autom
  }
 });
 
-test('development import keeps V1 as default, and explicit comparison keeps protected values',async()=>{
+test('development import uses musical beats automatically, while comparison protects verified values',async()=>{
  const f=setup({development:true,tracks:[track(),{...track('Protected'),bpm:138,bpmStatus:'verified',source:'user-verified'}]});
  await until(()=>f.api.job.done===1&&!f.api.job.running);
- assert.ok(f.resources.workerModes.every(x=>x.endsWith('/bpm-worker.mjs')),
-  'normal import must use the authorized V1 default');
+ assert.ok(f.resources.workerModes.every(x=>x.endsWith('/bpm-worker-internal.mjs')),
+  'normal import must use the measured musical-beat engine in development');
  assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
- assert.equal(f.state.releases[0].tracks[0].bpmDecision,null);
+ assert.equal(f.state.releases[0].tracks[0].bpmDecision.status,'undetermined');
  for(const handler of f.events.click)handler({target:{closest:selector=>selector==='[data-gp-auto-compare]'?{}:null}});
  await until(()=>f.api.job.done===1&&!f.api.job.running&&f.resources.decodes===2);
  const t=f.state.releases[0].tracks[0];
@@ -162,7 +165,7 @@ test('development import keeps V1 as default, and explicit comparison keeps prot
  assert.equal(f.state.releases[0].tracks[1].bpm,138,'previously verified values stay protected');
  assert.equal(f.api.job.protected,1);
 });
-test('explicit comparison does not change later automatic imports or reuse comparison DSP as V1',async()=>{
+test('explicit comparison cannot change later import policy or satisfy the musical-engine cache',async()=>{
  const f=setup({development:true});
  await until(()=>f.api.job.done===1&&!f.api.job.running);
  await f.api.compareEngines();
@@ -172,16 +175,25 @@ test('explicit comparison does not change later automatic imports or reuse compa
  const copy={...compared,id:'later-copy',tracks:[track()]};
  f.state.releases.push(copy);f.api.schedule();
  await until(()=>f.api.job.done===2&&!f.api.job.running);
- assert.equal(copy.tracks[0].bpmAlgorithm,'grooveprint-onset-acf-v1');
- assert.equal(copy.tracks[0].bpmDecision,null);
+ assert.equal(copy.tracks[0].bpmAlgorithm,'grooveprint-musical-beats-small0-v1');
+ assert.equal(copy.tracks[0].bpmDecision.version,'grooveprint-musical-beat-decision-v1');
  assert.equal(copy.tracks[0].bpmComparisons.length,0);
  assert.equal(compared.tracks[0].bpmComparisons.length,2,'explicit comparison remains intact');
- assert.equal(f.resources.decodes,3,'comparison PCM result cannot satisfy a later V1 job');
+ assert.equal(f.resources.decodes,3,'comparison PCM result cannot satisfy a later musical-engine job');
  assert.deepEqual(f.resources.workerModes.map(x=>x.endsWith('worker-dev.mjs')),[false,true,false]);
  f.state.releases.push({...compared,id:'another-copy',tracks:[track()]});f.api.schedule();
  await until(()=>f.api.job.done===3&&!f.api.job.running);
- assert.equal(f.resources.decodes,3,'identical V1 copies still reuse a V1 result');
+ assert.equal(f.resources.decodes,3,'identical copies still reuse a musical-engine result');
  assert.equal(f.resources.maxContexts,1);assert.equal(f.resources.contexts,0);assert.equal(f.resources.workers,0);
+});
+test('usable musical estimates populate labels, deduplicate copies and never become verified',async()=>{
+ const musicalResult={status:'estimated',bpm:138.04,requiresReview:false,algorithm:'grooveprint-musical-beats-small0-v1',
+  bpmCandidates:[{bpm:138.04}],analysisSeconds:24,analysisWindows:[{startSeconds:0,endSeconds:12},{startSeconds:24,endSeconds:36}],
+  reason:'stable-musical-beats',decision:{version:'grooveprint-musical-beat-decision-v1',status:'supported',suggestedBpm:138.04,requiresReview:false}};
+ const f=setup({development:true,musicalResult,copies:2,tracks:[track(),{...track('Manual'),bpm:145,bpmStatus:'manual'},{...track('Clear'),bpm:null,bpmStatus:'manual'}]});
+ await until(()=>f.api.job.done===2&&!f.api.job.running);
+ for(const r of f.state.releases){assert.equal(r.tracks[0].bpm,138.04);assert.equal(r.tracks[0].bpmStatus,'estimated');assert.equal(r.tracks[0].trackSource,'discogs');assert.equal(r.tracks[0].bpmAnalysisWindows.length,2);assert.equal(r.tracks[1].bpm,145);assert.equal(r.tracks[2].bpm,null)}
+ assert.equal(f.api.job.estimated,2);assert.equal(f.resources.decodes,1);assert.equal(f.resources.maxContexts,1);assert.equal(f.resources.contexts,0);assert.equal(f.resources.workers,0);
 });
 test('V1/V2 reanalysis is disabled outside the development research mode',async()=>{
  const f=setup();

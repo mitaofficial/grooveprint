@@ -1,12 +1,13 @@
-/* Automatic import -> approved audio -> shared DSP. Research catalog, review-only. */
+/* Automatic import -> approved audio -> shared musical-beat DSP, dev preview. */
 (function(){
 'use strict';
 const evidence=window.GrooveprintBPMEvidence,library=window.GrooveprintAudioLibrary;
-const job={running:false,total:0,done:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
+const job={running:false,total:0,done:0,estimated:0,review:0,unavailable:0,errors:0,stale:0,protected:0,cancelled:0,phase:'idle',message:''};
 let available=false,enabled=true,paused=false,ready=false,generation=0,current=null,queue=[],seen=new WeakMap(),memo=new Map(),csrf='',approved=null,exampleReleaseId='',exampleArtist='',exampleTitle='',buildSha='',comparisonPreparing=false,comparisonController=null,comparisonRecord=null,comparisonSerial=0,comparisonTrace=[],minInterval=0,lastResolve=0;
 try{if(typeof localStorage!=='undefined')enabled=localStorage.getItem('grooveprint-auto-bpm-enabled')!=='off'}catch{}
 const identity=(r,t)=>JSON.stringify([r.releaseId,r.title,r.artist,t.artist,t.position,t.title,t.duration]);
 const fresh=r=>(!r.discogsInstanceId||discogsConnect.connected&&gpIsFresh(r.discogsFetchedAt))&&(!r.tracklistFetchedAt||gpIsFresh(r.tracklistFetchedAt));
+const resultCategory=r=>r?.algorithm==='grooveprint-musical-beats-small0-v1'&&r.status==='estimated'&&r.requiresReview===false?'estimated':['estimated','review'].includes(r?.status)?'review':'unavailable';
 function transition(phase,message){
  job.phase=phase;job.message=message;
  comparisonTrace.push({at:new Date().toISOString(),phase,message:message.slice(0,240),total:job.total,done:job.done});
@@ -17,8 +18,8 @@ function panel(){
  if(!available)return '';
  return '<section class="gp-auto-audio" role="status" style="margin:12px 0;padding:12px;border:1px solid #566447"><b>BPM AUTOMATICI ALL’IMPORTAZIONE · RICERCA</b>'+
  '<label style="display:block;margin:8px 0"><input type="checkbox" data-gp-auto-enable '+(enabled?'checked':'')+'> Cerca e analizza automaticamente l’audio autorizzato dopo Discogs</label>'+
- '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; nessuna copertura commerciale generale garantita. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Risultati da verificare.</p>'+ (buildSha?'<p class="footnote" data-gp-build>Preview commit: <code>'+esc(buildSha.slice(0,12))+'</code></p>':'')+
- '<p class="footnote gp-auto-progress" data-gp-auto-phase="'+esc(job.phase)+'" aria-live="polite"><strong>'+esc(job.phase==='idle'?'Pronto':job.phase.toUpperCase())+'</strong> · '+job.done+'/'+job.total+' elaborate · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
+ '<p class="footnote">Ricerca nel catalogo Free Music Archive con licenze CC0/CC BY; copertura commerciale ancora da costruire. Artista e album vengono cercati su Internet Archive; il CSV e l’audio locale restano sul dispositivo. Le stime coerenti vengono inserite con ~; i casi incerti restano in revisione. Validazione techno/hardgroove incompleta.</p>'+ (buildSha?'<p class="footnote" data-gp-build>Preview commit: <code>'+esc(buildSha.slice(0,12))+'</code></p>':'')+
+ '<p class="footnote gp-auto-progress" data-gp-auto-phase="'+esc(job.phase)+'" aria-live="polite"><strong>'+esc(job.phase==='idle'?'Pronto':job.phase.toUpperCase())+'</strong> · '+job.done+'/'+job.total+' elaborate · '+job.estimated+' stime · '+job.review+' da verificare · '+job.unavailable+' senza fonte/stima · '+job.errors+' errori · '+job.stale+' obsolete · '+job.cancelled+' annullate · '+job.protected+' valori protetti saltati. '+esc(job.message)+'</p>'+
  '<div class="flex" style="flex-wrap:wrap;gap:8px">'+(job.running||comparisonPreparing?'<button class="small quiet" data-gp-auto-stop>INTERROMPI BPM AUTOMATICI</button>':'<button class="small quiet" data-gp-auto-retry>RIPROVA ERRORI / RIPRENDI</button>')+
  '<button class="small quiet" data-gp-auto-review>VEDI RISULTATI BPM</button>'+(window.GrooveprintBPMDevelopment===true?'<button class="small quiet" data-gp-auto-compare '+(job.running||comparisonPreparing||discogsSync.running?'disabled':'')+'>CONFRONTA V1/V2 CON AUDIO AUTORIZZATO</button>':'')+'<button class="small quiet" data-gp-auto-example '+(discogsSync.running||discogsConnect.running||comparisonPreparing?'disabled':'')+'>PROVA UNA RELEASE APERTA</button></div></section>';
 }
@@ -59,7 +60,7 @@ async function pump(){
    try{
     const cached=memo.get(item.memoKey);
     if(cached?.resolution){item.phase=cached.resolution.status==='review'?'review':'unavailable';item.reason=cached.resolution.reason;count(item.phase);continue}
-    if(cached){if(library.applyAutomaticResult(item.ticket,cached.result,cached.evidence,()=>valid(item))){count(cached.result.status==='estimated'?'review':'unavailable');item.phase='complete'}else{count('stale');item.phase='stale'}continue}
+    if(cached){if(library.applyAutomaticResult(item.ticket,cached.result,cached.evidence,()=>valid(item))){count(resultCategory(cached.result));item.phase='complete'}else{count('stale');item.phase='stale'}continue}
     const wait=Math.max(0,lastResolve+minInterval-Date.now());if(wait)await abortablePause(wait,owner.controller.signal);lastResolve=Date.now();
     const resolved=await gpRequest('/api/audio/resolve',{method:'POST',headers:{'X-GROOVEPRINT-CSRF':csrf},body:JSON.stringify(item.input),signal:owner.controller.signal});
     if(!valid(item)){count('stale');item.phase='stale';continue}
@@ -74,7 +75,7 @@ async function pump(){
     const delivery=await library.analyzeFiles([f],{target:{record:item.record,track:item.track,index:item.record.tracks.indexOf(item.track)},
      writeTicket:item.ticket,automaticEvidence:resolved.evidence,engineMode:item.engineMode,signal:owner.controller.signal,valid:()=>valid(item),onCancel:()=>{if(!owner.controller.signal.aborted)stop()}});
     if(owner.controller.signal.aborted)throw new DOMException('Aborted','AbortError');
-    if(delivery){memo.set(item.memoKey,{result:delivery.result,evidence:resolved.evidence});if(memo.size>1500)memo.delete(memo.keys().next().value);count(delivery.result.status==='estimated'?'review':'unavailable');item.phase='complete'}
+    if(delivery){memo.set(item.memoKey,{result:delivery.result,evidence:resolved.evidence});if(memo.size>1500)memo.delete(memo.keys().next().value);count(resultCategory(delivery.result));item.phase='complete'}
     else if(!valid(item)){count('stale');item.phase='stale'}else{count('errors');item.phase='error';item.reason=library.job.message;owner.firstError ||=String(item.reason||'Decodifica non riuscita').slice(0,180)}
    }catch(e){
     if(owner.controller.signal.aborted){item.phase='cancelled';count('cancelled');}
@@ -104,9 +105,9 @@ function schedule(){
   const key=identity(record,track),prior=seen.get(track);
   if(prior?.key===key)continue;
   if(!evidence.missing(track)||evidence.protectedValue(track)){seen.set(track,{key,phase:'protected'});job.protected++;continue}
-  // A local selector or an earlier comparison must not promote later import jobs.
-  // DSP cache entries include the requested mode; a comparison is not a V1 result.
-  const engineMode=comparisonRecord===record?'compare':'v1';
+  // A local selector never changes import policy. Preserve the mode in the cache:
+  // a legacy comparison is not a musical-engine result.
+  const engineMode=comparisonRecord===record?'compare':window.GrooveprintBPMDevelopment===true?'internal':'v1';
   const item={record,track,index,key,engineMode,memoKey:JSON.stringify([engineMode,key]),phase:'queued',generation,ticket:evidence.capture(record,track),input:{releaseId:String(record.releaseId),album:String(record.title||''),artist:String(track.artist||record.artist||''),albumArtist:String(record.artist||''),title:String(track.title||''),position:String(track.position||''),duration:String(track.duration||'')}};
   seen.set(track,item);job.total++;if(approved&&!approved.has(String(record.releaseId))){item.phase='unavailable';item.reason='outside-approved-audio-catalog';job.unavailable++;job.done++;continue}queue.push(item);
  }

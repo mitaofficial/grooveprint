@@ -9,3 +9,5 @@ node_modules/
 local-audio/
 benchmark-audio/
 benchmark-reports/
+__pycache__/
+*.pyc

@@ -24,7 +24,7 @@ for(const legacyKey of ['', 'dummy-retired-key-must-have-no-effect'])test('inter
   assert.ok(text.includes('/assets/collection-enrichment.js'));
   for(const asset of ['collection-enrichment.js','bpm-library.js','bpm-worker.mjs','bpm-evidence.js','bpm-tempo.mjs','bpm-engine.mjs'])assert.equal((await fetch(url+'/assets/'+asset)).status,200,asset);
   assert.equal((await fetch(url+'/assets/auto-bpm.js')).status,404);
-  for(const asset of ['bpm-worker-dev.mjs','bpm-tempo-experiment.mjs'])assert.equal((await fetch(url+'/assets/'+asset)).status,404);
+  for(const asset of ['bpm-worker-dev.mjs','bpm-tempo-experiment.mjs','bpm-worker-internal.mjs','bpm-musical-engine.mjs','bpm-metrical-counterevidence.mjs','beat-this-small0-9a46746d.onnx','ort/ort.wasm.min.mjs','ort/ort-wasm-simd-threaded.wasm'])assert.equal((await fetch(url+'/assets/'+asset)).status,404);
   assert.ok(!text.includes('window.GrooveprintBPMDevelopment=true'));
   const example=await fetch(url+'/examples/grooveprint-demo.csv');assert.equal(example.status,200);assert.match(example.headers.get('content-type'),/text\/csv/);assert.match(example.headers.get('content-disposition'),/attachment/);assert.equal(await example.text(),await readFile('examples/grooveprint-demo.csv','utf8'));
   assert.equal((await fetch(url+'/examples/not-an-allowlisted-file.csv')).status,404);

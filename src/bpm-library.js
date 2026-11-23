@@ -6,8 +6,10 @@ const MAX_FILES=1500,MAX_FILE_BYTES=160*1024*1024,MAX_PCM_BYTES=128*1024*1024,AN
 const job={running:false,generation:0,total:0,processed:0,pending:0,active:0,completed:0,skipped:0,cancelled:0,
  matched:0,estimated:0,review:0,unavailable:0,errors:0,unmatched:0,ambiguous:0,alreadyBpm:0,stale:0,
  found:0,unsupported:0,empty:0,oversize:0,beyondLimit:0,contexts:0,workers:0,maxDecodedBytesObserved:0,phase:'idle',message:''};
-// V1 stays the default. Development comparisons require an explicit action.
-let input=null,current=null,mode='v1';
+// The server preview uses the musical-beat engine. The portable HTML and
+// production keep their original standalone V1/explicit-comparison paths.
+const internalAvailable=window.GrooveprintBPMDevelopment===true&&window.location?.protocol!=='file:';
+let input=null,current=null,mode=internalAvailable?'internal':'v1';
 const norm=v=>String(v||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').toLowerCase().trim().replace(/\s+/g,' ');
 const artistName=v=>String(v||'').replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'');
 function trackList(releases){
@@ -47,7 +49,7 @@ function panel(){
  const label=job.automatic?'FONTE AUDIO AUTORIZZATA · FLUSSO AUTOMATICO':job.running?(job.phase==='cancelling'?'INTERRUZIONE IN CORSO':'ANALISI LOCALE'):job.phase==='complete'?'SCANSIONE COMPLETATA':job.phase==='cancelled'?'SCANSIONE INTERROTTA':'LIBRERIA AUDIO LOCALE';
  return '<section class="gp-local-audio" role="status" style="margin:12px 0;border-top:1px solid #465239;padding-top:12px">'+
  '<div class="flex between" style="flex-wrap:wrap;gap:8px"><div><b>GROOVEPRINT BPM Engine · sperimentale</b><div class="footnote">'+esc(label)+'</div></div><div class="flex">'+
- (window.GrooveprintBPMDevelopment===true?'<label>Confronto locale <select data-gp-engine aria-label="Motore BPM locale" '+(job.running?'disabled':'')+'><option value="v1" '+(mode==='v1'?'selected':'')+'>V1 originale</option><option value="compare" '+(mode==='compare'?'selected':'')+'>V1 / V2 sperimentale · scelta manuale</option></select></label>':'')+
+ (window.GrooveprintBPMDevelopment===true?'<label>Confronto locale <select data-gp-engine aria-label="Motore BPM locale" '+(job.running?'disabled':'')+'>'+ (internalAvailable?'<option value="internal" '+(mode==='internal'?'selected':'')+'>Beat musicali · preview</option>':'')+'<option value="v1" '+(mode==='v1'?'selected':'')+'>V1 originale</option><option value="compare" '+(mode==='compare'?'selected':'')+'>V1 / V2 sperimentale · scelta manuale</option></select></label>':'')+
  '<button type="button" class="small quiet" data-gp-library-pick="1" '+(job.running?'disabled':'')+'>♫ CONNECT AUDIO LIBRARY</button>'+
  (localReviews().length?'<button type="button" class="small quiet" data-gp-library-review="1">VEDI CANDIDATI</button>':'')+
  (job.running?'<button type="button" class="small quiet" data-gp-library-stop="1" '+(job.phase==='cancelling'?'disabled':'')+'>INTERROMPI AUDIO</button>':'')+'</div></div>'+
@@ -74,7 +76,7 @@ function runWorker(token,audio){
  if(!token.worker){
   if(typeof window.Worker!=='function')throw Error('Analisi audio locale non disponibile in questo browser: usa un browser aggiornato o inserisci il BPM manualmente.');
   const portable=window.location?.protocol==='file:'&&window.GrooveprintPortableWorkers;
-  const url=portable?portable[token.mode]:(token.mode==='compare'?'/assets/bpm-worker-dev.mjs':'/assets/bpm-worker.mjs');
+  const url=portable?portable[token.mode]:(token.mode==='internal'?'/assets/bpm-worker-internal.mjs':token.mode==='compare'?'/assets/bpm-worker-dev.mjs':'/assets/bpm-worker.mjs');
   token.worker=new window.Worker(url,portable?{}:{type:'module'});job.workers=1;
  }
  // AudioBuffer is not transferred. Copy only the first two channels / 180 seconds;
@@ -96,12 +98,17 @@ function runWorker(token,audio){
 function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
  if(!valid()||!evidence.canApply(ticket,state.releases))return false;
  const t=ticket.track;
- if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
+ const musical=result?.algorithm==='grooveprint-musical-beats-small0-v1'&&result.decision?.version==='grooveprint-musical-beat-decision-v1';
+ const usable=musical&&result.status==='estimated'&&result.requiresReview===false&&result.decision.status==='supported'&&
+  Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300&&Math.abs(result.decision.suggestedBpm-result.bpm)<.01;
+ if(result?.status==='review'&&musical||result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
   t.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
-  t.bpm=null;t.bpmStatus='review';t.source='local-dsp';t.bpmReason='automatic-acceptance-not-validated';
+  t.bpm=usable?result.bpm:null;t.bpmStatus=usable?'estimated':'review';t.source='local-dsp';
+  t.bpmReason=musical?String(result.reason||'insufficient-musical-beat-support'):'automatic-acceptance-not-validated';
  }else if(result?.status==='unavailable'){t.bpmStatus='unavailable';t.bpmReason=String(result.reason||'no-beat-detected')}
  else return false;
  t.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');t.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
+ t.bpmAnalysisWindows=Array.isArray(result.analysisWindows)?result.analysisWindows.slice(0,3).map(w=>({startSeconds:Number(w.startSeconds),endSeconds:Number(w.endSeconds)})):[];
  // Retain both diagnostic outputs when the user explicitly requests V1/V2 comparison.
  // These are not calibrated probability scores and neither output is auto-confirmed.
  if(Array.isArray(result.comparisons)&&result.comparisons.length===2){
@@ -119,7 +126,7 @@ function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
 async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,engineMode,signal,valid=()=>true,onCancel}={}){
  if(job.running)return;
  const selectedMode=engineMode===undefined?mode:engineMode;
- const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&selectedMode==='compare'?'compare':'v1'};current=token;
+ const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:internalAvailable&&selectedMode==='internal'?'internal':window.GrooveprintBPMDevelopment===true&&selectedMode==='compare'?'compare':'v1'};current=token;
  const cancel=()=>{if(current===token)stop()};signal?.addEventListener('abort',cancel,{once:true});token.onCancel=onCancel;
  if(signal?.aborted)token.cancelled=true;
  let delivery=null;
@@ -133,7 +140,7 @@ async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket
   if(typeof window.Worker!=='function')throw Error('Analisi audio locale non disponibile in questo browser: usa un browser aggiornato o inserisci il BPM manualmente.');
   const AudioContext=window.AudioContext||window.webkitAudioContext;
   if(!AudioContext)throw Error('Decodifica audio non supportata da questo browser.');
-  ctx=new AudioContext({sampleRate:12000});job.contexts=1;
+  ctx=new AudioContext({sampleRate:token.mode==='internal'?22050:12000});job.contexts=1;
   const targets=trackList(state.releases),matches=[],occurrences=new Map();
   for(let n=0;n<list.length&&!token.cancelled;n++){
    if(n%30===0)await new Promise(resolve=>setTimeout(resolve,0));
@@ -169,9 +176,14 @@ async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket
     job.lastResult={algorithm:result.algorithm||'grooveprint-onset-acf-v1',status:result.status,reason:result.reason||'',seconds:result.analysisSeconds||0};
     if(automaticEvidence){
      if(!applyAutomaticResult(ticket,result,automaticEvidence,valid)){job.stale++;continue}
-     job[result.status==='estimated'?'review':'unavailable']++;delivery={result};outcome='completed';continue;
+     job[match.track.bpmStatus==='estimated'?'estimated':match.track.bpmStatus==='review'?'review':'unavailable']++;delivery={result};outcome='completed';continue;
     }
-    if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
+    if(result?.status==='review'&&token.mode==='internal'){
+     match.track.bpm=null;match.track.bpmStatus='review';match.track.source='local-dsp';match.track.bpmAlgorithm=result.algorithm;
+     match.track.bpmReason=result.reason;match.track.bpmDecision=result.decision;match.track.bpmCandidates=result.bpmCandidates||[];
+     match.track.bpmAnalysisSeconds=result.analysisSeconds||0;match.track.bpmAnalysisWindows=result.analysisWindows||[];match.track.bpmCheckedAt=new Date().toISOString();
+     job.review++;
+    }else if(result?.status==='estimated'&&Number.isFinite(result.bpm)&&result.bpm>=40&&result.bpm<=300){
      if(token.mode==='compare'){
       // Comparison is diagnostic: preserve the current BPM, status and provenance.
       match.track.bpmComparisonAt=new Date().toISOString();match.track.bpmComparisonCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
@@ -182,6 +194,7 @@ async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket
       delete match.track.bpmAudioEvidence;delete match.track.bpmComparisonCandidates;delete match.track.bpmDecision;match.track.bpmComparisons=[];
       match.track.bpmCandidates=Array.isArray(result.bpmCandidates)?result.bpmCandidates.slice(0,8):[];
       match.track.bpmAlgorithm=String(result.algorithm||'grooveprint-onset-acf-v1');match.track.bpmAnalysisSeconds=Number(result.analysisSeconds)||0;
+      match.track.bpmAnalysisWindows=result.analysisWindows||[];if(token.mode==='internal')match.track.bpmDecision=result.decision;
       match.track.bpmCheckedAt=new Date().toISOString();match.track.bpmReason=String(result.reason||'local-estimate');
       match.track.bpm=result.requiresReview?null:result.bpm;match.track.bpmStatus=result.requiresReview?'review':'estimated';match.track.source='local-dsp';
       job[result.requiresReview?'review':'estimated']++;
@@ -237,10 +250,10 @@ function chooseFolder(){
  }
  input.click();
 }
-document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-engine]')&&!job.running&&window.GrooveprintBPMDevelopment===true){mode=e.target.value==='compare'?'compare':'v1'}});
+document.addEventListener('change',e=>{if(e.target.matches?.('[data-gp-engine]')&&!job.running&&window.GrooveprintBPMDevelopment===true){mode=e.target.value==='internal'&&internalAvailable?'internal':e.target.value==='compare'?'compare':'v1'}});
 document.addEventListener('click',e=>{const single=e.target.closest('[data-gp-track-analyze]');if(single)void analyzeTrack(single.dataset.releaseId,Number(single.dataset.gpTrackAnalyze));if(e.target.closest('[data-gp-library-pick]'))chooseFolder();if(e.target.closest('[data-gp-library-stop]'))stop();if(e.target.closest('[data-gp-library-review]'))openReview()});
 function setEngineMode(next){
- if(window.GrooveprintBPMDevelopment!==true||job.running||!['v1','compare'].includes(next))return false;
+ if(window.GrooveprintBPMDevelopment!==true||job.running||!['internal','v1','compare'].includes(next)||next==='internal'&&!internalAvailable)return false;
  mode=next;redraw();return true;
 }
 window.GrooveprintAudioLibrary={job,panel,matchFile,trackList,planFiles,analyzeFiles,analyzeTrack,chooseFolder,stop,applyAutomaticResult,setEngineMode};

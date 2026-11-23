@@ -1,0 +1,315 @@
+{
+  "date": "2026-11-23",
+  "baselineHead": "68a4691c64cb787efa379dce71eba230596cba79",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "deployment": "none",
+  "product": "PARTIAL; experimental estimates in development; no target accuracy/corpus coverage validation",
+  "algorithm": "grooveprint-musical-beats-small0-v1",
+  "modelSha256": "9a46746dcd87354f67010c274fcde8ab8331048022d2b2c0043f5314b6468f07",
+  "modelGitBlob": "88fdee447699cecff853b15ed349339e1ba78d6e",
+  "runtime": "onnxruntime-web 1.23.2 MIT; one thread; context<=768 frames",
+  "inferenceHashes": {
+    "src/bpm-musical-engine.mjs": "8f59b4b6e0a65c76c3b7c159f1282fbf13903a662ce9468289e4817808a247df",
+    "src/bpm-metrical-counterevidence.mjs": "a28bb221507c7c6bcbe4f41eea03620c45b95e76d00288b68db03841dfe55b69",
+    "src/bpm-beat-decision.mjs": "dbfed86680752aff48025ecddf5623e2f205c84efc9306d713b85dfe510ec161",
+    "src/bpm-neural-features.mjs": "337a7ec73000511bc382531b4c62edcb762b52dd4dd8061199bf74fb527f36db",
+    "src/bpm-neural-inference.mjs": "bb027a5d3bdc5d548d6e4737801b43a2f0e0e940780dcef68573306fd50583b1"
+  },
+  "fightTheSea": {
+    "originalSha256": "2016f8a4c3306ddc12c3a1c2bb2a117b8bf2f35913ddbb10c578253aaa4a0c1d",
+    "originalBytes": 5974865,
+    "referenceIndependent": false,
+    "baseline12kHzBpm": 100,
+    "v2_12kHzBpm": 66.7,
+    "newEstimate22050HzBpm": 100.13,
+    "analysisSeconds": 36,
+    "bounds": [
+      [
+        0,
+        12
+      ],
+      [
+        84,
+        96
+      ],
+      [
+        168,
+        180
+      ]
+    ],
+    "strongSections": 2,
+    "classification": "estimate, not verified accuracy"
+  },
+  "studies": {
+    "gmdTrainKnownModelTrainingData": {
+      "source": "https://magenta.withgoogle.com/datasets/groove",
+      "license": "CC-BY-4.0",
+      "summary": {
+        "selected": 12,
+        "sourceAbsent": 1,
+        "decoded": 11,
+        "assigned": 10,
+        "correctWithin1": 10,
+        "review": 1,
+        "undetermined": 0,
+        "precision": 1,
+        "precisionWilson95": [
+          0.7224672001371218,
+          0.9999999999999999
+        ],
+        "correctCoverageWithAudio": 0.9090909090909091,
+        "correctCoverageAllSelected": 0.8333333333333334,
+        "acceptedMetricalErrors": 0,
+        "controls": [
+          {
+            "name": "V1-frozen",
+            "top1Within1": 4,
+            "total": 11,
+            "actualAutomaticAssignments": 0
+          },
+          {
+            "name": "V2-frozen",
+            "top1Within1": 6,
+            "total": 11,
+            "actualAutomaticAssignments": 0
+          }
+        ],
+        "averageMs": 3604.627924454546,
+        "totalMs": 43780.059694,
+        "nodeMaxRssKiB": 580276
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "gmdValidationKnownModelTrainingData": {
+      "source": "https://magenta.withgoogle.com/datasets/groove",
+      "license": "CC-BY-4.0",
+      "summary": {
+        "selected": 12,
+        "sourceAbsent": 1,
+        "decoded": 11,
+        "assigned": 11,
+        "correctWithin1": 11,
+        "review": 0,
+        "undetermined": 0,
+        "precision": 1,
+        "precisionWilson95": [
+          0.7411670330319788,
+          1
+        ],
+        "correctCoverageWithAudio": 1,
+        "correctCoverageAllSelected": 0.9166666666666666,
+        "acceptedMetricalErrors": 0,
+        "controls": [
+          {
+            "name": "V1-frozen",
+            "top1Within1": 4,
+            "total": 11,
+            "actualAutomaticAssignments": 0
+          },
+          {
+            "name": "V2-frozen",
+            "top1Within1": 3,
+            "total": 11,
+            "actualAutomaticAssignments": 0
+          }
+        ],
+        "averageMs": 3922.596539363636,
+        "totalMs": 47951.680989,
+        "nodeMaxRssKiB": 696752
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "beatRootHeldoutFailure": {
+      "source": "https://magenta.withgoogle.com/datasets/groove",
+      "license": "CC-BY-4.0",
+      "summary": {
+        "selected": 30,
+        "audioAvailable": 27,
+        "sourceAbsent": 3,
+        "decoded": 27,
+        "errors": 0,
+        "engines": [
+          {
+            "name": "V1-frozen",
+            "evaluable": 27,
+            "top1CorrectWithin1": 10,
+            "assigned": 21,
+            "assignedCorrectWithin1": 7,
+            "reviewOrUnavailable": 6,
+            "precision": 0.3333333333333333,
+            "precisionWilson95": [
+              0.1719,
+              0.5463
+            ],
+            "correctCoverageConditionedOnAudio": 0.25925925925925924,
+            "correctCoverageAllSelected": 0.23333333333333334,
+            "acceptedMetricalErrors": 11,
+            "averageMs": 7.231481481481483
+          },
+          {
+            "name": "V2-frozen",
+            "evaluable": 27,
+            "top1CorrectWithin1": 5,
+            "assigned": 14,
+            "assignedCorrectWithin1": 2,
+            "reviewOrUnavailable": 13,
+            "precision": 0.14285714285714285,
+            "precisionWilson95": [
+              0.0401,
+              0.3994
+            ],
+            "correctCoverageConditionedOnAudio": 0.07407407407407407,
+            "correctCoverageAllSelected": 0.06666666666666667,
+            "acceptedMetricalErrors": 10,
+            "averageMs": 15.26
+          },
+          {
+            "name": "BeatRoot-preview",
+            "evaluable": 27,
+            "top1CorrectWithin1": 19,
+            "assigned": 12,
+            "assignedCorrectWithin1": 11,
+            "reviewOrUnavailable": 15,
+            "precision": 0.9166666666666666,
+            "precisionWilson95": [
+              0.6461,
+              0.9851
+            ],
+            "correctCoverageConditionedOnAudio": 0.4074074074074074,
+            "correctCoverageAllSelected": 0.36666666666666664,
+            "acceptedMetricalErrors": 1,
+            "averageMs": 90.9911111111111
+          }
+        ]
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "artbeatExternalShortRhythm": {
+      "source": "https://audiolabs-erlangen.de/resources/MIR/2024-ARTBeaT",
+      "license": "CC-BY-4.0",
+      "summary": {
+        "total": 25,
+        "assigned": 0,
+        "review": 25,
+        "undetermined": 0,
+        "meanBeatF1": 0.713607773702944,
+        "microBeatF1": 0.7119663259170175,
+        "pred": 819,
+        "ref": 844,
+        "matched": 592,
+        "nodeMaxRssKiB": 516840
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "babySlakhStoredClockDisagreement": {
+      "source": "https://zenodo.org/records/4603844",
+      "license": "CC-BY-4.0",
+      "summary": {
+        "selected": 20,
+        "unique": 20,
+        "duplicateFamilies": 0,
+        "decoded": 20,
+        "scalarEligible": 14,
+        "variableClock": 6,
+        "assignedScalar": 10,
+        "correctScalarWithin1": 9,
+        "scalarReview": 4,
+        "scalarUndetermined": 0,
+        "scalarPrecision": 0.9,
+        "scalarPrecisionWilson95": [
+          0.595849973204771,
+          0.9821237869049263
+        ],
+        "correctScalarCoverage": 0.6428571428571429,
+        "correctCoverageAllUnique": 0.45,
+        "acceptedMetricalErrors": 0,
+        "variableClockAssigned": 1,
+        "variableClockReview": 5,
+        "controls": [
+          {
+            "name": "V1-frozen",
+            "correctTop1": 6,
+            "total": 14
+          },
+          {
+            "name": "V2-frozen",
+            "correctTop1": 4,
+            "total": 14
+          }
+        ],
+        "nodeMaxRssKiB": 716952
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "mshoxxNeuralOnlyFailure": {
+      "source": "https://zenodo.org/records/15881577",
+      "license": "CC-BY-NC-SA-4.0; PRIVATE NONCOMMERCIAL RESEARCH ONLY; never automatic catalog audio",
+      "summary": {
+        "selected": 18,
+        "unique": 18,
+        "duplicateFamilies": 0,
+        "decoded": 18,
+        "scalarEligible": 12,
+        "variableClock": 6,
+        "assignedScalar": 4,
+        "correctScalarWithin1": 3,
+        "scalarReview": 8,
+        "scalarUndetermined": 0,
+        "scalarPrecision": 0.75,
+        "scalarPrecisionWilson95": [
+          0.30064184258241056,
+          0.9544127391902976
+        ],
+        "correctScalarCoverage": 0.25,
+        "correctCoverageAllUnique": 0.16666666666666666,
+        "acceptedMetricalErrors": 1,
+        "variableClockAssigned": 1,
+        "variableClockReview": 5,
+        "controls": [
+          {
+            "name": "V1-frozen",
+            "correctTop1": 1,
+            "total": 12
+          },
+          {
+            "name": "V2-frozen",
+            "correctTop1": 2,
+            "total": 12
+          }
+        ],
+        "nodeMaxRssKiB": 731784
+      },
+      "scope": "Diagnostic only; pre-final-veto policy. Not target validation."
+    },
+    "mshoxxFinalVetoDevelopmentAblation": {
+      "source": "https://zenodo.org/records/15881577",
+      "license": "CC BY-NC-SA 4.0; private noncommercial study only, no product source",
+      "selected": 18,
+      "scalarEligible": 12,
+      "proposedBefore": 4,
+      "correctBefore": 3,
+      "proposedAfter": 3,
+      "correctAfter": 3,
+      "correctCoverageAfter": 0.25,
+      "holdout": false,
+      "failureFixed": "190 ->94.88 abstains because V2 63.31 is coherent 3:2 counterevidence",
+      "remainingVariableClockProposal": 1,
+      "note": "Reused after diagnosis; not independent validation. All reference/corpus limitations retained."
+    }
+  },
+  "technical": {
+    "localUnitTests": 153,
+    "firefoxDesktopFixture": "passed; real decode/DSP, provider API mocked",
+    "firefoxMobileViewportFixture": "passed before final metrical veto; final browser CI required",
+    "localFirefoxLive": "14 resolved, 11 audio network errors; not a successful detector run",
+    "requiredFinalCI": "PR #3 exact final HEAD, including 6 browser/viewport smoke + old live comparison + new real automatic musical pipeline"
+  },
+  "limitations": [
+    "No >=100 target-recording independent holdout",
+    "Small model trained on GMD; GMD splits not its independent holdout",
+    "Stored MIDI clock is not always independently verified musical tactus",
+    "Sparse analysis can miss changes outside inspected windows",
+    "Observed Node/WASM RSS about 0.5-0.7 GiB, not a browser memory guarantee",
+    "No commercial catalog audio permission/access acquired"
+  ]
+}
