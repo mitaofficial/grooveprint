@@ -113,8 +113,8 @@ jobs:
           node-version: '22'
       - run: npm install --no-save playwright@1.57.0
       - run: npx playwright install --with-deps chromium
-      - name: Ensure FFmpeg exists
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+      # --live uses browser-native decoding; only fixture mode invokes FFmpeg.
+      # Mandatory offline FFmpeg evaluation remains in licensed_audio_pilot.
       - name: Live public Discogs and authorized audio in real Chromium
         run: npm run test:one-click:live
       - name: Upload live provider trace and screenshots

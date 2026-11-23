@@ -20,6 +20,13 @@ esplicitamente simulate. Non è una nuova misura di accuratezza su musica.
 Evidenza: `evidence/v1-diagnostics-2026-11-23.json`. CI #255 verde sul genitore;
 verificare nella PR #3 la CI del nuovo HEAD. Main e Railway restano invariati.
 
+La CI #256 di `33c0727` supera i sei flussi browser, i tre job di evidenza,
+Node, probe e pilot. Il solo job live rimane per oltre dieci minuti nella
+preparazione FFmpeg, prima del test. Il runner usa FFmpeg esclusivamente nel
+ramo fixture `if(!live)`; il live usa Web Audio. Eliminata la preparazione
+superflua dal solo job live. Test live e valutazione FFmpeg obbligatoria nel
+pilot restano invariati. La CI del nuovo HEAD è il riferimento finale.
+
 **Limite persistente:** rendere visibili i picchi non determina il BPM musicale.
 L'assegnazione automatica e il catalogo commerciale target restano incompleti.
 

@@ -56,5 +56,19 @@
     "index.html": "a02cf243e216a58a3d1f36a068f72a83f02a6a56c1ce3c67e4278ced6f8eb62f",
     "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
     "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  },
+  "ciPreparationFollowup": {
+    "run": 256,
+    "id": 45153274607,
+    "head": "33c0727ed4c0c15c78fb89b40d81a47688f85594",
+    "observed": "ten jobs passed, including six viewport flows and three repeated-evidence jobs; live test not yet reached because redundant FFmpeg preparation exceeded ten minutes",
+    "causeEvidence": "scripts/bpm-compare-e2e.mjs invokes FFmpeg only inside if(!live); --live fetches original audio for browser-native decoding",
+    "change": "remove unused FFmpeg setup from live_research_browser only",
+    "preserved": [
+      "unchanged live provider test",
+      "fixture MP3 encoding setup",
+      "mandatory exact-hash FFmpeg evaluation in licensed_audio_pilot"
+    ],
+    "finalVerification": "new final-head CI linked in PR #3"
   }
 }
