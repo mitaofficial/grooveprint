@@ -54,8 +54,8 @@ jobs:
       - name: Verify local codec fixture encoder
         run: |
           if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y ffmpeg
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update -qq
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends ffmpeg
           fi
       - run: npm run test:browser
       - name: Mobile viewport smoke (390 x 844, simulated touch)
@@ -86,7 +86,7 @@ jobs:
       - run: npm install --no-save playwright@1.57.0
       - run: npx playwright install --with-deps ${{ matrix.browser }}
       - name: Ensure FFmpeg exists
-        run: command -v ffmpeg || (sudo apt-get update -qq && sudo apt-get install -y ffmpeg)
+        run: command -v ffmpeg || (sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update -qq && sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends ffmpeg)
       - name: Real-browser click to tracklist to DSP, 20 iterations
         run: npm run test:one-click
       - name: Upload screenshots, sanitized network trace and state checkpoints
@@ -170,8 +170,8 @@ jobs:
       - name: Check FFmpeg availability
         run: |
           if ! command -v ffmpeg >/dev/null; then
-            sudo apt-get update -qq
-            sudo apt-get install -y ffmpeg
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 update -qq
+            sudo apt-get -o Acquire::Retries=1 -o Acquire::http::Timeout=20 -o Acquire::https::Timeout=20 install -y --no-install-recommends ffmpeg
           fi
           ffmpeg -version | head -n 1
       - name: Require exact-hash private beatgrid E2E with FFmpeg

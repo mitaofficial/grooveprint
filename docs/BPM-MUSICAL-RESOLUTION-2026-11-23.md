@@ -164,3 +164,23 @@ di versione e riferimenti musicali indipendenti. Un adapter commerciale richiede
 esplicitamente diritto di analisi, accesso ai byte, credenziali e condizioni di
 conservazione/territorio/reporting; non basta una preview ascoltabile. Nessun
 accordo, servizio o contatto esterno è stato attivato.
+
+## Blocco CI #258 e correzione del provisioning
+
+Sul commit `7719e72ac8b88b66d5477ed84320031e2cac4d1f`, Node e la prova
+live Chromium sono riusciti (14/14, 2 stime, 11 review, 1 fonte assente, 0 errori,
+zero chooser audio, risorse finali a zero). I browser Chromium/WebKit hanno
+completato desktop/mobile. Il job Firefox è invece stato cancellato per timeout
+prima dei test, installando FFmpeg tramite apt: il log mostra un download del
+pacchetto opzionale `pocketsphinx-en-us` da 27,4 MB e dipendenze GPU raccomandate.
+
+Il follow-up cambia soltanto il provisioning FFmpeg: stessi pacchetti obbligatori
+Ubuntu, `--no-install-recommends` e timeout/retry delle acquisizioni apt. Non
+rimuove FFmpeg, codec, test o il job obbligatorio del pilot. Restano Ubuntu 24.04,
+Playwright 1.57 e il live senza preparazione FFmpeg superflua. I risultati
+musicali non cambiano. La CI finale deve corrispondere all'HEAD del follow-up;
+il tentativo #258 cancellato non viene presentato come un pass completo.
+
+L'ambiente locale si è disconnesso dopo il salvataggio Git del lavoro. Il codice,
+i protocolli e le evidenze sanitizzate erano già conservati nel repository;
+il follow-up viene verificato nella CI sullo stesso contenuto applicativo.
