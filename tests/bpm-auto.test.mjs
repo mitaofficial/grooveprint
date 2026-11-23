@@ -143,13 +143,13 @@ test('album title, audio duration and metadata-source changes reject stale autom
  }
 });
 
-test('development uses V3 decision by default, and explicit reanalysis keeps protected values',async()=>{
+test('development import keeps V1 as default, and explicit comparison keeps protected values',async()=>{
  const f=setup({development:true,tracks:[track(),{...track('Protected'),bpm:138,bpmStatus:'verified',source:'user-verified'}]});
  await until(()=>f.api.job.done===1&&!f.api.job.running);
- assert.ok(f.resources.workerModes.every(x=>x.endsWith('bpm-worker-dev.mjs')),
-  'automatic development analysis must not quietly fall back to six V1 peaks');
+ assert.ok(f.resources.workerModes.every(x=>x.endsWith('/bpm-worker.mjs')),
+  'normal import must use the authorized V1 default');
  assert.equal(f.state.releases[0].tracks[0].bpmStatus,'review');
- assert.equal(f.state.releases[0].tracks[0].bpmDecision?.version,'grooveprint-tempo-decision-v3-experimental');
+ assert.equal(f.state.releases[0].tracks[0].bpmDecision,null);
  for(const handler of f.events.click)handler({target:{closest:selector=>selector==='[data-gp-auto-compare]'?{}:null}});
  await until(()=>f.api.job.done===1&&!f.api.job.running&&f.resources.decodes===2);
  const t=f.state.releases[0].tracks[0];
@@ -161,6 +161,27 @@ test('development uses V3 decision by default, and explicit reanalysis keeps pro
  assert.equal(t.bpmDecision.status,'supported');
  assert.equal(f.state.releases[0].tracks[1].bpm,138,'previously verified values stay protected');
  assert.equal(f.api.job.protected,1);
+});
+test('explicit comparison does not change later automatic imports or reuse comparison DSP as V1',async()=>{
+ const f=setup({development:true});
+ await until(()=>f.api.job.done===1&&!f.api.job.running);
+ await f.api.compareEngines();
+ await until(()=>f.api.job.done===1&&!f.api.job.running&&f.resources.decodes===2);
+ const compared=f.state.releases[0];
+ assert.equal(compared.tracks[0].bpmComparisons.length,2);
+ const copy={...compared,id:'later-copy',tracks:[track()]};
+ f.state.releases.push(copy);f.api.schedule();
+ await until(()=>f.api.job.done===2&&!f.api.job.running);
+ assert.equal(copy.tracks[0].bpmAlgorithm,'grooveprint-onset-acf-v1');
+ assert.equal(copy.tracks[0].bpmDecision,null);
+ assert.equal(copy.tracks[0].bpmComparisons.length,0);
+ assert.equal(compared.tracks[0].bpmComparisons.length,2,'explicit comparison remains intact');
+ assert.equal(f.resources.decodes,3,'comparison PCM result cannot satisfy a later V1 job');
+ assert.deepEqual(f.resources.workerModes.map(x=>x.endsWith('worker-dev.mjs')),[false,true,false]);
+ f.state.releases.push({...compared,id:'another-copy',tracks:[track()]});f.api.schedule();
+ await until(()=>f.api.job.done===3&&!f.api.job.running);
+ assert.equal(f.resources.decodes,3,'identical V1 copies still reuse a V1 result');
+ assert.equal(f.resources.maxContexts,1);assert.equal(f.resources.contexts,0);assert.equal(f.resources.workers,0);
 });
 test('V1/V2 reanalysis is disabled outside the development research mode',async()=>{
  const f=setup();

@@ -1,0 +1,188 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "status": "PARTIAL",
+  "baseHead": "5d8b2b296b172c19b0d8cf649b5d87453f569550",
+  "branch": "feature/bpm-intelligence-3-open-data",
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "baseCI": {
+    "run": 253,
+    "id": 42651299710,
+    "conclusion": "success",
+    "scope": "historical baseline, not certification of changes"
+  },
+  "finalCI": {
+    "location": "https://github.com/mitaofficial/grooveprint/pull/3",
+    "note": "Check the final head and workflow linked in the PR; no self-certifying pre-commit CI claim"
+  },
+  "reproduction": {
+    "beforeRegressionTests": {
+      "failed": 2,
+      "reason": "normal development import used comparison worker; comparison DSP memo leaked into later imports"
+    },
+    "afterAutomaticSuite": {
+      "passed": 19,
+      "failed": 0
+    }
+  },
+  "fix": {
+    "default": "V1",
+    "automaticImportEngine": "V1 irrespective of local selector",
+    "comparison": "explicit development-only action for active release",
+    "dspMemoIdentity": "requested engine mode plus recording identity",
+    "automaticNumericAssignment": false,
+    "sourceRestriction": "curated FMA; item/file CC0 or CC BY 3.0/4.0; development-only"
+  },
+  "localValidation": {
+    "node": "v24.22.3",
+    "command": "npm run validate",
+    "passed": 136,
+    "failed": 0,
+    "skipped": 0,
+    "syntaxGuardSmoke": true,
+    "firefox": {
+      "version": "144.0.2",
+      "desktop": "PASS",
+      "touchViewport390x844": "PASS",
+      "physicalPhone": false,
+      "providers": "explicit mocks; generated MP3; real native decode and DSP",
+      "initialBatch": {
+        "tracks": 6,
+        "copies": 2,
+        "sourceResolutions": 3,
+        "audioDownloadsAndDecodes": 1
+      },
+      "wholeBrowserSuite": {
+        "sourceResolutions": 13,
+        "audioDownloads": 5
+      },
+      "finalOwnedResources": {
+        "contexts": 0,
+        "workers": 0
+      },
+      "retiredProviderRequests": 0,
+      "pdfBytes": 27991
+    },
+    "oneClickFirefox": {
+      "mode": "provider fixtures, actual UI/native decode/V1/V2",
+      "repeatsPerVariant": 1,
+      "passedJourneys": 4,
+      "variants": [
+        "persisted legacy zero tracks",
+        "fresh import then explicit compare",
+        "503 error visible",
+        "visible retry recovery"
+      ]
+    },
+    "localBrowserLimits": {
+      "chromium": "official binary download failed through environment gateway",
+      "webkit": "official binary installed, launch blocked by missing system libraries",
+      "requiredFinalMatrix": "CI Chromium/Firefox/WebKit desktop and simulated mobile"
+    },
+    "portable": {
+      "default": "V1",
+      "comparison": "explicit",
+      "manualBpmPreserved": 145,
+      "httpRequests": 0,
+      "pdfAndJSON": true
+    }
+  },
+  "liveBrowser": {
+    "kind": "manual UI observation through managed Chrome; no API/audio mocks or per-track file chooser",
+    "scope": "public licensed open-album control, outside target genre; pre-commit working tree",
+    "releaseId": "3759149",
+    "artist": "Josh Woodward",
+    "album": "Crawford Street",
+    "before": {
+      "processed": 14,
+      "eligible": 14,
+      "analyzed": 11,
+      "sourceReview": 2,
+      "unavailable": 1,
+      "reviewTotal": 13,
+      "errors": 0,
+      "numericAssignments": 0,
+      "observedEngine": "grooveprint-v1-v2-local-comparison"
+    },
+    "afterEngineFix": {
+      "processed": 14,
+      "eligible": 14,
+      "analyzed": 11,
+      "sourceReview": 2,
+      "unavailable": 1,
+      "reviewTotal": 13,
+      "errors": 0,
+      "numericAssignments": 0,
+      "observedEngine": "grooveprint-onset-acf-v1",
+      "analysisWindowSeconds": 180
+    },
+    "independentTempoReference": null,
+    "accuracy": "NOT MEASURED",
+    "livePeakMemoryAndResourceCounters": "not measured in this manual observation"
+  },
+  "syntheticComparison": {
+    "command": "npm run benchmark:compare",
+    "groundTruthCases": 168,
+    "negativeControls": 1,
+    "V1Within1": 76,
+    "V2Within1": 158,
+    "scope": "same inspected generated development cases, not independent full recordings",
+    "engineSourceChanged": false
+  },
+  "publicFrontendProbe": {
+    "at": "2026-11-23T08:59:26.123Z",
+    "url": "https://grooveprint-web-production.up.railway.app/",
+    "httpStatus": 200,
+    "bytes": 224671,
+    "sha256": "29a1f42f672c6a63a038c8c1c0dcb352da767a7dc47dbf6c97f636667807c4db",
+    "equalsProtectedMainIndex": true,
+    "oldCreditPresent": true,
+    "internalEngineAssetPresent": false,
+    "limit": "Only anonymous HTML read; no backend commit or provider request inferred"
+  },
+  "sourceDocuments": [
+    {
+      "url": "https://archive.org/about/terms",
+      "observation": "Rendered primary terms read: research access, declared licenses subject to trust; not a commercial grant"
+    },
+    {
+      "url": "https://freemusicarchive.org/music/Josh_Woodward/Crawford_Street/",
+      "observation": "Primary indexed page declares CC BY; direct web open 403; runtime resolver validates per-item/file rights"
+    },
+    {
+      "url": "https://developer.spotify.com/policy",
+      "observation": "Primary policy III.13 prohibits analyzing content; excluded"
+    },
+    {
+      "url": "https://docs.massivemusic.com/reference/play-preview-clip",
+      "observation": "Authenticated country-dependent preview delivery, expiring URLs and reporting; no automated-analysis grant established"
+    }
+  ],
+  "preview": {
+    "sharedPublicPreview": false,
+    "managedPreview": "session-only, not public loopback on owner PC",
+    "completeLocalStart": "git clone --single-branch --branch feature/bpm-intelligence-3-open-data https://github.com/mitaofficial/grooveprint.git; cd grooveprint; npm run dev",
+    "localSameDeviceURL": "http://127.0.0.1:4173/",
+    "minimumNode": "22.13",
+    "controlAction": "PROVA UNA RELEASE APERTA",
+    "perTrackAudioUploadRequired": false
+  },
+  "priorityPrerequisite": "version-identifiable target-catalog recordings/previews with explicit automated BPM-analysis permission and real access; followed by independent beat-grid evaluation before numeric auto-assignment",
+  "notPerformed": [
+    "main merge/change",
+    "Railway operations or deploy",
+    "hosting/account creation",
+    "secret changes",
+    "purchases",
+    "commercial outreach",
+    "YouTube extraction",
+    "external BPM fallback"
+  ],
+  "fingerprints": {
+    "index.html": "80cba86c72768f8d63a1dafcee22e7d86497580f0d78f35e1730a21e7d87adc0",
+    "src/bpm-auto.js": "9b4d525d2308efd4db84a2c9e07e8cf69ad9f3416649d6bdb163f3c60b4b624a",
+    "src/bpm-library.js": "014a39cba4bfbebca536a98373525050af49261516a74a4338ad88ae05aa96be",
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  }
+}

@@ -57,14 +57,14 @@ async function pump(){
    if(!valid(item)){item.phase='stale';count('stale');count('done');continue}
    job.phase='searching';item.phase='searching';job.message='Ricerca audio: '+item.track.title;refresh();
    try{
-    const cached=memo.get(item.key);
+    const cached=memo.get(item.memoKey);
     if(cached?.resolution){item.phase=cached.resolution.status==='review'?'review':'unavailable';item.reason=cached.resolution.reason;count(item.phase);continue}
     if(cached){if(library.applyAutomaticResult(item.ticket,cached.result,cached.evidence,()=>valid(item))){count(cached.result.status==='estimated'?'review':'unavailable');item.phase='complete'}else{count('stale');item.phase='stale'}continue}
     const wait=Math.max(0,lastResolve+minInterval-Date.now());if(wait)await abortablePause(wait,owner.controller.signal);lastResolve=Date.now();
     const resolved=await gpRequest('/api/audio/resolve',{method:'POST',headers:{'X-GROOVEPRINT-CSRF':csrf},body:JSON.stringify(item.input),signal:owner.controller.signal});
     if(!valid(item)){count('stale');item.phase='stale';continue}
     if(resolved.status!=='matched'){
-     item.phase=resolved.status==='review'?'review':'unavailable';count(item.phase);item.reason=resolved.reason||'source-not-found';memo.set(item.key,{resolution:resolved});continue;
+     item.phase=resolved.status==='review'?'review':'unavailable';count(item.phase);item.reason=resolved.reason||'source-not-found';memo.set(item.memoKey,{resolution:resolved});continue;
     }
     // Wait for the existing owner, never start a second decoder or worker.
     while(library.job.running&&!owner.controller.signal.aborted)await abortablePause(100,owner.controller.signal);
@@ -72,9 +72,9 @@ async function pump(){
     job.phase='analyzing';item.phase='analyzing';job.message='Analisi audio: '+item.track.title;refresh();
     const f={name:resolved.asset.name,size:resolved.asset.size,arrayBuffer:()=>getAudio(resolved.asset,owner.controller.signal)};
     const delivery=await library.analyzeFiles([f],{target:{record:item.record,track:item.track,index:item.record.tracks.indexOf(item.track)},
-     writeTicket:item.ticket,automaticEvidence:resolved.evidence,signal:owner.controller.signal,valid:()=>valid(item),onCancel:()=>{if(!owner.controller.signal.aborted)stop()}});
+     writeTicket:item.ticket,automaticEvidence:resolved.evidence,engineMode:item.engineMode,signal:owner.controller.signal,valid:()=>valid(item),onCancel:()=>{if(!owner.controller.signal.aborted)stop()}});
     if(owner.controller.signal.aborted)throw new DOMException('Aborted','AbortError');
-    if(delivery){memo.set(item.key,{result:delivery.result,evidence:resolved.evidence});if(memo.size>1500)memo.delete(memo.keys().next().value);count(delivery.result.status==='estimated'?'review':'unavailable');item.phase='complete'}
+    if(delivery){memo.set(item.memoKey,{result:delivery.result,evidence:resolved.evidence});if(memo.size>1500)memo.delete(memo.keys().next().value);count(delivery.result.status==='estimated'?'review':'unavailable');item.phase='complete'}
     else if(!valid(item)){count('stale');item.phase='stale'}else{count('errors');item.phase='error';item.reason=library.job.message;owner.firstError ||=String(item.reason||'Decodifica non riuscita').slice(0,180)}
    }catch(e){
     if(owner.controller.signal.aborted){item.phase='cancelled';count('cancelled');}
@@ -104,7 +104,10 @@ function schedule(){
   const key=identity(record,track),prior=seen.get(track);
   if(prior?.key===key)continue;
   if(!evidence.missing(track)||evidence.protectedValue(track)){seen.set(track,{key,phase:'protected'});job.protected++;continue}
-  const item={record,track,index,key,phase:'queued',generation,ticket:evidence.capture(record,track),input:{releaseId:String(record.releaseId),album:String(record.title||''),artist:String(track.artist||record.artist||''),albumArtist:String(record.artist||''),title:String(track.title||''),position:String(track.position||''),duration:String(track.duration||'')}};
+  // A local selector or an earlier comparison must not promote later import jobs.
+  // DSP cache entries include the requested mode; a comparison is not a V1 result.
+  const engineMode=comparisonRecord===record?'compare':'v1';
+  const item={record,track,index,key,engineMode,memoKey:JSON.stringify([engineMode,key]),phase:'queued',generation,ticket:evidence.capture(record,track),input:{releaseId:String(record.releaseId),album:String(record.title||''),artist:String(track.artist||record.artist||''),albumArtist:String(record.artist||''),title:String(track.title||''),position:String(track.position||''),duration:String(track.duration||'')}};
   seen.set(track,item);job.total++;if(approved&&!approved.has(String(record.releaseId))){item.phase='unavailable';item.reason='outside-approved-audio-catalog';job.unavailable++;job.done++;continue}queue.push(item);
  }
  void pump();refresh();

@@ -6,9 +6,8 @@ const MAX_FILES=1500,MAX_FILE_BYTES=160*1024*1024,MAX_PCM_BYTES=128*1024*1024,AN
 const job={running:false,generation:0,total:0,processed:0,pending:0,active:0,completed:0,skipped:0,cancelled:0,
  matched:0,estimated:0,review:0,unavailable:0,errors:0,unmatched:0,ambiguous:0,alreadyBpm:0,stale:0,
  found:0,unsupported:0,empty:0,oversize:0,beyondLimit:0,contexts:0,workers:0,maxDecodedBytesObserved:0,phase:'idle',message:''};
-// Development preview runs the conservative V3 decision by default; production remains V1.
-// Explicit V1 selection is retained for diagnostics only.
-let input=null,current=null,mode=window.GrooveprintBPMDevelopment===true?'compare':'v1';
+// V1 stays the default. Development comparisons require an explicit action.
+let input=null,current=null,mode='v1';
 const norm=v=>String(v||'').normalize('NFKD').replace(/\p{M}/gu,'').replace(/[^\p{L}\p{N}]+/gu,' ').toLowerCase().trim().replace(/\s+/g,' ');
 const artistName=v=>String(v||'').replace(/\s+\([1-9]\d{0,3}\)(?=\s|$|[,;&])/g,'');
 function trackList(releases){
@@ -117,9 +116,10 @@ function applyAutomaticResult(ticket,result,provenance,valid=()=>true){
  t.bpmDecision=result.decision&&typeof result.decision==='object'?result.decision:null;
  t.bpmCheckedAt=new Date().toISOString();t.bpmAudioEvidence={...provenance,analyzedAt:t.bpmCheckedAt};storeLater();return true;
 }
-async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,signal,valid=()=>true,onCancel}={}){
+async function analyzeFiles(files,{target=null,replaceExisting=false,writeTicket=null,automaticEvidence=null,engineMode,signal,valid=()=>true,onCancel}={}){
  if(job.running)return;
- const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&mode==='compare'?'compare':'v1'};current=token;
+ const selectedMode=engineMode===undefined?mode:engineMode;
+ const plan=planFiles(files),list=plan.files,token={cancelled:false,worker:null,rejectAnalysis:null,sequence:0,mode:window.GrooveprintBPMDevelopment===true&&selectedMode==='compare'?'compare':'v1'};current=token;
  const cancel=()=>{if(current===token)stop()};signal?.addEventListener('abort',cancel,{once:true});token.onCancel=onCancel;
  if(signal?.aborted)token.cancelled=true;
  let delivery=null;

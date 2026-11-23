@@ -1,5 +1,10 @@
 # Importazione Discogs → analisi BPM automatica — 7 novembre 2026
 
+Aggiornamento del 23 novembre: `BPM-IMPORT-RESUME-2026-11-23.md` ricostruisce il
+vero HEAD successivo e corregge la propagazione del confronto sperimentale ai
+job ordinari. V1 è il default, il confronto resta esplicito, la cache distingue
+le modalità. Il nuovo checkpoint separa misure attuali e prove storiche sotto.
+
 **Stato: implementazione parziale, con prova reale riuscita su un catalogo aperto
 delimitato. L’obiettivo di coprire automaticamente la collezione techno/hardgroove
 commerciale resta incompleto.** Non viene sostituito da upload manuali.

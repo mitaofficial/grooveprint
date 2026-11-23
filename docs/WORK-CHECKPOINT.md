@@ -1,5 +1,28 @@
 # GROOVEPRINT — current checkpoint: automatic import, partial source coverage
 
+## Ripresa corrente — 23 novembre 2026
+
+Letto integralmente l'allegato BPM_AUTOMATICO_IMPORT_DISCOGS(2).md. Ripreso il
+vero HEAD remoto `5d8b2b296b172c19b0d8cf649b5d87453f569550` con CI #253 verde,
+avanzando il checkout locale senza sovrascrivere il lavoro successivo.
+Vedere `BPM-IMPORT-RESUME-2026-11-23.md` e
+`evidence/auto-discogs-2026-11-23.json` per il checkpoint corrente.
+
+Corretto il default sperimentale che si propagava alle importazioni: V1 per i
+job normali, confronto solo esplicito, cache DSP separata per modalità. Il
+confronto e la ricerca V3/V4 esistenti restano disponibili nei rispettivi ambiti.
+UI V1 prudente, senza rianalisi V3 obbligatoria o assegnazioni numeriche automatiche.
+Due regressioni riprodotte prima e corrette; suite locale 136/136.
+Prova live normale: 14/14, 11 analisi V1, due fonti in revisione, una assente,
+zero errori e zero valori assegnati. Il controllo resta fuori dal genere target.
+
+**Ripartire da qui:** verificare la CI dell'HEAD finale nella PR #3; poi resta il
+prerequisito di audio target autorizzato e identificabile. La preview pubblica
+non è completata: consegnato avvio locale completo, nessun nuovo hosting.
+Main e Railway invariati; nessuna promozione DSP, merge, segreto o spesa.
+
+---
+
 ## Follow-up corrections on the existing feature branch — 7 November 2026
 
 These changes continue the automatic-import research without changing the approved scope or altering `main`/Railway. The earlier research proof remains limited to curated open audio. No new independently verified musical holdout or commercial-source access has been obtained.

@@ -94,7 +94,7 @@ test('V3 supported agreement offers exactly one explicitly manual estimate',()=>
  assert.equal(r.tracks[0].bpm,null);
 });
 
-test('legacy six-candidate V1 research shows one V3 reanalysis action, no misleading BPM buttons',()=>{
+test('unvalidated V1 research keeps comparison optional and hides misleading BPM buttons',()=>{
  const record={id:'old',tracks:[{title:'Sundown',bpm:null,bpmStatus:'review',
   source:'local-dsp',bpmAlgorithm:'grooveprint-onset-acf-v1',
   bpmAudioEvidence:{attribution:'Authorized test source',sourcePage:'https://archive.org/details/example'},
@@ -102,8 +102,10 @@ test('legacy six-candidate V1 research shows one V3 reanalysis action, no mislea
  const ctx={esc,safeReferenceUrl:x=>x,window:{GrooveprintBPMDevelopment:true}};vm.createContext(ctx);
  vm.runInContext(html.slice(html.indexOf('function gpLocalBpmCandidates(record,index){'),html.indexOf('function gpBpmHistory(record,index){')),ctx);
  const rendered=ctx.gpLocalBpmCandidates(record,0);
- assert.match(rendered,/RIANALISI V3 NECESSARIA/);
- assert.match(rendered,/data-gp-auto-compare/,'legacy licensed audio can be deliberately reanalyzed');
+ assert.match(rendered,/RISULTATO DA VERIFICARE/);
+ assert.ok(!/RIANALISI V3 NECESSARIA|RISULTATO PRECEDENTE/.test(rendered),'fresh V1 results are not labelled obsolete');
+ assert.match(rendered,/confronto V1\/V2 è facoltativo/);
+ assert.ok(!/data-gp-auto-compare/.test(rendered),'one comparison action stays in the batch panel');
  assert.equal((rendered.match(/data-bpm-choose/g)||[]).length,0,'legacy peaks must not be actionable');
  assert.equal((rendered.match(/gp-bpm-lookup-choice/g)||[]).length,0);
  assert.equal(record.tracks[0].bpm,null,'display does not assign or erase BPM');

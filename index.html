@@ -958,11 +958,10 @@ function gpBpmHint(t){
   if(t.bpmDecision.status==='ambiguous')return 'TEMPO AMBIGUO · nessun BPM principale; verifica all’ascolto';
   return 'TEMPO NON DETERMINABILE · inserisci il BPM manualmente dopo ascolto';
  }
- // Prior V1 estimates may survive a restart. Do not invite the user to
- // interpret raw autocorrelation peaks as validated musical BPM values.
+ // V1 estimates, new or restored, are not validated musical BPM values.
  if(typeof window!=='undefined'&&window.GrooveprintBPMDevelopment===true&&t.bpmStatus==='review'&&
     ['local-dsp','audio-estimate'].includes(t.source)&&!t.bpmDecision&&t.bpm==null)
-  return 'STIMA V1 PRECEDENTE · RIANALISI V3 NECESSARIA';
+  return 'ANALISI V1 · RISULTATO DA VERIFICARE';
  if(t.bpmStatus==='review')return 'BPM DA VERIFICARE · scegli un candidato o inserisci un valore';
  if(t.bpmStatus==='unavailable')return 'BPM NON DISPONIBILE · puoi inserirlo manualmente';
  if(t.bpmStatus==='error')return 'ANALISI NON RIUSCITA · riprova o inserisci il BPM';
@@ -1146,21 +1145,21 @@ function gpTempoDecisionPanel(record,index){
 function gpLocalBpmCandidates(record,index){
  const track=record.tracks[index];
  if(track?.bpmDecision?.version==='grooveprint-tempo-decision-v3-experimental')return gpTempoDecisionPanel(record,index);
- // Development-only migration UI for legacy V1/V2 research. Peaks stay in the
- // diagnostic data but must not appear as six actionable music decisions.
- // Explicit rescan uses the existing version/rights and protected-value guards.
+ // Keep unvalidated V1 peaks diagnostic. A comparison is optional, never a
+ // requirement for normal import or proof of musical accuracy.
  if(typeof window!=='undefined'&&window.GrooveprintBPMDevelopment===true&&
     track?.bpmStatus==='review'&&track.bpm==null&&
     ['local-dsp','audio-estimate'].includes(track.source)&&
     (track.bpmCandidates?.length||track.bpmComparisonCandidates?.length)&&!track.bpmDecision){
    const canRescan=Boolean(track.bpmAudioEvidence);
-   return '<section class="gp-tempo-decision" data-tempo-decision-status="legacy" role="group" aria-label="Analisi BPM precedente">'+
-    '<div class="gp-tempo-heading">GROOVEPRINT · RISULTATO PRECEDENTE</div>'+
-    '<div class="gp-tempo-label">RIANALISI V3 NECESSARIA</div>'+
+   const reference=safeReferenceUrl(track.bpmAudioEvidence?.sourcePage);
+   return '<section class="gp-tempo-decision" data-tempo-decision-status="unvalidated" role="group" aria-label="Analisi BPM da verificare">'+
+    '<div class="gp-tempo-heading">GROOVEPRINT · ANALISI INTERNA</div>'+
+    '<div class="gp-tempo-label">RISULTATO DA VERIFICARE</div>'+
     '<p>Questa analisi '+esc(track.bpmAlgorithm||'V1')+' contiene soltanto picchi ritmici non convalidati. Nessun BPM principale affidabile è stato determinato.</p>'+
-    (canRescan?'<button type="button" class="small quiet" data-gp-auto-compare>RIANALIZZA CON V3 · AUDIO AUTORIZZATO</button>':
-     '<p>Ricollega il file audio autorizzato dalla libreria locale per una nuova analisi V3.</p>')+
-    '<p class="gp-tempo-disclaimer">Le vecchie ipotesi sono conservate per diagnostica, ma non possono essere selezionate come BPM verificati.</p></section>';
+    (canRescan?'<p>'+esc(track.bpmAudioEvidence.attribution||'Fonte audio autorizzata')+' · analisi di '+esc(track.bpmAnalysisSeconds)+' s'+(reference?' · <a target="_blank" rel="noopener noreferrer" href="'+esc(reference)+'">Fonte audio</a>':'')+'</p><p>Il confronto V1/V2 è facoltativo e si avvia dal pannello BPM automatici.</p>':
+     '<p>Puoi usare il confronto locale facoltativo con lo stesso audio autorizzato.</p>')+
+    '<p class="gp-tempo-disclaimer">Le ipotesi sono conservate per diagnostica. Dopo ascolto e verifica della griglia puoi inserire il BPM manualmente. Nessun valore viene assegnato o confermato automaticamente.</p></section>';
  }
 
  if(!track||(!track.bpmComparisons?.length&&!track.bpmComparisonCandidates?.length&&(!['review','estimated'].includes(track.bpmStatus)||!['local-dsp','audio-estimate'].includes(track.source))))return '';
