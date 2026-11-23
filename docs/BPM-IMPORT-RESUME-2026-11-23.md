@@ -96,6 +96,16 @@ ufficiale Chromium è fallito nel gateway dell'ambiente; WebKit, scaricato, non
 parte per librerie di sistema mancanti. Questi limiti locali non vengono
 trasformati in pass: la matrice completa viene eseguita nella CI finale.
 
+La prima nuova CI #254, commit `ccd2211b431dede037a6e75ed6d55067ebb95fc4`,
+ha riprodotto un diverso problema di ambiente: `ubuntu-latest` è diventato
+Ubuntu 26.04 e Playwright 1.57.0 rifiuta quell'OS durante `install --with-deps`.
+I sette job browser si fermano prima dei test; il job Node e il probe provider
+passano. Log esaminati per tutti e tre i motori. I tre gruppi browser sono ora
+fissati su `ubuntu-24.04`, supportato dal pacchetto; nessuna suite o dipendenza
+di verifica è rimossa. La nuova CI deve provare la correzione sul nuovo HEAD.
+Run fallita: https://github.com/mitaofficial/grooveprint/actions/runs/45143634875.
+Etichette runner: https://docs.github.com/en/actions/reference/runners/github-hosted-runners.
+
 ## Fonti ricontrollate e impedimento prioritario
 
 Il resolver rimane generico per artista/album, non vincolato all'ID del controllo.

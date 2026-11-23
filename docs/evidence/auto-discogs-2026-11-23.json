@@ -184,5 +184,23 @@
     "src/bpm-library.js": "014a39cba4bfbebca536a98373525050af49261516a74a4338ad88ae05aa96be",
     "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
     "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  },
+  "ciCompatibilityIncident": {
+    "run": 254,
+    "id": 45143634875,
+    "head": "ccd2211b431dede037a6e75ed6d55067ebb95fc4",
+    "symptom": "All seven browser jobs stop at Playwright dependency installation before tests",
+    "observedOS": "ubuntu-26.04",
+    "pinnedPlaywright": "1.57.0",
+    "error": "ERROR: Playwright does not support chromium/firefox/webkit on ubuntu26.04-x64",
+    "inspectedJobIds": [
+      137587687868,
+      137587687965,
+      137587688147
+    ],
+    "nodeJob": "success",
+    "providerProbe": "success",
+    "repair": "Pin browser_matrix, evidence_matrix and live_research_browser to ubuntu-24.04; keep every test and required aggregate check",
+    "finalVerification": "new final-head CI linked in PR; failed run is not a pass"
   }
 }

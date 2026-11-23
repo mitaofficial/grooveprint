@@ -32,7 +32,8 @@ jobs:
 
   browser_matrix:
     needs: test
-    runs-on: ubuntu-latest
+    # Playwright 1.57 supports this image; ubuntu-latest can move to a newer OS.
+    runs-on: ubuntu-24.04
     timeout-minutes: 12
     strategy:
       fail-fast: false
@@ -65,7 +66,7 @@ jobs:
   # Provider responses are fixture-controlled; all UI, decoder and DSP code is real.
   evidence_matrix:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
@@ -99,7 +100,7 @@ jobs:
   # Separate live-provider proof. External outages are documented.
   live_research_browser:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
       GROOVEPRINT_BROWSER: chromium

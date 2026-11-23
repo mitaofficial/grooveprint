@@ -13,6 +13,9 @@ job normali, confronto solo esplicito, cache DSP separata per modalità. Il
 confronto e la ricerca V3/V4 esistenti restano disponibili nei rispettivi ambiti.
 UI V1 prudente, senza rianalisi V3 obbligatoria o assegnazioni numeriche automatiche.
 Due regressioni riprodotte prima e corrette; suite locale 136/136.
+La prima CI nuova #254 ha poi fallito l'installazione browser su Ubuntu 26.04,
+prima di eseguire le suite. Fissati i soli gruppi browser su Ubuntu 24.04,
+compatibile con Playwright 1.57; tutti i controlli rimangono obbligatori.
 Prova live normale: 14/14, 11 analisi V1, due fonti in revisione, una assente,
 zero errori e zero valori assegnati. Il controllo resta fuori dal genere target.
 
