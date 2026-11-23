@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-11-23",
+  "baseHead": "5db7e9808ef649b106127d1311399207043ef535",
+  "baseCI": {
+    "run": 255,
+    "id": 45144179548,
+    "conclusion": "success",
+    "scope": "historical parent; final-head verification linked in PR #3"
+  },
+  "observation": {
+    "source": "owner-provided screenshot from local Windows trial",
+    "track": "Fight The Sea",
+    "sourceAttribution": "Josh Woodward — Fight the Sea (CC BY)",
+    "analysisSeconds": 180,
+    "algorithm": "grooveprint-onset-acf-v1",
+    "bpmField": "empty",
+    "defect": "review panel did not expose the hypotheses already saved by the DSP"
+  },
+  "change": {
+    "surface": "development V1 review renderer",
+    "hypotheses": "at most eight finite stored values, 40–300 BPM, in expandable read-only diagnostics",
+    "relativeScore": "labelled as relative peak strength, explicitly not a probability",
+    "reviewShortcut": "opens the first calculation details",
+    "numericChoiceButtons": 0,
+    "automaticAssignment": false,
+    "dspChanged": false,
+    "sourceOrQueueChanged": false,
+    "productionBehaviorChanged": false
+  },
+  "verification": {
+    "before": "focused existing visibility regression fails",
+    "localNode": {
+      "tests": 136,
+      "passed": 136,
+      "failed": 0,
+      "skipped": 0
+    },
+    "firefox": "complete desktop suite PASS; mocked source APIs, generated MP3 really decoded and analyzed",
+    "browserAssertion": "every displayed hypothesis matches the actual V1 output; review shortcut opens the details; BPM stays null and raw peaks have zero choice buttons",
+    "initialMockedBatch": {
+      "tracks": 6,
+      "sourceResolutions": 3,
+      "audioDownloadsAndDecodes": 1
+    },
+    "finalCI": "see the final HEAD workflow linked in https://github.com/mitaofficial/grooveprint/pull/3"
+  },
+  "limits": [
+    "not a new musical accuracy measurement",
+    "no numeric automatic assignment",
+    "commercial target-catalog access and independently validated acceptance remain unresolved"
+  ],
+  "protectedMain": "28f9fd9ed699ec13c4ab4108ca2266159715e73c",
+  "railwayChanged": false,
+  "fingerprints": {
+    "index.html": "a02cf243e216a58a3d1f36a068f72a83f02a6a56c1ce3c67e4278ced6f8eb62f",
+    "src/bpm-tempo.mjs": "63e756e1fc3868ba8e239d80d8613d34f3e9358914d62c5c2c853ef9158d3bc4",
+    "src/bpm-tempo-experiment.mjs": "0dad1f5d80286818b9da3bd7cb5a45988f519542c7fa9cd26092e661024df8fc"
+  }
+}

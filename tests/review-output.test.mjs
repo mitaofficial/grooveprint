@@ -103,6 +103,11 @@ test('unvalidated V1 research keeps comparison optional and hides misleading BPM
  vm.runInContext(html.slice(html.indexOf('function gpLocalBpmCandidates(record,index){'),html.indexOf('function gpBpmHistory(record,index){')),ctx);
  const rendered=ctx.gpLocalBpmCandidates(record,0);
  assert.match(rendered,/RISULTATO DA VERIFICARE/);
+ assert.match(rendered,/data-gp-v1-diagnostics/,'review must expose the calculation instead of just a blank BPM');
+ assert.match(rendered,/100 BPM/,'actual V1 hypotheses must be readable');
+ assert.match(rendered,/135 BPM/,'preserve the alternatives without choosing one');
+ assert.match(rendered,/Forza relativa del picco/);
+ assert.match(rendered,/non è una probabilità/);
  assert.ok(!/RIANALISI V3 NECESSARIA|RISULTATO PRECEDENTE/.test(rendered),'fresh V1 results are not labelled obsolete');
  assert.match(rendered,/confronto V1\/V2 è facoltativo/);
  assert.ok(!/data-gp-auto-compare/.test(rendered),'one comparison action stays in the batch panel');

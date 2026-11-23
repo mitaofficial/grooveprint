@@ -6,6 +6,12 @@ Archive. Non è dimostrata la copertura della collezione commerciale
 techno/hardgroove dell'utente. Tutti i risultati automatici restano in revisione,
 senza assegnazione numerica. Un upload manuale non chiude questo incarico.
 
+Prova successiva sul PC del proprietario: la schermata conferma audio CC BY e
+180 secondi analizzati, ma nascondeva le ipotesi V1 dietro il solo messaggio di
+revisione. Ora **Mostra ipotesi calcolate** espone i numeri diagnostici realmente
+salvati. **VEDI RISULTATI BPM** apre quei dettagli; campo BPM, soglie e policy
+restano invariati. Leggere i picchi non equivale a convalidare il tempo musicale.
+
 ## Stato ripreso e problema riproducibile
 
 Letto integralmente `GROOVEPRINT_PROMPT_BPM_AUTOMATICO_IMPORT_DISCOGS(2).md`.

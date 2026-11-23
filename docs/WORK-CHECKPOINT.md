@@ -1,5 +1,30 @@
 # GROOVEPRINT — current checkpoint: automatic import, partial source coverage
 
+## Prova del proprietario: ipotesi V1 nascoste — 23 novembre 2026
+
+Il proprietario ha avviato `5db7e9808ef649b106127d1311399207043ef535` sul PC.
+La schermata mostra Fight The Sea, fonte CC BY, 180 s analizzati da V1, ma un
+campo BPM vuoto e nessuna ipotesi consultabile. La pipeline è arrivata al DSP;
+il rendering prudente nascondeva anche i numeri necessari per capire il calcolo.
+
+Corretto solo il rendering di revisione: dettagli espandibili con le ipotesi
+numeriche realmente salvate, forza relativa distinta da probabilità e nessun
+pulsante per trasformare un picco in un BPM affidabile. VEDI RISULTATI BPM apre
+questi dettagli sulla prima traccia. Nessuna modifica a DSP, assegnazione,
+cache, fonte audio, provenienza, protezioni o stampa.
+
+Regressione di visibilità riprodotta prima del fix; 136/136 test locali e suite
+Firefox completa passano. La suite browser verifica che ogni numero mostrato
+corrisponda all'output V1 realmente calcolato dall'MP3 generato; le API sono
+esplicitamente simulate. Non è una nuova misura di accuratezza su musica.
+Evidenza: `evidence/v1-diagnostics-2026-11-23.json`. CI #255 verde sul genitore;
+verificare nella PR #3 la CI del nuovo HEAD. Main e Railway restano invariati.
+
+**Limite persistente:** rendere visibili i picchi non determina il BPM musicale.
+L'assegnazione automatica e il catalogo commerciale target restano incompleti.
+
+---
+
 ## Ripresa corrente — 23 novembre 2026
 
 Letto integralmente l'allegato BPM_AUTOMATICO_IMPORT_DISCOGS(2).md. Ripreso il

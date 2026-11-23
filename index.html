@@ -1153,13 +1153,20 @@ function gpLocalBpmCandidates(record,index){
     (track.bpmCandidates?.length||track.bpmComparisonCandidates?.length)&&!track.bpmDecision){
    const canRescan=Boolean(track.bpmAudioEvidence);
    const reference=safeReferenceUrl(track.bpmAudioEvidence?.sourcePage);
+   const hypotheses=(track.bpmComparisonCandidates?.length?track.bpmComparisonCandidates:track.bpmCandidates||[])
+    .filter(c=>c&&Number.isFinite(c.bpm)&&c.bpm>=40&&c.bpm<=300).slice(0,8);
+   const diagnostics='<details class="gp-bpm-lookup-results gp-tempo-details" data-gp-v1-diagnostics><summary>Mostra ipotesi calcolate · '+hypotheses.length+'</summary><div class="gp-bpm-lookup-body">'+
+    '<p>Motore: '+esc(track.bpmAlgorithm||'V1')+'. Queste sono pulsazioni candidate, non BPM identificati o confermati.</p>'+
+    (hypotheses.length?'<ul class="gp-tempo-alt">'+hypotheses.map(c=>'<li><strong>'+esc(c.bpm)+' BPM</strong> · Forza relativa del picco: '+
+     (Number.isFinite(c.relative)?esc(c.relative):'non disponibile')+'</li>').join('')+'</ul>':'<p>Nessuna ipotesi numerica valida salvata.</p>')+
+    '<p>La forza relativa confronta i picchi del calcolo e non è una probabilità di correttezza. Le alternative possono corrispondere a metà o doppio tempo.</p></div></details>';
    return '<section class="gp-tempo-decision" data-tempo-decision-status="unvalidated" role="group" aria-label="Analisi BPM da verificare">'+
     '<div class="gp-tempo-heading">GROOVEPRINT · ANALISI INTERNA</div>'+
     '<div class="gp-tempo-label">RISULTATO DA VERIFICARE</div>'+
-    '<p>Questa analisi '+esc(track.bpmAlgorithm||'V1')+' contiene soltanto picchi ritmici non convalidati. Nessun BPM principale affidabile è stato determinato.</p>'+
+    '<p>L’audio è stato analizzato. Le ipotesi ritmiche calcolate sono consultabili qui sotto; il tempo musicale resta da verificare.</p>'+
     (canRescan?'<p>'+esc(track.bpmAudioEvidence.attribution||'Fonte audio autorizzata')+' · analisi di '+esc(track.bpmAnalysisSeconds)+' s'+(reference?' · <a target="_blank" rel="noopener noreferrer" href="'+esc(reference)+'">Fonte audio</a>':'')+'</p><p>Il confronto V1/V2 è facoltativo e si avvia dal pannello BPM automatici.</p>':
      '<p>Puoi usare il confronto locale facoltativo con lo stesso audio autorizzato.</p>')+
-    '<p class="gp-tempo-disclaimer">Le ipotesi sono conservate per diagnostica. Dopo ascolto e verifica della griglia puoi inserire il BPM manualmente. Nessun valore viene assegnato o confermato automaticamente.</p></section>';
+    diagnostics+'<p class="gp-tempo-disclaimer">Dopo ascolto e verifica della griglia puoi inserire il BPM manualmente. Nessun valore viene assegnato o confermato automaticamente.</p></section>';
  }
 
  if(!track||(!track.bpmComparisons?.length&&!track.bpmComparisonCandidates?.length&&(!['review','estimated'].includes(track.bpmStatus)||!['local-dsp','audio-estimate'].includes(track.source))))return '';
